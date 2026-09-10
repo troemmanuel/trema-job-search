@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Candidatures — Trema Job Search{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h1>Candidatures</h1>
+    <p class="subtitle">Suivi du statut de vos dossiers préparés.</p>
+</div>
+
+<div class="card">
+    {% if applications %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Entreprise</th>
+                <th>Poste</th>
+                <th>Score</th>
+                <th>Statut</th>
+                <th>Préparé le</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for app in applications %}
+            <tr>
+                <td><strong>{{ app.jobs.company if app.jobs else 'N/A' }}</strong></td>
+                <td>{{ app.jobs.title if app.jobs else 'Poste' }}</td>
+                <td>
+                    {% if app.match_score %}
+                        <span class="badge badge-score">{{ app.match_score }}/100</span>
+                    {% else %}
+                        <span class="badge">—</span>
+                    {% endif %}
+                </td>
+                <td><span class="badge badge-status-{{ app.status|lower }}">{{ app.status }}</span></td>
+                <td>{{ app.prepared_at or 'En attente' }}</td>
+                <td>
+                    <a href="/applications/{{ app.id }}" class="btn btn-sm">Gérer</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>Aucune candidature en cours.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

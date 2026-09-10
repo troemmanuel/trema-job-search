@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Trema Job Search{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="/" class="nav-logo">⚡ Trema Job Search</a>
+            <nav class="nav-links">
+                <a href="/">Dashboard</a>
+                <a href="/jobs">Offres</a>
+                <a href="/applications">Candidatures</a>
+                <a href="/candidate">Profil Candidat</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <p>Trema Job Search — Agent IA Personnel (Flask + Supabase + Gemini + Notion)</p>
+    </footer>
+</body>
+</html>

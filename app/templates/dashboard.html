@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Trema Job Search{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h1>Tableau de bord</h1>
+    <p class="subtitle">L'IA prépare, vous décidez et postulez.</p>
+</div>
+
+<div class="grid-2">
+    <!-- Section Scores Offres -->
+    <div class="card">
+        <h2>Offres du jour</h2>
+        <div class="stats-grid">
+            <div class="stat-box priority">
+                <span class="stat-num">{{ stats.priority_count }}</span>
+                <span class="stat-label">🔥 Prioritaires</span>
+            </div>
+            <div class="stat-box recommended">
+                <span class="stat-num">{{ stats.recommended_count }}</span>
+                <span class="stat-label">✅ Recommandées</span>
+            </div>
+            <div class="stat-box review">
+                <span class="stat-num">{{ stats.review_count }}</span>
+                <span class="stat-label">🟠 À revoir</span>
+            </div>
+            <div class="stat-box ignored">
+                <span class="stat-num">{{ stats.ignored_count }}</span>
+                <span class="stat-label">❌ Ignorées</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section Suivi Candidatures -->
+    <div class="card">
+        <h2>Pipeline Candidatures</h2>
+        <div class="stats-grid">
+            <div class="stat-box">
+                <span class="stat-num">{{ stats.to_prepare_count }}</span>
+                <span class="stat-label">À préparer</span>
+            </div>
+            <div class="stat-box ready">
+                <span class="stat-num">{{ stats.ready_count }}</span>
+                <span class="stat-label">Prêtes à postuler</span>
+            </div>
+            <div class="stat-box applied">
+                <span class="stat-num">{{ stats.applied_count }}</span>
+                <span class="stat-label">Candidatures envoyées</span>
+            </div>
+            <div class="stat-box interview">
+                <span class="stat-num">{{ stats.interview_count }}</span>
+                <span class="stat-label">Entretiens</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header-actions">
+        <h2>Offres récentes</h2>
+        <a href="/jobs" class="btn btn-secondary">Voir tout</a>
+    </div>
+    {% if recent_jobs %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Titre</th>
+                <th>Entreprise</th>
+                <th>Lieu</th>
+                <th>Score</th>
+                <th>Statut</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for job in recent_jobs %}
+            <tr>
+                <td><strong>{{ job.title }}</strong></td>
+                <td>{{ job.company or 'N/A' }}</td>
+                <td>{{ job.location or 'N/A' }}</td>
+                <td>
+                    {% if job.match_score %}
+                        <span class="badge badge-score">{{ job.match_score }}/100</span>
+                    {% else %}
+                        <span class="badge badge-neutral">—</span>
+                    {% endif %}
+                </td>
+                <td><span class="badge">{{ job.status }}</span></td>
+                <td><a href="/jobs/{{ job.id }}" class="btn btn-sm">Détail</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>Aucune offre importée pour le moment.</p>
+        <p><small>Utilisez l'API <code>POST /api/jobs/import</code> pour ingérer vos premières offres.</small></p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

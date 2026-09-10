@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}{{ job.title if job else 'Offre' }} — Trema Job Search{% endblock %}
+
+{% block content %}
+{% if job %}
+<div class="card">
+    <div class="job-header">
+        <div>
+            <h1>{{ job.title }}</h1>
+            <p class="company-sub">{{ job.company or 'Entreprise confidentielle' }}</p>
+            <p class="job-meta">
+                <span>📍 {{ job.location or 'Non précisé' }}</span>
+                <span>📄 {{ job.contract_type or 'CDI' }}</span>
+                {% if job.normalized_data and job.normalized_data.remote %}
+                    <span>🏠 Télétravail</span>
+                {% endif %}
+            </p>
+        </div>
+        <div>
+            {% if job.match_score %}
+            <div class="score-badge-large">
+                <span class="score-value">{{ job.match_score }}/100</span>
+                <span class="score-level">
+                    {% if job.match_score >= 85 %}🔥 Priorité
+                    {% elif job.match_score >= 75 %}✅ Recommandée
+                    {% elif job.match_score >= 60 %}🟠 À revoir
+                    {% else %}❌ Ignorer{% endif %}
+                </span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <hr class="separator" />
+
+    {% if job.match_analysis %}
+    <div class="analysis-box">
+        <h3>Analyse du matching :</h3>
+        {% if job.match_analysis.strengths %}
+        <div class="strengths">
+            <strong>Points forts :</strong>
+            <ul>
+                {% for st in job.match_analysis.strengths %}
+                <li>✓ {{ st }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% if job.match_analysis.concerns %}
+        <div class="concerns mt-2">
+            <strong>Points d'attention :</strong>
+            <ul>
+                {% for co in job.match_analysis.concerns %}
+                <li>⚠ {{ co }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+    <hr class="separator" />
+    {% endif %}
+
+    <div class="job-description">
+        <h3>Description de l'offre</h3>
+        <p>{{ job.description or 'Aucune description fournie.' }}</p>
+    </div>
+
+    <div class="job-actions mt-4">
+        <a href="{{ job.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Voir l'offre originale ↗</a>
+        <button onclick="triggerMatch('{{ job.id }}')" class="btn btn-primary">Calculer matching IA</button>
+        <button onclick="generateApplication('{{ job.id }}')" class="btn btn-success">Générer candidature</button>
+    </div>
+</div>
+
+<script>
+async function triggerMatch(jobId) {
+    const res = await fetch(`/api/jobs/${jobId}/match`, { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+        alert("Matching calculé avec succès ! Score: " + data.match.score);
+        location.reload();
+    } else {
+        alert("Erreur: " + (data.error || "Impossible de calculer"));
+    }
+}
+async function generateApplication(jobId) {
+    alert("Génération déclenchée.");
+}
+</script>
+
+{% else %}
+<div class="card">
+    <p>Offre introuvable.</p>
+</div>
+{% endif %}
+{% endblock %}

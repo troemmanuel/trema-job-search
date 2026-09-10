@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Offres — Trema Job Search{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h1>Offres d'emploi</h1>
+    <p class="subtitle">Toutes les offres collectées et analysées.</p>
+</div>
+
+<div class="card">
+    {% if jobs %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Titre</th>
+                <th>Entreprise</th>
+                <th>Lieu</th>
+                <th>Contrat</th>
+                <th>Score</th>
+                <th>Statut</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for job in jobs %}
+            <tr>
+                <td><strong>{{ job.title }}</strong></td>
+                <td>{{ job.company or 'N/A' }}</td>
+                <td>{{ job.location or 'N/A' }}</td>
+                <td>{{ job.contract_type or 'N/A' }}</td>
+                <td>
+                    {% if job.match_score %}
+                        <span class="badge badge-score">{{ job.match_score }}/100</span>
+                    {% else %}
+                        <span class="badge badge-neutral">—</span>
+                    {% endif %}
+                </td>
+                <td><span class="badge">{{ job.status }}</span></td>
+                <td>
+                    <a href="/jobs/{{ job.id }}" class="btn btn-sm">Consulter</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>Aucune offre trouvée.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,171 @@
+from datetime import datetime
+from flask import Blueprint, jsonify, request, render_template, current_app
+from app.services.storage.supabase import supabase_service
+from app.services.ai.cv_generator import cv_generator_service
+from app.services.ai.letter_generator import letter_generator_service
+from app.services.ai.answer_generator import answer_generator_service
+from app.services.documents.renderer import document_renderer
+from app.services.notion.client import notion_service
+from app.schemas.candidate import CandidateProfile
+from app.schemas.job import JobNormalizedData
+
+applications_bp = Blueprint("applications", __name__)
+
+@applications_bp.route("/api/applications", methods=["GET"])
+def list_applications():
+    """Liste les candidatures existantes."""
+    apps = supabase_service.get_applications(limit=100) if supabase_service.client else []
+    return jsonify({"applications": apps, "total": len(apps)}), 200
+
+@applications_bp.route("/api/applications/<app_id>", methods=["GET"])
+def get_application(app_id: str):
+    """Détail d'une candidature."""
+    if not supabase_service.client:
+        return jsonify({"error": "Supabase non configuré"}), 503
+    res = supabase_service.client.table("applications").select("*, jobs(*)").eq("id", app_id).execute()
+    if not res.data:
+        return jsonify({"error": "Candidature introuvable"}), 404
+    return jsonify(res.data[0]), 200
+
+@applications_bp.route("/api/applications/<app_id>/prepare", methods=["POST"])
+def prepare_application(app_id: str):
+    """Génère le CV personnalisé, la lettre et les réponses, puis génère les PDFs."""
+    if not supabase_service.client:
+        return jsonify({"error": "Supabase non configuré"}), 503
+
+    # Récupérer l'application et l'offre associée
+    res_app = supabase_service.client.table("applications").select("*, jobs(*)").eq("id", app_id).execute()
+    if not res_app.data:
+        return jsonify({"error": "Candidature introuvable"}), 404
+    application = res_app.data[0]
+    job = application.get("jobs", {})
+
+    # Mettre à jour le statut en PREPARING
+    supabase_service.client.table("applications").update({"status": "PREPARING"}).eq("id", app_id).execute()
+
+    # Récupérer le profil candidat
+    profile_data = supabase_service.get_active_candidate_profile()
+    if not profile_data:
+        return jsonify({"error": "Profil candidat non trouvé"}), 400
+
+    profile = CandidateProfile.model_validate(profile_data["profile"])
+    job_normalized = JobNormalizedData.model_validate(job.get("normalized_data", {}))
+
+    try:
+        # 1. Génération CV JSON
+        tailored_cv = cv_generator_service.generate(
+            job_id=job.get("id", ""),
+            profile=profile,
+            job_data=job_normalized,
+            application_id=app_id
+        )
+
+        # 2. Génération Lettre
+        cover_letter = letter_generator_service.generate(
+            profile=profile,
+            job_data=job_normalized,
+            application_id=app_id
+        )
+
+        # 3. Réponses aux questions
+        answers = answer_generator_service.generate(
+            profile=profile,
+            job_data=job_normalized,
+            application_id=app_id
+        )
+
+        # 4. Rendu PDF et upload Storage
+        cv_url = None
+        letter_url = None
+        if tailored_cv:
+            cv_url = document_renderer.render_and_save_cv(app_id, profile_data["profile"], tailored_cv.model_dump())
+        if cover_letter:
+            letter_url = document_renderer.render_and_save_letter(app_id, profile_data["profile"], cover_letter.model_dump())
+
+        # Mettre à jour l'application en PREPARED
+        update_payload = {
+            "status": "PREPARED",
+            "tailored_cv": tailored_cv.model_dump() if tailored_cv else None,
+            "cover_letter": cover_letter.content if cover_letter else None,
+            "application_answers": answers.model_dump() if answers else None,
+            "prepared_at": datetime.utcnow().isoformat()
+        }
+        supabase_service.client.table("applications").update(update_payload).eq("id", app_id).execute()
+
+        return jsonify({
+            "message": "Candidature préparée avec succès",
+            "cv_url": cv_url,
+            "letter_url": letter_url
+        }), 200
+
+    except Exception as e:
+        current_app.logger.error(f"Erreur lors de la préparation de la candidature {app_id}: {e}")
+        supabase_service.client.table("applications").update({"status": "ERROR"}).eq("id", app_id).execute()
+        return jsonify({"error": f"Erreur de préparation: {str(e)}"}), 500
+
+@applications_bp.route("/api/applications/<app_id>/ready", methods=["POST"])
+def mark_as_ready(app_id: str):
+    """Validation humaine : l'utilisateur passe le statut à READY."""
+    if not supabase_service.client:
+        return jsonify({"error": "Supabase non configuré"}), 503
+
+    supabase_service.client.table("applications").update({"status": "READY"}).eq("id", app_id).execute()
+    return jsonify({"message": "Candidature marquée comme READY", "status": "READY"}), 200
+
+@applications_bp.route("/api/applications/<app_id>/applied", methods=["POST"])
+def mark_as_applied(app_id: str):
+    """L'utilisateur confirme avoir postulé manuellement (statut APPLIED)."""
+    if not supabase_service.client:
+        return jsonify({"error": "Supabase non configuré"}), 503
+
+    now_iso = datetime.utcnow().isoformat()
+    supabase_service.client.table("applications").update({
+        "status": "APPLIED",
+        "applied_at": now_iso
+    }).eq("id", app_id).execute()
+    return jsonify({"message": "Candidature marquée comme APPLIED", "status": "APPLIED", "applied_at": now_iso}), 200
+
+@applications_bp.route("/api/notion/sync/<app_id>", methods=["POST"])
+def sync_notion(app_id: str):
+    """Synchronise la candidature dans Notion."""
+    if not supabase_service.client:
+        return jsonify({"error": "Supabase non configuré"}), 503
+
+    res = supabase_service.client.table("applications").select("*, jobs(*)").eq("id", app_id).execute()
+    if not res.data:
+        return jsonify({"error": "Candidature introuvable"}), 404
+
+    app_data = res.data[0]
+    job = app_data.get("jobs", {})
+
+    page_id = notion_service.sync_application(
+        application_id=app_id,
+        company=job.get("company", ""),
+        job_title=job.get("title", ""),
+        job_url=job.get("url", ""),
+        score=app_data.get("match_score"),
+        status=app_data.get("status", "QUALIFIED"),
+        location=job.get("location"),
+        notes=app_data.get("notes"),
+        notion_page_id=app_data.get("notion_page_id")
+    )
+
+    if page_id:
+        supabase_service.client.table("applications").update({"notion_page_id": page_id}).eq("id", app_id).execute()
+
+    return jsonify({"message": "Synchronisation Notion effectuée", "notion_page_id": page_id}), 200
+
+@applications_bp.route("/applications", methods=["GET"])
+def applications_view():
+    """Vue HTML listant les candidatures."""
+    apps = supabase_service.get_applications(limit=100) if supabase_service.client else []
+    return render_template("applications/index.html", applications=apps)
+
+@applications_bp.route("/applications/<app_id>", methods=["GET"])
+def application_detail_view(app_id: str):
+    """Vue HTML détaillée d'une candidature (Page Candidature spécification 17)."""
+    if not supabase_service.client:
+        return render_template("applications/detail.html", application=None)
+    res = supabase_service.client.table("applications").select("*, jobs(*)").eq("id", app_id).execute()
+    app_data = res.data[0] if res.data else None
+    return render_template("applications/detail.html", application=app_data)
