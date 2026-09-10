@@ -3,7 +3,7 @@ import logging
 from typing import Optional, Dict, Any, Type
 from pydantic import BaseModel
 from app.config import Config
-from app.services.storage.supabase import supabase_service
+from app.services.storage import supabase_service
 
 logger = logging.getLogger(__name__)
 

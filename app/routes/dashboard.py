@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, render_template, current_app
-from app.services.storage.supabase import supabase_service
+from app.services.storage import supabase_service
 from app.services.ai.gemini import gemini_service
 from app.services.notion.client import notion_service
 

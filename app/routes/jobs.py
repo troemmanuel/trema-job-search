@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request, render_template, current_app
-from app.services.storage.supabase import supabase_service
+from app.services.storage import supabase_service
 from app.services.ingestion.importer import job_importer
 from app.services.ai.matcher import matcher_service
 from app.schemas.candidate import CandidateProfile

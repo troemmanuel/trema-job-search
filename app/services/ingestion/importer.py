@@ -3,7 +3,7 @@ from typing import Dict, Any, Optional
 from app.schemas.job import JobImport
 from app.services.ingestion.parser import job_parser
 from app.services.ingestion.deduplicator import deduplicator
-from app.services.storage.supabase import supabase_service
+from app.services.storage import supabase_service
 
 logger = logging.getLogger(__name__)
 

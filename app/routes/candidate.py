@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request, render_template, current_app
-from app.services.storage.supabase import supabase_service
+from app.services.storage import supabase_service
 from app.schemas.candidate import CandidateProfile, CandidatePreferences
 
 candidate_bp = Blueprint("candidate", __name__)
@@ -34,7 +34,7 @@ def save_candidate_profile():
             "preferences": preferences_obj.model_dump(),
             "version": new_version,
             "is_active": True,
-            "updated_at": datetime.utcnow().isoformat()
+            "updated_at": datetime.now(timezone.utc).isoformat()
         }
 
         if supabase_service.client:

@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 from urllib.parse import urlparse, urlunparse
-from app.services.storage.supabase import supabase_service
+from app.services.storage import supabase_service
 
 logger = logging.getLogger(__name__)
 

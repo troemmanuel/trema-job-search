@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Any
 from app.services.documents.pdf import pdf_generator
-from app.services.storage.supabase import supabase_service
+from app.services.storage import supabase_service
 
 logger = logging.getLogger(__name__)
 

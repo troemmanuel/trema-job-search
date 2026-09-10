@@ -49,6 +49,6 @@ venv.bak/
 htmlcov/
 
 # Local data & temporary files
-storage/
-temp/
+/storage/
+/temp/
 *.log

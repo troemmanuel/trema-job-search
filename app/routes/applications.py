@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request, render_template, current_app
-from app.services.storage.supabase import supabase_service
+from app.services.storage import supabase_service
 from app.services.ai.cv_generator import cv_generator_service
 from app.services.ai.letter_generator import letter_generator_service
 from app.services.ai.answer_generator import answer_generator_service
@@ -88,7 +88,7 @@ def prepare_application(app_id: str):
             "tailored_cv": tailored_cv.model_dump() if tailored_cv else None,
             "cover_letter": cover_letter.content if cover_letter else None,
             "application_answers": answers.model_dump() if answers else None,
-            "prepared_at": datetime.utcnow().isoformat()
+            "prepared_at": datetime.now(timezone.utc).isoformat()
         }
         supabase_service.client.table("applications").update(update_payload).eq("id", app_id).execute()
 
@@ -118,7 +118,7 @@ def mark_as_applied(app_id: str):
     if not supabase_service.client:
         return jsonify({"error": "Supabase non configuré"}), 503
 
-    now_iso = datetime.utcnow().isoformat()
+    now_iso = datetime.now(timezone.utc).isoformat()
     supabase_service.client.table("applications").update({
         "status": "APPLIED",
         "applied_at": now_iso
