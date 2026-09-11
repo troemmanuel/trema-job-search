@@ -75,6 +75,10 @@ def test_applications_api_and_pages(client):
     assert res_page.status_code == 200
     assert b"Candidatures" in res_page.data
 
+    # Test GET download with invalid type
+    res_down = client.get("/api/applications/non-existent-id/download/invalid")
+    assert res_down.status_code in [404, 503]
+
 def test_candidate_api_and_pages(client):
     # Test GET /candidate HTML page
     res_page = client.get("/candidate")

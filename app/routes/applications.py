@@ -1,10 +1,12 @@
+import io
 from datetime import datetime, timezone
-from flask import Blueprint, jsonify, request, render_template, current_app
+from flask import Blueprint, jsonify, request, render_template, current_app, send_file
 from app.services.storage import supabase_service
 from app.services.ai.cv_generator import cv_generator_service
 from app.services.ai.letter_generator import letter_generator_service
 from app.services.ai.answer_generator import answer_generator_service
 from app.services.documents.renderer import document_renderer
+from app.services.documents.pdf import pdf_generator
 from app.services.notion.client import notion_service
 from app.schemas.candidate import CandidateProfile
 from app.schemas.job import JobNormalizedData
@@ -182,6 +184,52 @@ def sync_notion(app_id: str):
         supabase_service.client.table("applications").update({"notion_page_id": page_id}).eq("id", app_id).execute()
 
     return jsonify({"message": "Synchronisation Notion effectuée", "notion_page_id": page_id}), 200
+
+@applications_bp.route("/api/applications/<app_id>/download/<doc_type>", methods=["GET"])
+def download_application_document(app_id: str, doc_type: str):
+    """Télécharge le document PDF généré (cv ou letter)."""
+    if not supabase_service.client:
+        return jsonify({"error": "Supabase non configuré"}), 503
+
+    try:
+        res = supabase_service.client.table("applications").select("*, jobs(*)").eq("id", app_id).execute()
+        if not res.data:
+            return jsonify({"error": "Candidature introuvable"}), 404
+        app_data = res.data[0]
+    except Exception as e:
+        current_app.logger.warning(f"Erreur Supabase lors du téléchargement: {e}")
+        return jsonify({"error": "Service Supabase indisponible"}), 503
+    job = app_data.get("jobs", {}) or {}
+    raw_company = job.get("company") or "Entreprise"
+    clean_company = "".join(c for c in raw_company if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_")
+
+    profile_data = supabase_service.get_active_candidate_profile()
+    raw_profile = profile_data["profile"] if profile_data else {}
+
+    if doc_type == "cv":
+        cv_data = app_data.get("tailored_cv")
+        if not cv_data:
+            return jsonify({"error": "CV non encore généré"}), 404
+        pdf_bytes = pdf_generator.generate_cv_pdf(raw_profile, cv_data)
+        return send_file(
+            io.BytesIO(pdf_bytes),
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"CV_{clean_company}.pdf"
+        )
+    elif doc_type in ["letter", "cover-letter"]:
+        cover_letter = app_data.get("cover_letter")
+        if not cover_letter:
+            return jsonify({"error": "Lettre non encore générée"}), 404
+        pdf_bytes = pdf_generator.generate_letter_pdf(raw_profile, {"content": cover_letter})
+        return send_file(
+            io.BytesIO(pdf_bytes),
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"Lettre_{clean_company}.pdf"
+        )
+    else:
+        return jsonify({"error": "Type de document invalide (attendu: 'cv' ou 'letter')"}), 400
 
 @applications_bp.route("/applications", methods=["GET"])
 def applications_view():

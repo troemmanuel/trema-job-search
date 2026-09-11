@@ -24,7 +24,7 @@
             <h3>CV personnalisé</h3>
             <p class="doc-desc">Adapté sans hallucination aux compétences ciblées.</p>
             {% if application.tailored_cv %}
-                <button class="btn btn-sm btn-primary" onclick="alert('Téléchargement du CV généré')">Télécharger le PDF</button>
+                <a href="/api/applications/{{ application.id }}/download/cv" target="_blank" class="btn btn-sm btn-primary">Télécharger le PDF</a>
             {% else %}
                 <span class="text-muted">Non généré</span>
             {% endif %}
@@ -35,7 +35,10 @@
             <h3>Lettre / Message</h3>
             <p class="doc-desc">Arguments percutants et ciblés.</p>
             {% if application.cover_letter %}
-                <button class="btn btn-sm btn-primary" onclick="document.getElementById('letterModal').showModal()">Voir la lettre</button>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button class="btn btn-sm btn-secondary" onclick="document.getElementById('letterModal').showModal()">Voir le texte</button>
+                    <a href="/api/applications/{{ application.id }}/download/letter" target="_blank" class="btn btn-sm btn-primary">Télécharger le PDF</a>
+                </div>
             {% else %}
                 <span class="text-muted">Non générée</span>
             {% endif %}
