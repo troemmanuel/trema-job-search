@@ -16,8 +16,20 @@ class Experience(BaseModel):
     role: str
     start_date: str
     end_date: Optional[str] = None
+    client: Optional[str] = None          # Client final en mission (ex: "Client ANTAI")
+    location: Optional[str] = None
+    contract_type: Optional[str] = None   # CDI, CDD, Alternance, Stage...
     description: Optional[str] = None
     achievements: List[str] = Field(default_factory=list)
+    skills: List[str] = Field(default_factory=list)  # Stack technique affichée sur le CV
+
+class Project(BaseModel):
+    id: str
+    name: str
+    kind: Optional[str] = None            # Académique, Collaboratif, Personnel...
+    status: Optional[str] = None          # Terminé, En cours, En pause
+    description: Optional[str] = None
+    mission: Optional[str] = None
     skills: List[str] = Field(default_factory=list)
 
 class SkillCategories(BaseModel):
@@ -46,8 +58,10 @@ class CandidatePreferences(BaseModel):
 class CandidateProfile(BaseModel):
     name: str
     personal: PersonalInfo
+    title: Optional[str] = None           # Titre professionnel par défaut
     summary: Optional[str] = None
     experiences: List[Experience] = Field(default_factory=list)
+    projects: List[Project] = Field(default_factory=list)
     skills: SkillCategories = Field(default_factory=SkillCategories)
     education: List[Education] = Field(default_factory=list)
     languages: List[str] = Field(default_factory=list)

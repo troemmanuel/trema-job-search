@@ -1,0 +1,159 @@
+{
+  "name": "Emmanuel TRO",
+  "title": "Développeur Full-Stack - Python / Data / DevOps",
+  "personal": {
+    "first_name": "Emmanuel",
+    "last_name": "TRO",
+    "email": "trohkopeemmanuel@gmail.com",
+    "phone": "+33 7 53 78 25 19",
+    "location": "Rennes - mobile sur la France",
+    "linkedin": "linkedin.com/in/kope-emmanuel-tro",
+    "portfolio": "trema-hub.github.io/tremafolio"
+  },
+  "summary": "Ingénieur logiciel avec plus de 4 ans d'expérience cumulée (CDI en fintech, alternances et conseil), combinant développement backend Python (FastAPI) et Java/Node.js, avec une solide pratique des architectures orientées services : synchronisation par message brokers (Kafka, RabbitMQ, BullMQ), pipelines de traitement de données, et conteneurisation/observabilité (Kubernetes, Docker, ELK). J'ai conçu et déployé un service Python (FastAPI) en lien avec une équipe Machine Learning, et je porte un intérêt réel aux problématiques de sécurité et de détection. Diplômé d'un Master MIAGE (Université de Rennes, 2026).",
+  "experiences": [
+    {
+      "id": "exp_001",
+      "company": "Capgemini",
+      "client": "Client ANTAI (Agence Nationale de Traitement Automatisé des Infractions)",
+      "role": "Ingénieur Logiciel",
+      "contract_type": "Alternance",
+      "location": "Rennes",
+      "start_date": "2026-03",
+      "end_date": null,
+      "achievements": [
+        "Développé une dizaine de user stories complètes sur les modules d'édition d'avis de contravention et contestation, de l'analyse technique à l'implémentation, du modèle de données aux endpoints REST livrés en production.",
+        "Assuré une grande qualité de code : tests unitaires JUnit, tests d'intégration Cucumber et tests manuels documentés dans Confluence.",
+        "Préparé et animé les sessions de backlog refinement (BR) avec l'équipe, en appui du Product Owner et du suivi des travaux techniques."
+      ],
+      "skills": ["Spring Boot", "Java", "MariaDB", "REST", "JUnit", "Cucumber"]
+    },
+    {
+      "id": "exp_002",
+      "company": "Capgemini",
+      "client": "Client ANTAI (Agence Nationale de Traitement Automatisé des Infractions)",
+      "role": "Ingénieur DevOps",
+      "contract_type": "Alternance",
+      "location": "Rennes",
+      "start_date": "2025-01",
+      "end_date": "2026-03",
+      "achievements": [
+        "Déployé une stack d'observabilité ELK (centralisation et supervision des logs) sur un cluster Kubernetes couvrant une dizaine de services, réduisant le temps de diagnostic et d'investigation.",
+        "Participé à la refonte de l'automatisation Ansible existante : rôles modulaires et réutilisables sur l'ensemble des services, et mise en place d'Ansible Automation Platform (AAP/AWX) pour l'exécution et l'industrialisation des installations."
+      ],
+      "skills": ["Kubernetes", "Ansible", "AAP/AWX", "CI/CD", "Docker", "ELK", "Linux"]
+    },
+    {
+      "id": "exp_003",
+      "company": "Capgemini",
+      "client": "Client ANTAI (Agence Nationale de Traitement Automatisé des Infractions)",
+      "role": "Support technique N2/N3 - Run applicatif",
+      "contract_type": "Stage puis alternance",
+      "location": "Rennes",
+      "start_date": "2024-04",
+      "end_date": "2025-01",
+      "achievements": [
+        "Analysé une vingtaine d'incidents et résolu environ 5 incidents, contribuant à la continuité de service."
+      ],
+      "skills": ["Java", "EasyVista"]
+    },
+    {
+      "id": "exp_004",
+      "company": "Djamo",
+      "role": "Ingénieur Logiciel",
+      "contract_type": "CDI",
+      "location": "Abidjan, CI",
+      "start_date": "2022-03",
+      "end_date": "2023-08",
+      "achievements": [
+        "Conçu, développé et déployé un service Python (FastAPI) de vérification d'identité (KYC), en collaboration avec l'équipe Machine Learning, et provisionné son infrastructure AWS avec Terraform.",
+        "Réduit de 90 % les pertes de revenus sur les abonnements et coffres en fiabilisant les opérations récurrentes avec BullMQ (synchronisation asynchrone des services) : historisation des transactions, traçabilité des étapes et reprise au point d'échec sans rejouer l'intégralité du processus.",
+        "Conçu et développé une vingtaine de fonctionnalités autour des coffres dans une architecture orientée microservices (NestJS), couvrant leur cycle de vie, les transactions et opérations récurrentes, ainsi que l'optimisation des performances grâce au cache Redis et à l'optimisation des requêtes PostgreSQL."
+      ],
+      "skills": ["FastAPI", "Python", "NestJS", "TypeScript", "PostgreSQL", "Kafka", "RabbitMQ", "BullMQ", "AWS", "Terraform"]
+    },
+    {
+      "id": "exp_005",
+      "company": "Advantech SA",
+      "role": "Développeur Logiciel",
+      "contract_type": "CDD",
+      "location": "Abidjan, CI",
+      "start_date": "2021-09",
+      "end_date": "2022-02",
+      "achievements": [
+        "Développé les interfaces Angular d'une plateforme de services aux municipalités (actes de naissance, démarches administratives)."
+      ],
+      "skills": ["Java", "Spring", "Angular", "PostgreSQL"]
+    },
+    {
+      "id": "exp_006",
+      "company": "Digital Afrique Telecom",
+      "role": "Développeur Logiciel Junior",
+      "contract_type": "Stage",
+      "location": "Abidjan, CI",
+      "start_date": "2021-01",
+      "end_date": "2021-06",
+      "achievements": [
+        "Assuré la maintenance de l'application de livraison de La Poste (Laravel / MySQL), corrigeant des anomalies et livrant des correctifs en production."
+      ],
+      "skills": ["Laravel", "MySQL"]
+    }
+  ],
+  "projects": [
+    {
+      "id": "prj_001",
+      "name": "Jumeaux numériques",
+      "kind": "Académique",
+      "status": "Terminé",
+      "description": "Collecte de données géolocalisées pour alimenter un jumeau numérique de mobilité urbaine, via questionnaires utilisateurs et capteurs de smartphones.",
+      "mission": "Conception de l'API de collecte de données avec FastAPI (Python) et intégration des interfaces mobiles Flutter.",
+      "skills": ["FastAPI", "Python", "Flutter", "GitLab"]
+    },
+    {
+      "id": "prj_002",
+      "name": "AgentIO",
+      "kind": "Collaboratif",
+      "status": "En cours",
+      "description": "Agent IA automatisant la recherche et la candidature à des offres d'emploi sur différentes plateformes selon les critères de l'utilisateur.",
+      "mission": "Conception des workflows d'automatisation avec n8n, intégrations backend et persistance des données.",
+      "skills": ["Node.js", "OpenAPI", "Supabase", "Docker", "GitLab CI/CD"]
+    },
+    {
+      "id": "prj_003",
+      "name": "Offrande",
+      "kind": "Collaboratif",
+      "status": "En pause",
+      "description": "Plateforme de collecte d'offrandes digitalisée permettant aux paroisses de Côte d'Ivoire de gérer leurs collectes en ligne.",
+      "mission": "Conception et développement du backend en TypeScript avec NestJS et d'un frontend Vue.js (Nuxt.js), mise en place de la CI/CD pour les déploiements cloud (Hostinger).",
+      "skills": ["NestJS", "TypeScript", "PostgreSQL", "Nuxt.js (Vue.js)", "Docker", "GitLab CI/CD"]
+    },
+    {
+      "id": "prj_004",
+      "name": "SMS Pro",
+      "kind": "Collaboratif",
+      "status": "En cours",
+      "description": "Plateforme d'envoi et de gestion de SMS, conçue comme une solution de communication programmable de type Twilio.",
+      "mission": "Développement du backend du data plane en Go, responsable du traitement et de l'exécution des envois.",
+      "skills": ["Go", "Rust", "Kubernetes", "Docker", "GitHub Actions"]
+    }
+  ],
+  "skills": {
+    "technical": ["Python", "TypeScript", "JavaScript", "Java", "Go", "SQL", "FastAPI", "Node.js", "NestJS", "Spring Boot", "API REST", "Microservices", "Kafka", "RabbitMQ", "BullMQ", "PostgreSQL", "MariaDB", "MySQL", "Redis"],
+    "tools": ["AWS", "Docker", "Kubernetes", "Terraform", "GitHub Actions", "GitLab CI", "ELK", "Ansible", "Git", "GitHub", "GitLab", "Maven", "JUnit", "Cucumber"],
+    "business": ["Agile/Scrum", "SAFe", "Backlog refinement"],
+    "soft_skills": ["Revues de code", "Documentation", "Collaboration équipe ML"]
+  },
+  "education": [
+    {"institution": "Université de Rennes", "degree": "Master MIAGE", "start_date": "2024", "end_date": "2026"},
+    {"institution": "Université de Rennes", "degree": "Licence MIAGE", "start_date": "2023", "end_date": "2024"},
+    {"institution": "Institut National Polytechnique, Yamoussoukro", "degree": "Licence STIC", "field_of_study": "Informatique", "start_date": "2017", "end_date": "2020"}
+  ],
+  "languages": ["Français : natif", "Anglais : professionnel"],
+  "certifications": [],
+  "preferences": {
+    "target_titles": ["Ingénieur Logiciel", "Ingénieur Backend", "Développeur Python", "Développeur Java", "Ingénieur DevOps"],
+    "locations": ["Rennes", "Remote"],
+    "remote": true,
+    "contract_types": ["CDI"]
+  }
+}

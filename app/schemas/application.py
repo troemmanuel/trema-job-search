@@ -12,11 +12,24 @@ class ApplicationStatus(str, Enum):
     INTERVIEW = "INTERVIEW"
     REJECTED = "REJECTED"
 
+class SkillGroup(BaseModel):
+    label: str
+    items: List[str] = Field(default_factory=list)
+
+class ExperienceHighlight(BaseModel):
+    id: str                                      # id d'une expérience du profil maître
+    achievements: List[str] = Field(default_factory=list)  # réalisations retenues/reformulées pour l'offre
+
 class TailoredCV(BaseModel):
     job_id: str
+    title: Optional[str] = None
     summary: str
     selected_experiences: List[str]  # List of experience IDs to highlight
+    experience_highlights: List[ExperienceHighlight] = Field(default_factory=list)
+    selected_projects: List[str] = Field(default_factory=list)
     skills: List[str]
+    skill_groups: List[SkillGroup] = Field(default_factory=list)
+    language: str = "fr"
     changes: List[str] = Field(default_factory=list)
     validation_required: bool = False
 
