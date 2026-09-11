@@ -362,8 +362,8 @@ class ClassicCVTemplate:
             title=f"CV - {self.profile.get('name', '')}", author=self.profile.get("name", ""),
         )
         story: List[Any] = []
-        for block in (self._header, self._profile, self._experiences, self._projects,
-                      self._skills, self._education, self._languages):
+        for block in (self._header, self._profile, self._skills, self._experiences,
+                      self._projects, self._education, self._languages):
             story.extend(block())
         doc.build(story)
         return buffer.getvalue()
