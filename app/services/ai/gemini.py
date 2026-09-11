@@ -78,6 +78,7 @@ class GeminiService:
             response_mime_type="application/json",
             response_schema=response_schema,
             temperature=0.2, # Faible température pour éviter les hallucinations
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True)
         )
         if system_instruction:
             config.system_instruction = system_instruction
