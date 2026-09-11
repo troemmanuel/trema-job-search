@@ -15,9 +15,31 @@ applications_bp = Blueprint("applications", __name__)
 
 @applications_bp.route("/api/applications", methods=["GET"])
 def list_applications():
-    """Liste les candidatures existantes."""
-    apps = supabase_service.get_applications(limit=100) if supabase_service.client else []
-    return jsonify({"applications": apps, "total": len(apps)}), 200
+    """Liste les candidatures existantes avec pagination, filtres et tri chronologique."""
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", request.args.get("limit", 20), type=int)
+    status = request.args.get("status")
+    min_score = request.args.get("min_score", type=int)
+    search = request.args.get("q") or request.args.get("search")
+
+    paginated = supabase_service.get_applications_paginated(
+        page=page,
+        per_page=per_page,
+        status=status,
+        min_score=min_score,
+        search=search,
+        order_by="created_at",
+        desc=True
+    )
+    return jsonify({
+        "applications": paginated["items"],
+        "total": paginated["total"],
+        "page": paginated["page"],
+        "per_page": paginated["per_page"],
+        "total_pages": paginated["total_pages"],
+        "has_prev": paginated["has_prev"],
+        "has_next": paginated["has_next"]
+    }), 200
 
 @applications_bp.route("/api/applications/<app_id>", methods=["GET"])
 def get_application(app_id: str):
@@ -273,9 +295,34 @@ def download_application_document(app_id: str, doc_type: str):
 
 @applications_bp.route("/applications", methods=["GET"])
 def applications_view():
-    """Vue HTML listant les candidatures."""
-    apps = supabase_service.get_applications(limit=100) if supabase_service.client else []
-    return render_template("applications/index.html", applications=apps)
+    """Vue HTML listant les candidatures avec pagination, filtres et tri chronologique."""
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 15, type=int)
+    status = request.args.get("status", "").strip()
+    min_score_raw = request.args.get("min_score", "").strip()
+    min_score = int(min_score_raw) if min_score_raw.isdigit() else None
+    search = (request.args.get("q") or request.args.get("search") or "").strip()
+
+    paginated = supabase_service.get_applications_paginated(
+        page=page,
+        per_page=per_page,
+        status=status,
+        min_score=min_score,
+        search=search,
+        order_by="created_at",
+        desc=True
+    )
+    filters = {
+        "q": search,
+        "status": status,
+        "min_score": min_score_raw
+    }
+    return render_template(
+        "applications/index.html",
+        applications=paginated["items"],
+        pagination=paginated,
+        filters=filters
+    )
 
 @applications_bp.route("/applications/<app_id>", methods=["GET"])
 def application_detail_view(app_id: str):

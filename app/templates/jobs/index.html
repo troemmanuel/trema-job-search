@@ -34,6 +34,52 @@
 </div>
 
 
+<!-- Barre de filtres -->
+<div class="filter-card">
+    <form method="GET" action="/jobs" class="filter-form">
+        <div class="filter-group filter-group-lg">
+            <label for="q">Recherche textuelle</label>
+            <input type="text" id="q" name="q" class="filter-input" placeholder="Titre, entreprise, ville..." value="{{ filters.q if filters else '' }}">
+        </div>
+        <div class="filter-group">
+            <label for="status">Statut</label>
+            <select id="status" name="status" class="filter-select">
+                <option value="">Tous les statuts</option>
+                <option value="NEW" {% if filters and filters.status == 'NEW' %}selected{% endif %}>NEW</option>
+                <option value="QUALIFIED" {% if filters and filters.status == 'QUALIFIED' %}selected{% endif %}>QUALIFIED</option>
+                <option value="REVIEW" {% if filters and filters.status == 'REVIEW' %}selected{% endif %}>REVIEW</option>
+                <option value="ARCHIVED" {% if filters and filters.status == 'ARCHIVED' %}selected{% endif %}>ARCHIVED</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="contract_type">Contrat</label>
+            <select id="contract_type" name="contract_type" class="filter-select">
+                <option value="">Tous les contrats</option>
+                <option value="CDI" {% if filters and filters.contract_type == 'CDI' %}selected{% endif %}>CDI</option>
+                <option value="CDD" {% if filters and filters.contract_type == 'CDD' %}selected{% endif %}>CDD</option>
+                <option value="Freelance" {% if filters and filters.contract_type == 'Freelance' %}selected{% endif %}>Freelance</option>
+                <option value="Stage" {% if filters and filters.contract_type == 'Stage' %}selected{% endif %}>Stage / Alternance</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="min_score">Score minimum</label>
+            <select id="min_score" name="min_score" class="filter-select">
+                <option value="">Tous les scores</option>
+                <option value="80" {% if filters and filters.min_score == '80' %}selected{% endif %}>&ge; 80 (Excellent)</option>
+                <option value="75" {% if filters and filters.min_score == '75' %}selected{% endif %}>&ge; 75 (Recommandé)</option>
+                <option value="60" {% if filters and filters.min_score == '60' %}selected{% endif %}>&ge; 60 (Moyen)</option>
+                <option value="50" {% if filters and filters.min_score == '50' %}selected{% endif %}>&ge; 50 (Passable)</option>
+            </select>
+        </div>
+        <div class="filter-actions">
+            <button type="submit" class="btn btn-primary">🔍 Filtrer</button>
+            {% if filters and (filters.q or filters.status or filters.contract_type or filters.min_score) %}
+            <a href="/jobs" class="btn btn-secondary" title="Réinitialiser les filtres">✕</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
 <div class="card">
     {% if jobs %}
     <table class="table">
@@ -70,10 +116,18 @@
             {% endfor %}
         </tbody>
     </table>
+
+    {% include "components/pagination.html" %}
+
     {% else %}
     <div class="empty-state">
-        <p>Aucune offre enregistrée pour le moment.</p>
-        <button class="btn btn-primary mt-2" onclick="document.getElementById('urlImportModal').showModal()">📥 Importer une offre (URL ou Saisie)</button>
+        {% if filters and (filters.q or filters.status or filters.contract_type or filters.min_score) %}
+            <p>Aucune offre ne correspond à vos critères de recherche.</p>
+            <a href="/jobs" class="btn btn-secondary mt-2">Réinitialiser les filtres</a>
+        {% else %}
+            <p>Aucune offre enregistrée pour le moment.</p>
+            <button class="btn btn-primary mt-2" onclick="document.getElementById('urlImportModal').showModal()">📥 Importer une offre (URL ou Saisie)</button>
+        {% endif %}
     </div>
     {% endif %}
 </div>

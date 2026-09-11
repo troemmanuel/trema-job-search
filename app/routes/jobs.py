@@ -9,10 +9,33 @@ jobs_bp = Blueprint("jobs", __name__)
 
 @jobs_bp.route("/api/jobs", methods=["GET"])
 def list_jobs():
-    """Liste les offres enregistrées."""
-    limit = request.args.get("limit", 50, type=int)
-    jobs = supabase_service.get_jobs(limit=limit) if supabase_service.client else []
-    return jsonify({"jobs": jobs, "total": len(jobs)}), 200
+    """Liste les offres enregistrées avec pagination et filtres."""
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", request.args.get("limit", 20), type=int)
+    status = request.args.get("status")
+    contract_type = request.args.get("contract_type")
+    min_score = request.args.get("min_score", type=int)
+    search = request.args.get("q") or request.args.get("search")
+
+    paginated = supabase_service.get_jobs_paginated(
+        page=page,
+        per_page=per_page,
+        status=status,
+        contract_type=contract_type,
+        min_score=min_score,
+        search=search,
+        order_by="created_at",
+        desc=True
+    )
+    return jsonify({
+        "jobs": paginated["items"],
+        "total": paginated["total"],
+        "page": paginated["page"],
+        "per_page": paginated["per_page"],
+        "total_pages": paginated["total_pages"],
+        "has_prev": paginated["has_prev"],
+        "has_next": paginated["has_next"]
+    }), 200
 
 @jobs_bp.route("/api/jobs/<job_id>", methods=["GET"])
 def get_job(job_id: str):
@@ -155,9 +178,37 @@ def collect_jobs():
 
 @jobs_bp.route("/jobs", methods=["GET"])
 def jobs_view():
-    """Vue HTML de listing des offres."""
-    jobs = supabase_service.get_jobs(limit=100) if supabase_service.client else []
-    return render_template("jobs/index.html", jobs=jobs)
+    """Vue HTML de listing des offres avec pagination, filtres et tri chronologique."""
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 15, type=int)
+    status = request.args.get("status", "").strip()
+    contract_type = request.args.get("contract_type", "").strip()
+    min_score_raw = request.args.get("min_score", "").strip()
+    min_score = int(min_score_raw) if min_score_raw.isdigit() else None
+    search = (request.args.get("q") or request.args.get("search") or "").strip()
+
+    paginated = supabase_service.get_jobs_paginated(
+        page=page,
+        per_page=per_page,
+        status=status,
+        contract_type=contract_type,
+        min_score=min_score,
+        search=search,
+        order_by="created_at",
+        desc=True
+    )
+    filters = {
+        "q": search,
+        "status": status,
+        "contract_type": contract_type,
+        "min_score": min_score_raw
+    }
+    return render_template(
+        "jobs/index.html",
+        jobs=paginated["items"],
+        pagination=paginated,
+        filters=filters
+    )
 
 @jobs_bp.route("/jobs/<job_id>", methods=["GET"])
 def job_detail_view(job_id: str):
