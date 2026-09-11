@@ -12,6 +12,8 @@ class JobNormalizedData(BaseModel):
     skills: List[str] = Field(default_factory=list)
     requirements: List[str] = Field(default_factory=list)
     nice_to_have: List[str] = Field(default_factory=list)
+    company_type: Optional[str] = None
+    domain: Optional[str] = None
 
 class JobImport(BaseModel):
     source: str

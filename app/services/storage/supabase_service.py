@@ -263,16 +263,30 @@ class SupabaseService:
             return False
 
     # Storage helpers
+    # Le bucket est privé : les liens partagés (Notion) sont des URLs signées longue durée.
+    SIGNED_URL_TTL_SECONDS = 10 * 365 * 24 * 3600
+
+    def get_document_url(self, bucket: str, path: str) -> Optional[str]:
+        """Retourne une URL signée (≈10 ans) vers un objet existant du bucket privé, ou None s'il n'existe pas."""
+        if not self.client:
+            return None
+        try:
+            res = self.client.storage.from_(bucket).create_signed_url(path, self.SIGNED_URL_TTL_SECONDS)
+            return res.get("signedURL") or res.get("signedUrl")
+        except Exception as e:
+            logger.warning(f"URL signée indisponible pour {bucket}/{path}: {e}")
+            return None
+
     def upload_document(self, bucket: str, path: str, file_bytes: bytes, content_type: str) -> Optional[str]:
         if not self.client:
             logger.warning(f"Simulé: upload de {path} dans {bucket} ({len(file_bytes)} bytes)")
             return f"local://{bucket}/{path}"
         try:
             self.client.storage.from_(bucket).upload(path, file_bytes, {"content-type": content_type, "upsert": "true"})
-            return self.client.storage.from_(bucket).get_public_url(path)
         except Exception as e:
             logger.error(f"Erreur upload document Supabase Storage: {e}")
             return None
+        return self.get_document_url(bucket, path)
 
 # Singleton par défaut
 supabase_service = SupabaseService()

@@ -422,6 +422,17 @@ class JobCollectorService:
                                     summary["prepared_count"] += 1
                                     job_detail_summary["status"] = "PREPARED"
 
+                                    # Détermination du Type et du Domaine d'activité de l'entreprise
+                                    from app.services.ingestion.company_classifier import classify_company
+                                    cl_type, cl_domain = classify_company(
+                                        company=company,
+                                        title=job_title,
+                                        description=item.get("description", ""),
+                                        raw_data=item.get("raw_data")
+                                    )
+                                    final_type = (match_res.company_type if match_res and match_res.company_type else None) or (job_normalized.company_type if job_normalized else None) or cl_type
+                                    final_domain = (match_res.company_domain if match_res and match_res.company_domain else None) or (job_normalized.domain if job_normalized else None) or cl_domain
+
                                     # Synchronisation Notion
                                     page_id = notion_service.sync_application(
                                         application_id=app_id,
@@ -432,7 +443,8 @@ class JobCollectorService:
                                         status="PREPARED",
                                         location=item.get("location"),
                                         contract_type=item.get("contract_type"),
-                                        domain="Ingénierie Logicielle / Backend & Cloud",
+                                        domain=final_domain,
+                                        company_type=final_type,
                                         cv_url=cv_url,
                                         letter_url=letter_url,
                                         cover_letter=cover_letter.content if cover_letter else None,
@@ -610,6 +622,17 @@ class JobCollectorService:
                         "application_answers": answers.model_dump() if answers else None
                     }).eq("id", app_id).execute()
 
+                # Détermination du Type et du Domaine d'activité de l'entreprise
+                from app.services.ingestion.company_classifier import classify_company
+                cl_type, cl_domain = classify_company(
+                    company=company,
+                    title=title,
+                    description=job.get("description", ""),
+                    raw_data=job.get("raw_data")
+                )
+                final_type = (match_res.company_type if match_res and match_res.company_type else None) or (job_normalized.company_type if job_normalized else None) or cl_type
+                final_domain = (match_res.company_domain if match_res and match_res.company_domain else None) or (job_normalized.domain if job_normalized else None) or cl_domain
+
                 # Synchronisation Notion avec N suivi incrémental
                 page_id = notion_service.sync_application(
                     application_id=app_id,
@@ -620,7 +643,8 @@ class JobCollectorService:
                     status="PREPARED",
                     location=job.get("location"),
                     contract_type=job.get("contract_type"),
-                    domain="Ingénierie Logicielle / Backend & Cloud",
+                    domain=final_domain,
+                    company_type=final_type,
                     cv_url=cv_url,
                     letter_url=letter_url,
                     cover_letter=cover_letter.content if cover_letter else None,

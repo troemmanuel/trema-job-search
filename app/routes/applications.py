@@ -241,25 +241,49 @@ def sync_notion(app_id: str):
     app_data = res.data[0]
     job = app_data.get("jobs", {}) or {}
 
-    tailored_cv = app_data.get("tailored_cv")
-    cv_url = None
-    if tailored_cv and current_app.config.get("SUPABASE_URL"):
-        cv_url = f"{current_app.config['SUPABASE_URL']}/storage/v1/object/public/applications/applications/{app_id}/cv.pdf"
+    company = job.get("company", "")
+    job_title = job.get("title", "")
+
+    # URLs signées vers les PDF déjà uploadés dans le bucket privé (None si absents)
+    from app.services.documents.renderer import build_document_filename
+    cv_url = letter_url = None
+    if app_data.get("tailored_cv"):
+        cv_url = supabase_service.get_document_url(
+            "applications", f"applications/{app_id}/{build_document_filename('CV', company, job_title)}"
+        )
+    if app_data.get("cover_letter"):
+        letter_url = supabase_service.get_document_url(
+            "applications", f"applications/{app_id}/{build_document_filename('LM', company, job_title)}"
+        )
+    match_analysis = job.get("match_analysis") or {}
+    normalized_data = job.get("normalized_data") or {}
+
+    from app.services.ingestion.company_classifier import classify_company
+    cl_type, cl_domain = classify_company(
+        company=company,
+        title=job_title,
+        description=job.get("description", ""),
+        raw_data=job.get("raw_data")
+    )
+    company_type = match_analysis.get("company_type") or normalized_data.get("company_type") or cl_type
+    domain = match_analysis.get("company_domain") or normalized_data.get("domain") or cl_domain
 
     page_id = notion_service.sync_application(
         application_id=app_id,
-        company=job.get("company", ""),
-        job_title=job.get("title", ""),
+        company=company,
+        job_title=job_title,
         job_url=job.get("url", ""),
         score=app_data.get("match_score"),
         status=app_data.get("status", "QUALIFIED"),
         location=job.get("location"),
         contract_type=job.get("contract_type"),
-        domain="Ingénierie Logicielle / Backend & Cloud",
+        domain=domain,
+        company_type=company_type,
         cv_url=cv_url,
+        letter_url=letter_url,
         cover_letter=app_data.get("cover_letter"),
         answers=app_data.get("application_answers"),
-        match_analysis=job.get("match_analysis"),
+        match_analysis=match_analysis,
         notes=app_data.get("notes"),
         notion_page_id=app_data.get("notion_page_id")
     )

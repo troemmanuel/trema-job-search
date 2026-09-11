@@ -124,6 +124,18 @@ class NotionSyncService:
         # N suivi
         n_suivi = props.get("N suivi", {}).get("number")
 
+        # Type de l'entreprise (rich_text)
+        company_type = ""
+        type_items = props.get("Type", {}).get("rich_text", [])
+        if type_items:
+            company_type = type_items[0].get("plain_text", "").strip()
+
+        # Domaine d'activité (rich_text)
+        domain = ""
+        domain_items = props.get("Domaine", {}).get("rich_text", [])
+        if domain_items:
+            domain = domain_items[0].get("plain_text", "").strip()
+
         return {
             "id": page_id,
             "last_edited_time": page.get("last_edited_time"),
@@ -135,6 +147,8 @@ class NotionSyncService:
             "refusal_reason": refusal_reason,
             "job_url": job_url,
             "n_suivi": n_suivi,
+            "company_type": company_type,
+            "domain": domain,
         }
 
     def reconcile(self) -> Dict[str, Any]:
@@ -301,6 +315,41 @@ class NotionSyncService:
                     "company": company,
                     "applied_at": applied_date_val
                 })
+
+            # Cas C : Enrichissement automatique du Type et du Domaine d'activité si absent dans Notion
+            job_obj = matched_app.get("jobs") or {}
+            match_analysis = job_obj.get("match_analysis") or {}
+            normalized_data = job_obj.get("normalized_data") or {}
+
+            from app.services.ingestion.company_classifier import classify_company
+            cl_type, cl_domain = classify_company(
+                company=company,
+                title=job_title,
+                description=job_obj.get("description", ""),
+                raw_data=job_obj.get("raw_data")
+            )
+            expected_type = match_analysis.get("company_type") or normalized_data.get("company_type") or cl_type
+            expected_domain = match_analysis.get("company_domain") or normalized_data.get("domain") or cl_domain
+
+            notion_type = page.get("company_type")
+            notion_dom = page.get("domain")
+            props_to_enrich = {}
+
+            if not notion_type and expected_type:
+                props_to_enrich["Type"] = {"rich_text": [{"text": {"content": expected_type[:2000]}}]}
+            if (not notion_dom or notion_dom == "Ingénierie Logicielle / Backend & Cloud") and expected_domain:
+                props_to_enrich["Domaine"] = {"rich_text": [{"text": {"content": expected_domain[:2000]}}]}
+
+            if props_to_enrich:
+                enriched = notion_service.update_page_properties(page_id, props_to_enrich)
+                if enriched:
+                    report["details"].append({
+                        "action": "ENRICHED_NOTION_TYPE_DOMAIN",
+                        "page_id": page_id,
+                        "company": company,
+                        "type": expected_type,
+                        "domain": expected_domain
+                    })
 
         logger.info(
             f"Réconciliation terminée : {report['matched_count']} fiches appariées, "

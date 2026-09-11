@@ -233,6 +233,8 @@ def handle_cli():
                 print(f"  [Association ID]    {comp} — {title} lié à Notion {det.get('notion_page_id')}")
             elif action == "BACKFILLED_APPLIED_AT":
                 print(f"  [Date candidature]  {comp} : date alignée à {det.get('applied_at')}")
+            elif action == "ENRICHED_NOTION_TYPE_DOMAIN":
+                print(f"  [Type & Domaine]    {comp} : Type='{det.get('type')}' | Domaine='{det.get('domain')}'")
 
         print("=" * 65 + "\n")
         sys.exit(0)

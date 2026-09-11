@@ -18,6 +18,26 @@ def sanitize_name(text: Optional[str], max_len: int = 40) -> str:
     cleaned = re.sub(r'[-\s]+', '_', cleaned)
     return cleaned[:max_len]
 
+DOC_TYPE_DIRS = {"CV": "CV", "LM": "Lettre"}
+
+
+def build_document_filename(doc_type: str, company: Optional[str], job_title: Optional[str]) -> str:
+    """Nom de fichier canonique d'un document (CV ou LM), identique pour le local, Supabase et Notion."""
+    clean_company = sanitize_name(company, 30) or "Entreprise"
+    clean_title = sanitize_name(job_title, 40)
+    if clean_title:
+        return f"Emmanuel_TRO_{doc_type}_{clean_company}_{clean_title}.pdf"
+    return f"Emmanuel_TRO_{doc_type}_{clean_company}.pdf"
+
+
+def local_document_path(doc_type: str, company: Optional[str], job_title: Optional[str]) -> Path:
+    """Chemin du miroir local d'un document : <LOCAL_STORAGE_DIR>/<Entreprise>/<CV|Lettre>/<fichier>."""
+    from app.config import Config
+    base_dir = Path(getattr(Config, "LOCAL_STORAGE_DIR", "/Users/trema/Documents/RECHERCHE EMPLOIE/CANDIDATURES"))
+    clean_company = sanitize_name(company, 30) or "Entreprise"
+    return base_dir / clean_company / DOC_TYPE_DIRS[doc_type] / build_document_filename(doc_type, company, job_title)
+
+
 def build_letter_payload(
     content: Optional[str],
     job: Optional[Dict[str, Any]] = None,
@@ -45,16 +65,12 @@ class DocumentRenderer:
     """Orchestre le rendu et le stockage des documents d'une candidature."""
 
     @classmethod
-    def _save_local_backup(cls, pdf_bytes: bytes, clean_company: str, doc_type: str, filename: str) -> None:
+    def _save_local_backup(cls, pdf_bytes: bytes, target_file: Path) -> None:
         """Tente de sauvegarder le document dans le dossier local du candidat."""
         try:
-            from app.config import Config
-            base_dir = Path(getattr(Config, "LOCAL_STORAGE_DIR", "/Users/trema/Documents/RECHERCHE EMPLOIE/CANDIDATURES"))
-            target_dir = base_dir / clean_company / doc_type
-            target_dir.mkdir(parents=True, exist_ok=True)
-            target_file = target_dir / filename
+            target_file.parent.mkdir(parents=True, exist_ok=True)
             target_file.write_bytes(pdf_bytes)
-            logger.info(f"Fichier {doc_type} sauvegardé localement : {target_file}")
+            logger.info(f"Fichier sauvegardé localement : {target_file}")
         except Exception as e:
             logger.debug(f"Sauvegarde locale ignorée ou restreinte ({e})")
 
@@ -68,12 +84,10 @@ class DocumentRenderer:
         job_title: Optional[str] = None
     ) -> str:
         pdf_bytes = pdf_generator.generate_cv_pdf(candidate_profile, tailored_cv)
-        clean_company = sanitize_name(company, 30) or "Entreprise"
-        clean_title = sanitize_name(job_title, 40)
-        filename = f"Emmanuel_TRO_CV_{clean_company}_{clean_title}.pdf" if clean_title else f"Emmanuel_TRO_CV_{clean_company}.pdf"
+        filename = build_document_filename("CV", company, job_title)
 
         # 1. Sauvegarde locale (si autorisée par l'environnement)
-        cls._save_local_backup(pdf_bytes, clean_company, "CV", filename)
+        cls._save_local_backup(pdf_bytes, local_document_path("CV", company, job_title))
 
         # 2. Upload Supabase Storage
         storage_path = f"applications/{application_id}/{filename}"
@@ -83,8 +97,6 @@ class DocumentRenderer:
             file_bytes=pdf_bytes,
             content_type="application/pdf"
         )
-        if not file_url and supabase_service.config and supabase_service.config.SUPABASE_URL:
-            file_url = f"{supabase_service.config.SUPABASE_URL}/storage/v1/object/public/applications/{storage_path}"
         return file_url or storage_path
 
     @classmethod
@@ -107,12 +119,10 @@ class DocumentRenderer:
             mobility=mobility,
         )
         pdf_bytes = pdf_generator.generate_letter_pdf(candidate_profile, payload)
-        clean_company = sanitize_name(company, 30) or "Entreprise"
-        clean_title = sanitize_name(job_title, 40)
-        filename = f"Emmanuel_TRO_LM_{clean_company}_{clean_title}.pdf" if clean_title else f"Emmanuel_TRO_LM_{clean_company}.pdf"
+        filename = build_document_filename("LM", company, job_title)
 
         # 1. Sauvegarde locale
-        cls._save_local_backup(pdf_bytes, clean_company, "Lettre", filename)
+        cls._save_local_backup(pdf_bytes, local_document_path("LM", company, job_title))
 
         # 2. Upload Supabase Storage
         storage_path = f"applications/{application_id}/{filename}"
@@ -122,8 +132,6 @@ class DocumentRenderer:
             file_bytes=pdf_bytes,
             content_type="application/pdf"
         )
-        if not file_url and supabase_service.config and supabase_service.config.SUPABASE_URL:
-            file_url = f"{supabase_service.config.SUPABASE_URL}/storage/v1/object/public/applications/{storage_path}"
         return file_url or storage_path
 
 document_renderer = DocumentRenderer()

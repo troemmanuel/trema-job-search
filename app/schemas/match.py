@@ -18,3 +18,5 @@ class MatchResult(BaseModel):
     strengths: List[str] = Field(default_factory=list)
     concerns: List[str] = Field(default_factory=list)
     recommendation: str  # APPLY, REVIEW, IGNORE
+    company_type: Optional[str] = Field(default=None, description="Type de l'entreprise (ex: 'Grand groupe (Conseil & ESN)', 'Scale-up / Éditeur SaaS', 'ESN', 'Startup', 'PME')")
+    company_domain: Optional[str] = Field(default=None, description="Domaine d'activité et secteur réel de l'entreprise (ex: 'Fintech', 'Cybersécurité', 'Santé / MedTech', 'Conseil IT')")

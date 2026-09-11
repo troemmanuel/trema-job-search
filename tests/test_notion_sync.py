@@ -287,3 +287,153 @@ def test_api_mark_as_applied_propagates_to_notion(client, monkeypatch):
     assert notion_updates[0][0] == "page-notion-xyz"
     assert notion_updates[0][1] == "Candidature envoyée"
     assert notion_updates[0][2] is not None
+
+
+def test_classify_company_known_companies():
+    from app.services.ingestion.company_classifier import classify_company
+
+    c_type, c_domain = classify_company("Infomil")
+    assert "Grand groupe" in c_type or "Filiale IT" in c_type
+    assert "Grande distribution" in c_domain
+
+    c_type, c_domain = classify_company("Doctolib")
+    assert "MedTech" in c_type or "Scale-up" in c_type
+    assert "Santé" in c_domain
+
+    c_type, c_domain = classify_company("Thales")
+    assert "Grand groupe" in c_type
+    assert "Défense" in c_domain
+
+    c_type, c_domain = classify_company("Groupe SII")
+    assert "ESN" in c_type
+    assert "Conseil" in c_domain
+
+
+def test_classify_company_wttj_and_heuristics():
+    from app.services.ingestion.company_classifier import classify_company
+
+    # Test via raw WTTJ data
+    raw_wttj = {
+        "organization": {
+            "industry": "Fintech & Néobanques",
+            "sectors": [{"name": "Fintech"}, {"name": "Banque"}],
+            "nb_employees": 300,
+            "description": "Nous révolutionnons les services bancaires."
+        }
+    }
+    c_type, c_domain = classify_company("Unknown Fintech Co", raw_data=raw_wttj)
+    assert c_type == "ETI"
+    assert "Fintech" in c_domain or "Banque" in c_domain
+
+    # Test via keyword heuristics in description
+    c_type, c_domain = classify_company(
+        company="SecOps Startup",
+        title="Ingénieur Sécurité",
+        description="Société de conseil spécialisée dans la cybersécurité, IAM et détection des vulnérabilités."
+    )
+    assert "ESN" in c_type or "Conseil" in c_type
+    assert "Cybersécurité" in c_domain
+
+
+def test_reconcile_enriches_missing_type_and_domain(monkeypatch):
+    from app.services.notion.sync import NotionSyncService
+    from app.services.storage.supabase_service import supabase_service
+    from app.services.notion.client import notion_service
+
+    sync_service = NotionSyncService()
+
+    mock_notion_pages = [
+        {
+            "id": "notion-enrich-1",
+            "last_edited_time": "2026-09-11T14:00:00.000Z",
+            "company": "Infomil",
+            "job_title": "Développeur Python",
+            "status": "Candidature prête - en attente de validation",
+            "company_type": None,  # Absent dans Notion
+            "domain": "Ingénierie Logicielle / Backend & Cloud",  # Placeholder à enrichir
+            "applied_date": None,
+            "refusal_date": None,
+            "refusal_reason": None,
+            "job_url": "https://infomil.jobs/1",
+            "n_suivi": 170
+        }
+    ]
+    monkeypatch.setattr(sync_service, "fetch_all_notion_pages", lambda: mock_notion_pages)
+
+    mock_supabase_apps = [
+        {
+            "id": "app-enrich-1",
+            "notion_page_id": "notion-enrich-1",
+            "status": "PREPARED",
+            "updated_at": "2026-09-11T14:00:00+00:00",
+            "created_at": "2026-09-11T12:00:00+00:00",
+            "applied_at": None,
+            "jobs": {
+                "company": "Infomil",
+                "title": "Développeur Python",
+                "description": "Filiale informatique de E.Leclerc",
+                "match_analysis": {},
+                "normalized_data": {}
+            }
+        }
+    ]
+    monkeypatch.setattr(supabase_service, "get_all_applications_for_sync", lambda: mock_supabase_apps)
+
+    enriched_props = []
+    monkeypatch.setattr(
+        notion_service,
+        "update_page_properties",
+        lambda page_id, props: enriched_props.append((page_id, props)) or True
+    )
+
+    report = sync_service.reconcile()
+
+    assert report["success"] is True
+    assert report["matched_count"] == 1
+    assert len(enriched_props) == 1
+    page_id, props = enriched_props[0]
+    assert page_id == "notion-enrich-1"
+    assert "Type" in props
+    assert "Domaine" in props
+    assert "Infomil" in props["Type"]["rich_text"][0]["text"]["content"] or "Grand groupe" in props["Type"]["rich_text"][0]["text"]["content"]
+    assert "Grande distribution" in props["Domaine"]["rich_text"][0]["text"]["content"]
+
+
+def test_notion_create_application_page_payload(monkeypatch):
+    from app.services.notion.client import NotionService
+
+    service = NotionService()
+    mock_client = MagicMock()
+    service._client = mock_client
+    service.config.NOTION_DATABASE_ID = "test-db-id"
+    service.config.NOTION_TOKEN = "fake-token"
+
+    # Mock get_next_suivi_number
+    monkeypatch.setattr(service, "get_next_suivi_number", lambda: 171)
+
+    mock_client.pages.create.return_value = {"id": "new-notion-page-created"}
+
+    page_id = service.sync_application(
+        application_id="app-123",
+        company="Euro Protection Surveillance",
+        job_title="Lead Developer",
+        job_url="https://eps.fr/jobs/1",
+        score=85,
+        status="PREPARED",
+        location="Strasbourg",
+        contract_type="CDI",
+        domain="Télésurveillance & Sécurité des biens / Banque",
+        company_type="Grand groupe (Bancassurance / Sécurité)",
+        cv_url="https://example.com/cv.pdf"
+    )
+
+    assert page_id == "new-notion-page-created"
+    assert mock_client.pages.create.called
+    call_args = mock_client.pages.create.call_args[1]
+    properties = call_args["properties"]
+
+    assert properties["Entreprise"]["title"][0]["text"]["content"] == "Euro Protection Surveillance"
+    assert properties["Type"]["rich_text"][0]["text"]["content"] == "Grand groupe (Bancassurance / Sécurité)"
+    assert properties["Domaine"]["rich_text"][0]["text"]["content"] == "Télésurveillance & Sécurité des biens / Banque"
+    assert properties["N suivi"]["number"] == 171
+

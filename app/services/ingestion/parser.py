@@ -43,6 +43,14 @@ class JobParser:
         seniority = raw.get("seniority") or "Mid-level"
         extracted_skills = cls.parse_skills(description)
 
+        from app.services.ingestion.company_classifier import classify_company
+        comp_type, comp_domain = classify_company(
+            company=company,
+            title=title,
+            description=description,
+            raw_data=raw.get("raw_data")
+        )
+
         return JobNormalizedData(
             title=title,
             company=company,
@@ -52,7 +60,9 @@ class JobParser:
             seniority=seniority,
             skills=extracted_skills,
             requirements=raw.get("requirements", []),
-            nice_to_have=raw.get("nice_to_have", [])
+            nice_to_have=raw.get("nice_to_have", []),
+            company_type=comp_type,
+            domain=comp_domain
         )
 
 job_parser = JobParser()

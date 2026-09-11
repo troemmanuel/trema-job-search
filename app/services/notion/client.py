@@ -142,10 +142,8 @@ class NotionService:
             properties["Domaine"] = {"rich_text": [{"text": {"content": domain[:2000]}}]}
 
         if cv_url:
-            from app.services.documents.renderer import sanitize_name
-            clean_company = sanitize_name(company, 30) or "Entreprise"
-            clean_title = sanitize_name(job_title, 35)
-            cv_filename = f"Emmanuel_TRO_CV_{clean_company}_{clean_title}.pdf" if clean_title else f"Emmanuel_TRO_CV_{clean_company}.pdf"
+            from app.services.documents.renderer import build_document_filename
+            cv_filename = build_document_filename("CV", company, job_title)
             is_valid_url = bool(cv_url and (cv_url.startswith("http://") or cv_url.startswith("https://")))
             rich_item = {"type": "text", "text": {"content": cv_filename}}
             if is_valid_url:
@@ -164,7 +162,9 @@ class NotionService:
             answers=answers,
             cv_url=cv_url,
             letter_url=letter_url,
-            notes=notes
+            notes=notes,
+            company=company,
+            job_title=job_title,
         )
 
         try:
@@ -225,7 +225,9 @@ class NotionService:
         answers: Optional[Dict[str, Any]],
         cv_url: Optional[str],
         letter_url: Optional[str] = None,
-        notes: Optional[str] = None
+        notes: Optional[str] = None,
+        company: Optional[str] = None,
+        job_title: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Construit les blocs riches de la page Notion (synthèse IA, lettre, réponses)."""
         blocks: List[Dict[str, Any]] = []
@@ -336,40 +338,46 @@ class NotionService:
                         }
                     })
 
-        # Liens de téléchargement CV & Lettre
-        valid_cv_url = cv_url if (cv_url and (cv_url.startswith("http://") or cv_url.startswith("https://"))) else None
-        valid_letter_url = letter_url if (letter_url and (letter_url.startswith("http://") or letter_url.startswith("https://"))) else None
+        # Liens de téléchargement CV & Lettre (Supabase) + chemin du miroir local
+        from app.services.documents.renderer import local_document_path
 
-        if valid_cv_url or valid_letter_url:
+        def _is_http(url: Optional[str]) -> bool:
+            return bool(url and (url.startswith("http://") or url.startswith("https://")))
+
+        documents = [
+            ("CV", cv_url, "📥 Télécharger le CV personnalisé (PDF)", "📄", "blue_background"),
+            ("LM", letter_url, "📥 Télécharger la Lettre de motivation (PDF)", "✉️", "purple_background"),
+        ]
+        generated = [d for d in documents if d[1]]
+
+        if generated:
             blocks.append({
                 "object": "block",
                 "type": "heading_2",
                 "heading_2": {"rich_text": [{"type": "text", "text": {"content": "Documents PDF générés"}}]}
             })
-            if valid_cv_url:
-                blocks.append({
-                    "object": "block",
-                    "type": "callout",
-                    "callout": {
-                        "rich_text": [{
-                            "type": "text",
-                            "text": {"content": "📥 Télécharger le CV personnalisé (PDF)", "link": {"url": valid_cv_url}}
-                        }],
-                        "icon": {"type": "emoji", "emoji": "📄"},
-                        "color": "blue_background"
-                    }
+            for doc_type, url, label, emoji, color in generated:
+                rich_text = []
+                if _is_http(url):
+                    rich_text.append({
+                        "type": "text",
+                        "text": {"content": label, "link": {"url": url}}
+                    })
+                    rich_text.append({"type": "text", "text": {"content": "\n"}})
+                local_path = str(local_document_path(doc_type, company, job_title))
+                rich_text.append({"type": "text", "text": {"content": "📁 Local : "}})
+                rich_text.append({
+                    "type": "text",
+                    "text": {"content": local_path[:2000]},
+                    "annotations": {"code": True}
                 })
-            if valid_letter_url:
                 blocks.append({
                     "object": "block",
                     "type": "callout",
                     "callout": {
-                        "rich_text": [{
-                            "type": "text",
-                            "text": {"content": "📥 Télécharger la Lettre de motivation (PDF)", "link": {"url": valid_letter_url}}
-                        }],
-                        "icon": {"type": "emoji", "emoji": "✉️"},
-                        "color": "purple_background"
+                        "rich_text": rich_text,
+                        "icon": {"type": "emoji", "emoji": emoji},
+                        "color": color
                     }
                 })
 
