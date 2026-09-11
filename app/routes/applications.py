@@ -162,10 +162,15 @@ def prepare_application(app_id: str):
         }
         supabase_service.client.table("applications").update(update_payload).eq("id", app_id).execute()
 
+        # 5. Synchronisation Notion (création ou mise à jour de la page avec les documents)
+        from app.services.notion.sync import notion_sync_service
+        notion_page_id = notion_sync_service.push_application({**application, **update_payload}, cv_url, letter_url)
+
         return jsonify({
             "message": "Candidature préparée avec succès",
             "cv_url": cv_url,
-            "letter_url": letter_url
+            "letter_url": letter_url,
+            "notion_page_id": notion_page_id
         }), 200
 
     except Exception as e:
@@ -230,7 +235,7 @@ def reconcile_notion():
 
 @applications_bp.route("/api/notion/sync/<app_id>", methods=["POST"])
 def sync_notion(app_id: str):
-    """Synchronise la candidature dans Notion."""
+    """Synchronise la candidature dans Notion (crée la page si absente ou à la corbeille, rafraîchit les documents)."""
     if not supabase_service.client:
         return jsonify({"error": "Supabase non configuré"}), 503
 
@@ -238,58 +243,10 @@ def sync_notion(app_id: str):
     if not res.data:
         return jsonify({"error": "Candidature introuvable"}), 404
 
-    app_data = res.data[0]
-    job = app_data.get("jobs", {}) or {}
-
-    company = job.get("company", "")
-    job_title = job.get("title", "")
-
-    # URLs signées vers les PDF déjà uploadés dans le bucket privé (None si absents)
-    from app.services.documents.renderer import build_document_filename
-    cv_url = letter_url = None
-    if app_data.get("tailored_cv"):
-        cv_url = supabase_service.get_document_url(
-            "applications", f"applications/{app_id}/{build_document_filename('CV', company, job_title)}"
-        )
-    if app_data.get("cover_letter"):
-        letter_url = supabase_service.get_document_url(
-            "applications", f"applications/{app_id}/{build_document_filename('LM', company, job_title)}"
-        )
-    match_analysis = job.get("match_analysis") or {}
-    normalized_data = job.get("normalized_data") or {}
-
-    from app.services.ingestion.company_classifier import classify_company
-    cl_type, cl_domain = classify_company(
-        company=company,
-        title=job_title,
-        description=job.get("description", ""),
-        raw_data=job.get("raw_data")
-    )
-    company_type = match_analysis.get("company_type") or normalized_data.get("company_type") or cl_type
-    domain = match_analysis.get("company_domain") or normalized_data.get("domain") or cl_domain
-
-    page_id = notion_service.sync_application(
-        application_id=app_id,
-        company=company,
-        job_title=job_title,
-        job_url=job.get("url", ""),
-        score=app_data.get("match_score"),
-        status=app_data.get("status", "QUALIFIED"),
-        location=job.get("location"),
-        contract_type=job.get("contract_type"),
-        domain=domain,
-        company_type=company_type,
-        cv_url=cv_url,
-        letter_url=letter_url,
-        cover_letter=app_data.get("cover_letter"),
-        answers=app_data.get("application_answers"),
-        match_analysis=match_analysis,
-        notes=app_data.get("notes"),
-        notion_page_id=app_data.get("notion_page_id")
-    )
-
-    if page_id:
-        supabase_service.client.table("applications").update({"notion_page_id": page_id}).eq("id", app_id).execute()
+    from app.services.notion.sync import notion_sync_service
+    page_id = notion_sync_service.push_application(res.data[0])
+    if not page_id:
+        return jsonify({"error": "La synchronisation Notion a échoué (voir les logs serveur)"}), 502
 
     return jsonify({"message": "Synchronisation Notion effectuée", "notion_page_id": page_id}), 200
 
@@ -308,10 +265,7 @@ def download_application_document(app_id: str, doc_type: str):
         current_app.logger.warning(f"Erreur Supabase lors du téléchargement: {e}")
         return jsonify({"error": "Service Supabase indisponible"}), 503
     job = app_data.get("jobs", {}) or {}
-    raw_company = job.get("company") or "Entreprise"
-    raw_title = job.get("title") or ""
-    clean_company = "".join(c for c in raw_company if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_")
-    clean_title = "".join(c for c in raw_title if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_")[:35]
+    from app.services.documents.renderer import build_document_filename
 
     profile_data = supabase_service.get_active_candidate_profile()
     raw_profile = profile_data["profile"] if profile_data else {}
@@ -321,7 +275,7 @@ def download_application_document(app_id: str, doc_type: str):
         if not cv_data:
             return jsonify({"error": "CV non encore généré"}), 404
         pdf_bytes = pdf_generator.generate_cv_pdf(raw_profile, cv_data)
-        download_name = f"Emmanuel_TRO_CV_{clean_company}_{clean_title}.pdf" if clean_title else f"Emmanuel_TRO_CV_{clean_company}.pdf"
+        download_name = build_document_filename("CV", job.get("company"), job.get("title"))
         return send_file(
             io.BytesIO(pdf_bytes),
             mimetype="application/pdf",
@@ -340,7 +294,7 @@ def download_application_document(app_id: str, doc_type: str):
                 mobility=(app_data.get("tailored_cv") or {}).get("mobility")
             )
         )
-        download_name = f"Emmanuel_TRO_LM_{clean_company}_{clean_title}.pdf" if clean_title else f"Emmanuel_TRO_LM_{clean_company}.pdf"
+        download_name = build_document_filename("LM", job.get("company"), job.get("title"))
         return send_file(
             io.BytesIO(pdf_bytes),
             mimetype="application/pdf",
@@ -388,4 +342,20 @@ def application_detail_view(app_id: str):
         return render_template("applications/detail.html", application=None)
     res = supabase_service.client.table("applications").select("*, jobs(*)").eq("id", app_id).execute()
     app_data = res.data[0] if res.data else None
-    return render_template("applications/detail.html", application=app_data)
+
+    documents = {}
+    if app_data:
+        from app.services.documents.renderer import existing_document_urls, local_document_path
+        job = app_data.get("jobs") or {}
+        company, title = job.get("company"), job.get("title")
+        cv_url, letter_url = existing_document_urls(
+            app_id, company, title,
+            has_cv=bool(app_data.get("tailored_cv")), has_letter=bool(app_data.get("cover_letter")),
+        )
+        cv_local = local_document_path("CV", company, title)
+        lm_local = local_document_path("LM", company, title)
+        documents = {
+            "cv": {"url": cv_url, "local": str(cv_local), "local_exists": cv_local.exists()},
+            "letter": {"url": letter_url, "local": str(lm_local), "local_exists": lm_local.exists()},
+        }
+    return render_template("applications/detail.html", application=app_data, documents=documents)

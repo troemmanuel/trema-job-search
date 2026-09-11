@@ -61,6 +61,24 @@ def build_letter_payload(
     }
 
 
+def existing_document_urls(application_id: str, company: Optional[str], job_title: Optional[str],
+                           has_cv: bool = True, has_letter: bool = True) -> tuple[Optional[str], Optional[str]]:
+    """URLs signées (cv_url, letter_url) des PDF déjà présents dans le bucket privé ; None si absents.
+
+    Tente le nom canonique, puis les anciens noms fixes (cv.pdf / cover-letter.pdf) des premières candidatures.
+    """
+    def _first_existing(candidates):
+        for name in candidates:
+            url = supabase_service.get_document_url("applications", f"applications/{application_id}/{name}")
+            if url:
+                return url
+        return None
+
+    cv_url = _first_existing([build_document_filename("CV", company, job_title), "cv.pdf"]) if has_cv else None
+    letter_url = _first_existing([build_document_filename("LM", company, job_title), "cover-letter.pdf"]) if has_letter else None
+    return cv_url, letter_url
+
+
 class DocumentRenderer:
     """Orchestre le rendu et le stockage des documents d'une candidature."""
 

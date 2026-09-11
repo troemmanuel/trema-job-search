@@ -1,0 +1,506 @@
+{% extends "base.html" %}
+
+{% block title %}Analytique & Taux de Conversion — Trema Job Search{% endblock %}
+
+{% block content %}
+<div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+    <div>
+        <h1 style="display: flex; align-items: center; gap: 0.6rem;">
+            <span>📊</span> Dashboard Analytique & Taux de Conversion
+        </h1>
+        <p class="subtitle">Mesurez la performance de votre recherche d'emploi, les taux de conversion et les stacks les plus porteuses.</p>
+    </div>
+
+    <!-- Filtres de Période -->
+    <div style="display: flex; gap: 0.5rem; background: var(--card-bg); padding: 0.35rem 0.5rem; border-radius: 8px; border: 1px solid var(--card-border);">
+        <a href="/analytics?period=all" class="btn btn-sm {% if active_period == 'all' %}btn-primary{% else %}btn-secondary{% endif %}" style="font-weight: 600; font-size: 0.85rem;">
+            Tout l'historique
+        </a>
+        <a href="/analytics?period=30d" class="btn btn-sm {% if active_period == '30d' %}btn-primary{% else %}btn-secondary{% endif %}" style="font-weight: 600; font-size: 0.85rem;">
+            30 derniers jours
+        </a>
+        <a href="/analytics?period=7d" class="btn btn-sm {% if active_period == '7d' %}btn-primary{% else %}btn-secondary{% endif %}" style="font-weight: 600; font-size: 0.85rem;">
+            7 derniers jours
+        </a>
+    </div>
+</div>
+
+<!-- 1. BANDEAU DE KPIS MAJEURS -->
+<div class="grid-3" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+    <div class="card" style="padding: 1.25rem; border-left: 4px solid #3b82f6;">
+        <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Offres Détectées</span>
+        <div style="font-size: 2.2rem; font-weight: 800; color: #fff; margin-top: 0.25rem;">
+            {{ analytics.kpis.total_jobs }}
+        </div>
+        <div style="font-size: 0.8rem; color: #60a5fa; margin-top: 0.25rem;">
+            🔍 Ingestion continue WTTJ / URLs
+        </div>
+    </div>
+
+    <div class="card" style="padding: 1.25rem; border-left: 4px solid #10b981;">
+        <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Taux de Qualification</span>
+        <div style="font-size: 2.2rem; font-weight: 800; color: #34d399; margin-top: 0.25rem;">
+            {{ analytics.funnel.rates.qualification_rate }}%
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+            {{ analytics.funnel.counts.qualified }} offres qualifiées (Score ≥ 75)
+        </div>
+    </div>
+
+    <div class="card" style="padding: 1.25rem; border-left: 4px solid #8b5cf6;">
+        <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Candidatures Envoyées</span>
+        <div style="font-size: 2.2rem; font-weight: 800; color: #a78bfa; margin-top: 0.25rem;">
+            {{ analytics.funnel.counts.applied }}
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+            Sur {{ analytics.funnel.counts.prepared }} dossiers préparés ({{ analytics.funnel.rates.application_rate }}%)
+        </div>
+    </div>
+
+    <div class="card" style="padding: 1.25rem; border-left: 4px solid #f59e0b;">
+        <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Taux d'Entretien</span>
+        <div style="font-size: 2.2rem; font-weight: 800; color: #fbbf24; margin-top: 0.25rem;">
+            {{ analytics.funnel.rates.interview_rate }}%
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+            🎯 {{ analytics.funnel.counts.interview }} entretien(s) décroché(s)
+        </div>
+    </div>
+
+    <div class="card" style="padding: 1.25rem; border-left: 4px solid #ec4899;">
+        <span style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Score Moyen Matching</span>
+        <div style="font-size: 2.2rem; font-weight: 800; color: #f472b6; margin-top: 0.25rem;">
+            {{ analytics.kpis.avg_match_score }}<small style="font-size: 1rem; color: var(--text-muted);">/100</small>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+            Évaluation IA multi-critères
+        </div>
+    </div>
+</div>
+
+<!-- 2. ENTONNOIR DE CONVERSION VISUEL (FUNNEL) -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div>
+            <h2 style="font-size: 1.25rem; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                🎯 Entonnoir de Conversion (Recruitment Funnel)
+            </h2>
+            <p style="margin: 0.25rem 0 0; color: var(--text-muted); font-size: 0.88rem;">
+                Suivi du passage étape par étape, de la détection de l'offre jusqu'à l'offre finale.
+            </p>
+        </div>
+        <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 6px; padding: 0.35rem 0.85rem; font-size: 0.85rem; color: #60a5fa; font-weight: 600;">
+            Conversion Globale (Détectée ➔ Entretien) : <strong>{{ analytics.funnel.rates.global_conversion_rate }}%</strong>
+        </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 1rem;">
+        <!-- Étape 1 : Détectées -->
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-weight: 700; font-size: 0.95rem; color: #fff; display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #3b82f6;"></span>
+                    1. Offres Détectées & Scrapées
+                </span>
+                <span style="font-weight: 800; font-size: 1.1rem; color: #60a5fa;">{{ analytics.funnel.counts.detected }}</span>
+            </div>
+            <div style="width: 100%; background: #334155; height: 10px; border-radius: 999px; overflow: hidden;">
+                <div style="background: #3b82f6; width: 100%; height: 100%;"></div>
+            </div>
+        </div>
+
+        <!-- Taux 1->2 -->
+        <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; color: var(--text-muted); font-size: 0.82rem; margin: -0.5rem 0;">
+            <span>⬇️</span>
+            <span>Taux de qualification IA : <strong style="color: #34d399;">{{ analytics.funnel.rates.qualification_rate }}%</strong></span>
+        </div>
+
+        <!-- Étape 2 : Qualifiées -->
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-weight: 700; font-size: 0.95rem; color: #fff; display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #10b981;"></span>
+                    2. Offres Qualifiées (Score ≥ 75 / Recommandées)
+                </span>
+                <span style="font-weight: 800; font-size: 1.1rem; color: #34d399;">{{ analytics.funnel.counts.qualified }}</span>
+            </div>
+            <div style="width: 100%; background: #334155; height: 10px; border-radius: 999px; overflow: hidden;">
+                <div style="background: #10b981; width: {{ analytics.funnel.rates.qualification_rate }}%; height: 100%;"></div>
+            </div>
+        </div>
+
+        <!-- Taux 2->3 -->
+        <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; color: var(--text-muted); font-size: 0.82rem; margin: -0.5rem 0;">
+            <span>⬇️</span>
+            <span>Taux de préparation des dossiers : <strong style="color: #a78bfa;">{{ analytics.funnel.rates.preparation_rate }}%</strong></span>
+        </div>
+
+        <!-- Étape 3 : Dossiers préparés -->
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-weight: 700; font-size: 0.95rem; color: #fff; display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #8b5cf6;"></span>
+                    3. Dossiers Préparés (CV & Lettre générés)
+                </span>
+                <span style="font-weight: 800; font-size: 1.1rem; color: #a78bfa;">{{ analytics.funnel.counts.prepared }}</span>
+            </div>
+            <div style="width: 100%; background: #334155; height: 10px; border-radius: 999px; overflow: hidden;">
+                {% set prep_w = (analytics.funnel.counts.prepared / analytics.funnel.counts.detected * 100) if analytics.funnel.counts.detected > 0 else 0 %}
+                <div style="background: #8b5cf6; width: {{ prep_w|round(1) }}%; height: 100%;"></div>
+            </div>
+        </div>
+
+        <!-- Taux 3->4 -->
+        <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; color: var(--text-muted); font-size: 0.82rem; margin: -0.5rem 0;">
+            <span>⬇️</span>
+            <span>Taux de candidature soumise : <strong style="color: #60a5fa;">{{ analytics.funnel.rates.application_rate }}%</strong></span>
+        </div>
+
+        <!-- Étape 4 : Candidatures envoyées -->
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-weight: 700; font-size: 0.95rem; color: #fff; display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #2563eb;"></span>
+                    4. Candidatures Envoyées & En attente
+                </span>
+                <span style="font-weight: 800; font-size: 1.1rem; color: #60a5fa;">{{ analytics.funnel.counts.applied }}</span>
+            </div>
+            <div style="width: 100%; background: #334155; height: 10px; border-radius: 999px; overflow: hidden;">
+                {% set app_w = (analytics.funnel.counts.applied / analytics.funnel.counts.detected * 100) if analytics.funnel.counts.detected > 0 else 0 %}
+                <div style="background: #2563eb; width: {{ app_w|round(1) }}%; height: 100%;"></div>
+            </div>
+        </div>
+
+        <!-- Taux 4->5 -->
+        <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; color: var(--text-muted); font-size: 0.82rem; margin: -0.5rem 0;">
+            <span>⬇️</span>
+            <span>Taux de conversion en entretien : <strong style="color: #fbbf24;">{{ analytics.funnel.rates.interview_rate }}%</strong></span>
+        </div>
+
+        <!-- Étape 5 : Entretiens décrochés -->
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-weight: 700; font-size: 0.95rem; color: #fff; display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #f59e0b;"></span>
+                    5. Entretiens Confirmés (RH / Techniques)
+                </span>
+                <span style="font-weight: 800; font-size: 1.1rem; color: #fbbf24;">{{ analytics.funnel.counts.interview }}</span>
+            </div>
+            <div style="width: 100%; background: #334155; height: 10px; border-radius: 999px; overflow: hidden;">
+                {% set int_w = (analytics.funnel.counts.interview / analytics.funnel.counts.detected * 100) if analytics.funnel.counts.detected > 0 else 0 %}
+                <div style="background: #f59e0b; width: {{ int_w|round(1) }}%; height: 100%;"></div>
+            </div>
+        </div>
+
+        <!-- Étape 6 : Offres reçues & Refus -->
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 240px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 0.85rem 1rem;">
+                <div style="font-size: 0.82rem; color: #34d399; font-weight: 600;">🎉 Offres Reçues / Acceptées</div>
+                <div style="font-size: 1.6rem; font-weight: 800; color: #fff;">{{ analytics.funnel.counts.offer }}</div>
+            </div>
+            <div style="flex: 1; min-width: 240px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 0.85rem 1rem;">
+                <div style="font-size: 0.82rem; color: #f87171; font-weight: 600;">❌ Refusées / Sans suite</div>
+                <div style="font-size: 1.6rem; font-weight: 800; color: #fff;">{{ analytics.funnel.counts.rejected }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 3. GRILLE DEUX COLONNES : STACKS TECHNIQUES & GÉOGRAPHIE -->
+<div class="grid-2" style="margin-bottom: 1.5rem;">
+    <!-- Performance par Technologie -->
+    <div class="card" style="padding: 1.5rem;">
+        <h2 style="font-size: 1.15rem; margin-bottom: 0.35rem;">⚡ Performance par Technologie</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+            Volume d'offres et score moyen de matching par composante de stack.
+        </p>
+
+        <div style="position: relative; height: 260px; margin-bottom: 1rem;">
+            <canvas id="techPerformanceChart"></canvas>
+        </div>
+
+        <table class="table" style="font-size: 0.85rem; margin-top: 0.5rem;">
+            <thead>
+                <tr>
+                    <th>Stack</th>
+                    <th style="text-align: center;">Offres</th>
+                    <th style="text-align: center;">Score Moyen</th>
+                    <th style="text-align: center;">Envoyées</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in analytics.tech_performance %}
+                <tr>
+                    <td><strong>{{ item.tech }}</strong></td>
+                    <td style="text-align: center;"><span class="badge">{{ item.job_count }}</span></td>
+                    <td style="text-align: center;">
+                        <span class="badge {% if item.avg_score >= 80 %}badge-score{% else %}badge-neutral{% endif %}">
+                            {{ item.avg_score }}/100
+                        </span>
+                    </td>
+                    <td style="text-align: center;">{{ item.applied_count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Répartition Géographique & Télétravail -->
+    <div class="card" style="padding: 1.5rem;">
+        <h2 style="font-size: 1.15rem; margin-bottom: 0.35rem;">📍 Répartition Géographique & Télétravail</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+            Bilan des bassins d'emploi et modalités de présence.
+        </p>
+
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <!-- Donut Villes -->
+            <div style="flex: 1; min-width: 220px; position: relative; height: 220px;">
+                <canvas id="geographyChart"></canvas>
+            </div>
+            <!-- Donut Remote -->
+            <div style="flex: 1; min-width: 220px; position: relative; height: 220px;">
+                <canvas id="workplaceChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Détail en liste -->
+        <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--card-border);">
+            <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem;">
+                Modalités de travail :
+            </div>
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                {% for w_name, w_count in analytics.workplace.items() %}
+                <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); padding: 0.4rem 0.75rem; border-radius: 6px; font-size: 0.82rem;">
+                    {{ w_name }} : <strong style="color: #fff;">{{ w_count }}</strong>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 4. GRILLE DEUX COLONNES : TYPOLOGIE D'ENTREPRISES & TIMELINE -->
+<div class="grid-2" style="margin-bottom: 2rem;">
+    <!-- Types d'Entreprises -->
+    <div class="card" style="padding: 1.5rem;">
+        <h2 style="font-size: 1.15rem; margin-bottom: 0.35rem;">🏢 Typologie d'Entreprises</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+            Distribution des structures (Grands groupes, ESN, Éditeurs SaaS, Startups).
+        </p>
+        <div style="position: relative; height: 240px;">
+            <canvas id="companyTypeChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Timeline d'activité sur 30 jours -->
+    <div class="card" style="padding: 1.5rem;">
+        <h2 style="font-size: 1.15rem; margin-bottom: 0.35rem;">📈 Activité & Dynamique Temporelle</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+            Volume des opportunités détectées vs candidatures envoyées sur les 15 derniers jours.
+        </p>
+        <div style="position: relative; height: 240px;">
+            <canvas id="timelineChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Inclusion Chart.js pour rendu interactif -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Vérifier si Chart.js est disponible
+    if (typeof Chart === 'undefined') {
+        console.warn("Chart.js indisponible en local/hors-ligne. Les tableaux et jauges restent fonctionnels.");
+        return;
+    }
+
+    // Configuration Dark Theme globale
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.borderColor = '#334155';
+    Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+
+    // 1. Chart Tech Performance
+    const techData = {{ analytics.tech_performance|tojson }};
+    const techLabels = techData.map(d => d.tech);
+    const techCounts = techData.map(d => d.job_count);
+    const techScores = techData.map(d => d.avg_score);
+
+    const ctxTech = document.getElementById('techPerformanceChart');
+    if (ctxTech) {
+        new Chart(ctxTech, {
+            type: 'bar',
+            data: {
+                labels: techLabels,
+                datasets: [
+                    {
+                        label: 'Offres détectées',
+                        data: techCounts,
+                        backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                        borderRadius: 4,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Score Moyen (/100)',
+                        data: techScores,
+                        backgroundColor: 'rgba(236, 72, 153, 0.7)',
+                        borderRadius: 4,
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { ticks: { maxRotation: 25, minRotation: 25, font: { size: 10 } } },
+                    y: { type: 'linear', position: 'left', beginAtZero: true, title: { display: true, text: 'Volume' } },
+                    y1: { type: 'linear', position: 'right', min: 0, max: 100, grid: { drawOnChartArea: false }, title: { display: true, text: 'Score' } }
+                },
+                plugins: {
+                    legend: { position: 'top', labels: { boxWidth: 12 } }
+                }
+            }
+        });
+    }
+
+    // 2. Chart Géographie (Donut)
+    const geoObj = {{ analytics.geography|tojson }};
+    const geoLabels = Object.keys(geoObj).filter(k => geoObj[k] > 0);
+    const geoValues = geoLabels.map(k => geoObj[k]);
+
+    const ctxGeo = document.getElementById('geographyChart');
+    if (ctxGeo) {
+        new Chart(ctxGeo, {
+            type: 'doughnut',
+            data: {
+                labels: geoLabels.length ? geoLabels : ['Aucune offre'],
+                datasets: [{
+                    data: geoValues.length ? geoValues : [1],
+                    backgroundColor: [
+                        '#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ec4899', '#06b6d4', '#64748b'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#1e293b'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } },
+                    title: { display: true, text: 'Villes & Régions', color: '#f8fafc' }
+                }
+            }
+        });
+    }
+
+    // 3. Chart Télétravail (Donut)
+    const wpObj = {{ analytics.workplace|tojson }};
+    const wpLabels = Object.keys(wpObj).filter(k => wpObj[k] > 0);
+    const wpValues = wpLabels.map(k => wpObj[k]);
+
+    const ctxWp = document.getElementById('workplaceChart');
+    if (ctxWp) {
+        new Chart(ctxWp, {
+            type: 'doughnut',
+            data: {
+                labels: wpLabels.length ? wpLabels : ['Non précisé'],
+                datasets: [{
+                    data: wpValues.length ? wpValues : [1],
+                    backgroundColor: ['#10b981', '#3b82f6', '#64748b'],
+                    borderWidth: 2,
+                    borderColor: '#1e293b'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } },
+                    title: { display: true, text: 'Mode de Travail', color: '#f8fafc' }
+                }
+            }
+        });
+    }
+
+    // 4. Chart Typologie Entreprises (Bar)
+    const compObj = {{ analytics.company_types|tojson }};
+    const compLabels = Object.keys(compObj);
+    const compValues = compLabels.map(k => compObj[k]);
+
+    const ctxComp = document.getElementById('companyTypeChart');
+    if (ctxComp) {
+        new Chart(ctxComp, {
+            type: 'bar',
+            data: {
+                labels: compLabels,
+                datasets: [{
+                    label: 'Entreprises',
+                    data: compValues,
+                    backgroundColor: [
+                        'rgba(59, 130, 246, 0.7)',
+                        'rgba(139, 92, 246, 0.7)',
+                        'rgba(16, 185, 129, 0.7)',
+                        'rgba(245, 158, 11, 0.7)',
+                        'rgba(100, 116, 139, 0.7)'
+                    ],
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { ticks: { font: { size: 10 } } },
+                    y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    // 5. Chart Timeline (Line)
+    const timelineData = {{ analytics.timeline|tojson }};
+    const ctxTime = document.getElementById('timelineChart');
+    if (ctxTime) {
+        new Chart(ctxTime, {
+            type: 'line',
+            data: {
+                labels: timelineData.labels,
+                datasets: [
+                    {
+                        label: 'Offres détectées',
+                        data: timelineData.jobs_series,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 3
+                    },
+                    {
+                        label: 'Candidatures envoyées',
+                        data: timelineData.applications_series,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { ticks: { font: { size: 10 } } },
+                    y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                },
+                plugins: {
+                    legend: { position: 'top', labels: { boxWidth: 12 } }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

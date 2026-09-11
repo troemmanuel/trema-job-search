@@ -167,10 +167,21 @@ class NotionService:
             job_title=job_title,
         )
 
+        # Une page liée mais mise à la corbeille dans Notion ne peut plus être modifiée : on la recrée
+        if notion_page_id and not notion_page_id.startswith("simulated_") and self._is_page_trashed(notion_page_id):
+            logger.warning(f"Page Notion {notion_page_id} à la corbeille : recréation pour la candidature {application_id}")
+            notion_page_id = None
+            next_n = self.get_next_suivi_number()
+            properties["N suivi"] = {"number": next_n}
+
         try:
             if notion_page_id and not notion_page_id.startswith("simulated_"):
                 # Mise à jour des propriétés
                 self.client.pages.update(page_id=notion_page_id, properties=properties)
+                self._refresh_document_blocks(
+                    notion_page_id,
+                    self._build_document_blocks(cv_url, letter_url, company, job_title),
+                )
                 logger.info(f"Page Notion mise à jour : {notion_page_id}")
                 return notion_page_id
             else:
@@ -189,6 +200,15 @@ class NotionService:
         except Exception as e:
             logger.error(f"Erreur lors de la synchronisation Notion: {e}")
             return None
+
+    def _is_page_trashed(self, page_id: str) -> bool:
+        """True si la page Notion est archivée / à la corbeille (ou introuvable)."""
+        try:
+            page = self.client.pages.retrieve(page_id=page_id)
+            return bool(page.get("archived") or page.get("in_trash"))
+        except Exception as e:
+            logger.warning(f"Page Notion {page_id} inaccessible ({e}) : considérée comme supprimée")
+            return True
 
     def update_page_status(self, page_id: str, status_name: str, applied_date: Optional[str] = None) -> bool:
         """Met à jour le statut et optionnellement la date de candidature d'une page Notion existante."""
@@ -216,6 +236,113 @@ class NotionService:
         except Exception as e:
             logger.error(f"Erreur lors de la mise à jour des propriétés Notion {page_id}: {e}")
             return False
+
+    DOCUMENTS_HEADING = "Documents PDF générés"
+
+    def _build_document_blocks(
+        self,
+        cv_url: Optional[str],
+        letter_url: Optional[str],
+        company: Optional[str],
+        job_title: Optional[str],
+    ) -> List[Dict[str, Any]]:
+        """Section « Documents PDF générés » : lien Supabase signé + chemin du miroir local pour chaque PDF."""
+        from app.services.documents.renderer import local_document_path
+        blocks: List[Dict[str, Any]] = []
+
+        def _is_http(url: Optional[str]) -> bool:
+            return bool(url and (url.startswith("http://") or url.startswith("https://")))
+
+        documents = [
+            ("CV", cv_url, "📥 Télécharger le CV personnalisé (PDF)", "📄", "blue_background"),
+            ("LM", letter_url, "📥 Télécharger la Lettre de motivation (PDF)", "✉️", "purple_background"),
+        ]
+        generated = [d for d in documents if d[1]]
+        if not generated:
+            return blocks
+
+        blocks.append({
+            "object": "block",
+            "type": "heading_2",
+            "heading_2": {"rich_text": [{"type": "text", "text": {"content": self.DOCUMENTS_HEADING}}]}
+        })
+        for doc_type, url, label, emoji, color in generated:
+            rich_text = []
+            if _is_http(url):
+                rich_text.append({
+                    "type": "text",
+                    "text": {"content": label, "link": {"url": url}}
+                })
+                rich_text.append({"type": "text", "text": {"content": "\n"}})
+            local_path = str(local_document_path(doc_type, company, job_title))
+            rich_text.append({"type": "text", "text": {"content": "📁 Local : "}})
+            rich_text.append({
+                "type": "text",
+                "text": {"content": local_path[:2000]},
+                "annotations": {"code": True}
+            })
+            blocks.append({
+                "object": "block",
+                "type": "callout",
+                "callout": {
+                    "rich_text": rich_text,
+                    "icon": {"type": "emoji", "emoji": emoji},
+                    "color": color
+                }
+            })
+        return blocks
+
+    def refresh_documents(
+        self,
+        page_id: str,
+        cv_url: Optional[str],
+        letter_url: Optional[str],
+        company: Optional[str],
+        job_title: Optional[str],
+    ) -> bool:
+        """Met à jour uniquement la section « Documents PDF générés » d'une page existante (statut intact)."""
+        if not self.client or not page_id or page_id.startswith("simulated_"):
+            return False
+        blocks = self._build_document_blocks(cv_url, letter_url, company, job_title)
+        if not blocks:
+            return False
+        return self._refresh_document_blocks(page_id, blocks)
+
+    def _refresh_document_blocks(self, page_id: str, document_blocks: List[Dict[str, Any]]) -> bool:
+        """Remplace la section « Documents PDF générés » d'une page existante (supprime l'ancienne, ajoute la nouvelle)."""
+        if not document_blocks:
+            return False
+        try:
+            children: List[Dict[str, Any]] = []
+            cursor = None
+            while True:
+                res = self.client.blocks.children.list(block_id=page_id, start_cursor=cursor, page_size=100)
+                children.extend(res.get("results", []))
+                if not res.get("has_more"):
+                    break
+                cursor = res.get("next_cursor")
+
+            # Section = heading « Documents PDF générés » + blocs suivants jusqu'au prochain titre
+            to_delete: List[str] = []
+            in_section = False
+            for block in children:
+                btype = block.get("type")
+                is_heading = btype in ("heading_1", "heading_2", "heading_3")
+                if is_heading:
+                    text = "".join(rt.get("plain_text", "") for rt in block.get(btype, {}).get("rich_text", []))
+                    in_section = (text.strip() == self.DOCUMENTS_HEADING)
+                if in_section:
+                    to_delete.append(block["id"])
+
+            for block_id in to_delete:
+                self.client.blocks.delete(block_id=block_id)
+            self.client.blocks.children.append(block_id=page_id, children=document_blocks)
+            logger.info(f"Section documents de la page Notion {page_id} rafraîchie ({len(to_delete)} bloc(s) remplacé(s))")
+            return True
+        except Exception as e:
+            logger.error(f"Erreur lors du rafraîchissement des documents Notion {page_id}: {e}")
+            return False
+
 
     def _build_page_blocks(
         self,
@@ -338,48 +465,7 @@ class NotionService:
                         }
                     })
 
-        # Liens de téléchargement CV & Lettre (Supabase) + chemin du miroir local
-        from app.services.documents.renderer import local_document_path
-
-        def _is_http(url: Optional[str]) -> bool:
-            return bool(url and (url.startswith("http://") or url.startswith("https://")))
-
-        documents = [
-            ("CV", cv_url, "📥 Télécharger le CV personnalisé (PDF)", "📄", "blue_background"),
-            ("LM", letter_url, "📥 Télécharger la Lettre de motivation (PDF)", "✉️", "purple_background"),
-        ]
-        generated = [d for d in documents if d[1]]
-
-        if generated:
-            blocks.append({
-                "object": "block",
-                "type": "heading_2",
-                "heading_2": {"rich_text": [{"type": "text", "text": {"content": "Documents PDF générés"}}]}
-            })
-            for doc_type, url, label, emoji, color in generated:
-                rich_text = []
-                if _is_http(url):
-                    rich_text.append({
-                        "type": "text",
-                        "text": {"content": label, "link": {"url": url}}
-                    })
-                    rich_text.append({"type": "text", "text": {"content": "\n"}})
-                local_path = str(local_document_path(doc_type, company, job_title))
-                rich_text.append({"type": "text", "text": {"content": "📁 Local : "}})
-                rich_text.append({
-                    "type": "text",
-                    "text": {"content": local_path[:2000]},
-                    "annotations": {"code": True}
-                })
-                blocks.append({
-                    "object": "block",
-                    "type": "callout",
-                    "callout": {
-                        "rich_text": rich_text,
-                        "icon": {"type": "emoji", "emoji": emoji},
-                        "color": color
-                    }
-                })
+        blocks.extend(self._build_document_blocks(cv_url, letter_url, company, job_title))
 
         return blocks
 

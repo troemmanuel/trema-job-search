@@ -25,6 +25,7 @@
             <p class="doc-desc">Adapté sans hallucination aux compétences ciblées.</p>
             {% if application.tailored_cv %}
                 <a href="/api/applications/{{ application.id }}/download/cv" target="_blank" class="btn btn-sm btn-primary">Télécharger le PDF</a>
+                {% with doc=documents.cv %}{% include "applications/_doc_locations.html" %}{% endwith %}
             {% else %}
                 <span class="text-muted">Non généré</span>
             {% endif %}
@@ -39,6 +40,7 @@
                     <button class="btn btn-sm btn-secondary" onclick="document.getElementById('letterModal').showModal()">Voir le texte</button>
                     <a href="/api/applications/{{ application.id }}/download/letter" target="_blank" class="btn btn-sm btn-primary">Télécharger le PDF</a>
                 </div>
+                {% with doc=documents.letter %}{% include "applications/_doc_locations.html" %}{% endwith %}
             {% else %}
                 <span class="text-muted">Non générée</span>
             {% endif %}

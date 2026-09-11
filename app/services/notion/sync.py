@@ -159,6 +159,8 @@ class NotionSyncService:
         3. Propage les changements de statut Supabase -> Notion si Supabase est plus récent.
         4. Aligne les dates de candidature et les motifs de refus.
         5. Associe automatiquement les fiches non liées par identifiant.
+        6. Pousse vers Notion les candidatures Supabase : rafraîchit la section Documents des pages
+           appariées, crée les pages manquantes, signale celles dont la page est à la corbeille.
         """
         report: Dict[str, Any] = {
             "success": True,
@@ -168,6 +170,9 @@ class NotionSyncService:
             "matched_count": 0,
             "updated_supabase_count": 0,
             "updated_notion_count": 0,
+            "created_notion_count": 0,
+            "refreshed_documents_count": 0,
+            "trashed_notion_pages": [],
             "details": [],
             "errors": []
         }
@@ -351,11 +356,132 @@ class NotionSyncService:
                         "domain": expected_domain
                     })
 
+        # 4. Supabase -> Notion : documents des pages appariées, création des pages manquantes
+        live_page_ids = {p["id"] for p in notion_pages}
+        for app in supabase_apps:
+            try:
+                self._push_application(app, live_page_ids, matched_app_ids, report)
+            except Exception as e:
+                logger.error(f"Erreur push Notion pour la candidature {app.get('id')}: {e}")
+                report["errors"].append({"application_id": app.get("id"), "error": str(e)})
+
         logger.info(
             f"Réconciliation terminée : {report['matched_count']} fiches appariées, "
-            f"{report['updated_supabase_count']} màj Supabase, {report['updated_notion_count']} màj Notion."
+            f"{report['updated_supabase_count']} màj Supabase, {report['updated_notion_count']} màj Notion, "
+            f"{report['created_notion_count']} page(s) créée(s), {report['refreshed_documents_count']} section(s) documents rafraîchie(s)."
         )
         return report
+
+    def push_application(
+        self,
+        app: Dict[str, Any],
+        cv_url: Optional[str] = None,
+        letter_url: Optional[str] = None,
+    ) -> Optional[str]:
+        """Crée ou met à jour la page Notion d'une candidature (propriétés + section Documents).
+
+        Utilisé par la préparation d'une candidature et par le bouton « Synchroniser Notion ».
+        Les URLs des PDF sont résolues depuis le bucket si elles ne sont pas fournies.
+        """
+        from app.services.documents.renderer import existing_document_urls
+        from app.services.ingestion.company_classifier import classify_company
+
+        app_id = app["id"]
+        job = app.get("jobs") or {}
+        company = job.get("company") or ""
+        job_title = job.get("title") or ""
+
+        if cv_url is None and letter_url is None:
+            cv_url, letter_url = existing_document_urls(
+                app_id, company, job_title,
+                has_cv=bool(app.get("tailored_cv")), has_letter=bool(app.get("cover_letter")),
+            )
+
+        match_analysis = job.get("match_analysis") or {}
+        normalized_data = job.get("normalized_data") or {}
+        cl_type, cl_domain = classify_company(
+            company=company, title=job_title,
+            description=job.get("description", ""), raw_data=job.get("raw_data"),
+        )
+        page_id = notion_service.sync_application(
+            application_id=app_id,
+            company=company,
+            job_title=job_title,
+            job_url=job.get("url", ""),
+            score=app.get("match_score"),
+            status=app.get("status", "QUALIFIED"),
+            location=job.get("location"),
+            contract_type=job.get("contract_type"),
+            domain=match_analysis.get("company_domain") or normalized_data.get("domain") or cl_domain,
+            company_type=match_analysis.get("company_type") or normalized_data.get("company_type") or cl_type,
+            cv_url=cv_url,
+            letter_url=letter_url,
+            cover_letter=app.get("cover_letter"),
+            answers=app.get("application_answers"),
+            match_analysis=match_analysis,
+            notes=app.get("notes"),
+            notion_page_id=app.get("notion_page_id"),
+        )
+        if page_id and not page_id.startswith("simulated_") and page_id != app.get("notion_page_id"):
+            supabase_service.update_application(app_id, {"notion_page_id": page_id})
+        return page_id
+
+    def _push_application(
+        self,
+        app: Dict[str, Any],
+        live_page_ids: set,
+        matched_app_ids: set,
+        report: Dict[str, Any],
+    ) -> None:
+        """Pousse une candidature Supabase vers Notion (documents, ou création de la page si absente)."""
+        from app.services.documents.renderer import existing_document_urls
+        from app.services.ingestion.company_classifier import classify_company
+
+        app_id = app["id"]
+        job = app.get("jobs") or {}
+        company = job.get("company") or ""
+        job_title = job.get("title") or ""
+        page_id = app.get("notion_page_id")
+
+        # Page liée mais absente de la base (corbeille Notion) : on n'écrase pas une suppression volontaire
+        if page_id and page_id not in live_page_ids:
+            report["trashed_notion_pages"].append({
+                "application_id": app_id,
+                "notion_page_id": page_id,
+                "company": company,
+                "title": job_title,
+            })
+            return
+
+        cv_url, letter_url = existing_document_urls(
+            app_id, company, job_title,
+            has_cv=bool(app.get("tailored_cv")), has_letter=bool(app.get("cover_letter")),
+        )
+
+        # Page existante : on ne rafraîchit que la section Documents (le statut vient d'être arbitré)
+        if page_id and app_id in matched_app_ids:
+            if notion_service.refresh_documents(page_id, cv_url, letter_url, company, job_title):
+                report["refreshed_documents_count"] += 1
+                report["details"].append({
+                    "action": "REFRESHED_DOCUMENTS",
+                    "application_id": app_id,
+                    "page_id": page_id,
+                    "company": company,
+                    "title": job_title,
+                })
+            return
+
+        # Aucune page : création complète
+        new_page_id = self.push_application(app, cv_url, letter_url)
+        if new_page_id and not new_page_id.startswith("simulated_"):
+            report["created_notion_count"] += 1
+            report["details"].append({
+                "action": "CREATED_NOTION_PAGE",
+                "application_id": app_id,
+                "page_id": new_page_id,
+                "company": company,
+                "title": job_title,
+            })
 
 # Singleton
 notion_sync_service = NotionSyncService()
