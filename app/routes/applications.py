@@ -175,25 +175,58 @@ def prepare_application(app_id: str):
 
 @applications_bp.route("/api/applications/<app_id>/ready", methods=["POST"])
 def mark_as_ready(app_id: str):
-    """Validation humaine : l'utilisateur passe le statut à READY."""
+    """Validation humaine : l'utilisateur passe le statut à READY et synchronise Notion."""
     if not supabase_service.client:
         return jsonify({"error": "Supabase non configuré"}), 503
 
-    supabase_service.client.table("applications").update({"status": "READY"}).eq("id", app_id).execute()
+    supabase_service.update_application(app_id, {"status": "READY"})
+
+    # Synchronisation immédiate Notion si la fiche est liée
+    res = supabase_service.client.table("applications").select("notion_page_id").eq("id", app_id).execute()
+    if res.data and res.data[0].get("notion_page_id"):
+        notion_service.update_page_status(
+            page_id=res.data[0]["notion_page_id"],
+            status_name="Candidature prête - en attente de validation"
+        )
+
     return jsonify({"message": "Candidature marquée comme READY", "status": "READY"}), 200
 
 @applications_bp.route("/api/applications/<app_id>/applied", methods=["POST"])
 def mark_as_applied(app_id: str):
-    """L'utilisateur confirme avoir postulé manuellement (statut APPLIED)."""
+    """L'utilisateur confirme avoir postulé manuellement (statut APPLIED). Met à jour Supabase et Notion."""
     if not supabase_service.client:
         return jsonify({"error": "Supabase non configuré"}), 503
 
     now_iso = datetime.now(timezone.utc).isoformat()
-    supabase_service.client.table("applications").update({
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    # 1. Mise à jour Supabase
+    supabase_service.update_application(app_id, {
         "status": "APPLIED",
         "applied_at": now_iso
-    }).eq("id", app_id).execute()
-    return jsonify({"message": "Candidature marquée comme APPLIED", "status": "APPLIED", "applied_at": now_iso}), 200
+    })
+
+    # 2. Synchronisation immédiate Notion si lié
+    res = supabase_service.client.table("applications").select("notion_page_id").eq("id", app_id).execute()
+    if res.data and res.data[0].get("notion_page_id"):
+        notion_service.update_page_status(
+            page_id=res.data[0]["notion_page_id"],
+            status_name="Candidature envoyée",
+            applied_date=today_str
+        )
+
+    return jsonify({"message": "Candidature marquée comme APPLIED et synchronisée dans Notion", "status": "APPLIED", "applied_at": now_iso}), 200
+
+@applications_bp.route("/api/notion/reconcile", methods=["POST"])
+def reconcile_notion():
+    """Déclenche la réconciliation bidirectionnelle complète Notion ↔ Supabase."""
+    from app.services.notion.sync import notion_sync_service
+    try:
+        report = notion_sync_service.reconcile()
+        return jsonify(report), 200
+    except Exception as e:
+        current_app.logger.error(f"Erreur lors de la réconciliation Notion: {e}")
+        return jsonify({"error": f"Erreur de réconciliation: {str(e)}"}), 500
 
 @applications_bp.route("/api/notion/sync/<app_id>", methods=["POST"])
 def sync_notion(app_id: str):

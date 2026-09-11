@@ -3,9 +3,16 @@
 {% block title %}Candidatures — Trema Job Search{% endblock %}
 
 {% block content %}
-<div class="dashboard-header">
-    <h1>Candidatures</h1>
-    <p class="subtitle">Suivi du statut de vos dossiers préparés.</p>
+<div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h1>Candidatures</h1>
+        <p class="subtitle">Suivi du statut de vos dossiers préparés.</p>
+    </div>
+    <div>
+        <button class="btn btn-secondary" onclick="syncNotion()" id="syncNotionBtn" style="font-weight: 600;">
+            🔄 Synchroniser Notion
+        </button>
+    </div>
 </div>
 
 <!-- Barre de filtres -->
@@ -94,4 +101,32 @@
     </div>
     {% endif %}
 </div>
+<script>
+async function syncNotion() {
+    const btn = document.getElementById('syncNotionBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = '🔄 Synchronisation...';
+    }
+    try {
+        const res = await fetch('/api/notion/reconcile', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            const upSupa = data.updated_supabase_count || 0;
+            const upNotion = data.updated_notion_count || 0;
+            alert(`✅ Synchronisation Notion réussie !\n• ${data.total_notion_pages} fiches analysées\n• ${data.matched_count} candidatures appariées\n• ${upSupa} mise(s) à jour dans Supabase\n• ${upNotion} mise(s) à jour dans Notion`);
+            location.reload();
+        } else {
+            alert(`⚠️ Erreur : ${data.error || 'Erreur inconnue'}`);
+        }
+    } catch (e) {
+        alert('❌ Erreur réseau lors de la synchronisation Notion.');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = '🔄 Synchroniser Notion';
+        }
+    }
+}
+</script>
 {% endblock %}

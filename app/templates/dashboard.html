@@ -15,6 +15,9 @@
         <button class="btn btn-secondary" onclick="document.getElementById('urlImportModal').showModal()" style="font-weight: 600;">
             📥 Importer via URL
         </button>
+        <button class="btn btn-secondary" onclick="syncNotion()" id="syncNotionBtn" style="font-weight: 600;">
+            🔄 Synchroniser Notion
+        </button>
         <a href="/jobs" class="btn btn-secondary">Voir les offres</a>
     </div>
 </div>
@@ -124,6 +127,33 @@ async function runSchedulerNow() {
         alert(data.message);
     } catch (e) {
         alert('Erreur lors du déclenchement manuel');
+    }
+}
+
+async function syncNotion() {
+    const btn = document.getElementById('syncNotionBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = '🔄 Synchronisation...';
+    }
+    try {
+        const res = await fetch('/api/notion/reconcile', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            const upSupa = data.updated_supabase_count || 0;
+            const upNotion = data.updated_notion_count || 0;
+            alert(`✅ Synchronisation Notion réussie !\n• ${data.total_notion_pages} fiches analysées\n• ${data.matched_count} candidatures appariées\n• ${upSupa} mise(s) à jour dans Supabase\n• ${upNotion} mise(s) à jour dans Notion`);
+            location.reload();
+        } else {
+            alert(`⚠️ Erreur : ${data.error || 'Erreur inconnue'}`);
+        }
+    } catch (e) {
+        alert('❌ Erreur réseau lors de la synchronisation Notion.');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = '🔄 Synchroniser Notion';
+        }
     }
 }
 </script>

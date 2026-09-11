@@ -50,6 +50,11 @@ def handle_cli():
         action="store_true",
         help="Désactiver la génération automatique de CV/Lettre et la sync Notion"
     )
+    parser.add_argument(
+        "--sync-notion",
+        action="store_true",
+        help="Lancer la réconciliation bidirectionnelle Notion ↔ Supabase (statuts, dates, motifs de refus)"
+    )
 
     args = parser.parse_args()
 
@@ -200,8 +205,40 @@ def handle_cli():
         
         sys.exit(0)
 
+    if args.sync_notion:
+        from app.services.notion.sync import notion_sync_service
+        print("\n🔄 [CLI] Lancement de la réconciliation bidirectionnelle Notion ↔ Supabase...")
+        with app.app_context():
+            rep = notion_sync_service.reconcile()
+
+        print("=" * 65)
+        print("📋 RÉCAPITULATIF DE LA SYNCHRONISATION NOTION ↔ SUPABASE")
+        print("=" * 65)
+        print(f"• Fiches Notion analysées : {rep.get('total_notion_pages')}")
+        print(f"• Candidatures Supabase   : {rep.get('total_supabase_apps')}")
+        print(f"• Fiches appariées        : {rep.get('matched_count')}")
+        print(f"• Mises à jour Supabase   : {rep.get('updated_supabase_count')}")
+        print(f"• Mises à jour Notion     : {rep.get('updated_notion_count')}")
+        print("=" * 65)
+
+        for det in rep.get("details", []):
+            action = det.get("action")
+            comp = det.get("company", "Entreprise")
+            title = det.get("title", "Poste")
+            if action == "UPDATED_SUPABASE":
+                print(f"  [Notion -> Supabase] {comp} — {title} : {det.get('old_status')} -> {det.get('new_status')}")
+            elif action == "UPDATED_NOTION":
+                print(f"  [Supabase -> Notion] {comp} — {title} : {det.get('old_status')} -> {det.get('new_status')}")
+            elif action == "LINKED_NOTION_ID":
+                print(f"  [Association ID]    {comp} — {title} lié à Notion {det.get('notion_page_id')}")
+            elif action == "BACKFILLED_APPLIED_AT":
+                print(f"  [Date candidature]  {comp} : date alignée à {det.get('applied_at')}")
+
+        print("=" * 65 + "\n")
+        sys.exit(0)
+
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and ("--collect" in sys.argv or "--cron-job" in sys.argv or "--url" in sys.argv or "--urls" in sys.argv or "--urls-file" in sys.argv or "-h" in sys.argv or "--help" in sys.argv):
+    if len(sys.argv) > 1 and ("--collect" in sys.argv or "--cron-job" in sys.argv or "--sync-notion" in sys.argv or "--url" in sys.argv or "--urls" in sys.argv or "--urls-file" in sys.argv or "-h" in sys.argv or "--help" in sys.argv):
         handle_cli()
     else:
         port = Config.PORT

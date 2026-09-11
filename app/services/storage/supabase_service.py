@@ -1,5 +1,6 @@
 import logging
-from typing import Optional, Any, Dict
+from datetime import datetime, timezone
+from typing import Optional, Any, Dict, List
 from app.config import Config
 
 logger = logging.getLogger(__name__)
@@ -224,6 +225,42 @@ class SupabaseService:
         except Exception as e:
             logger.warning(f"Impossible de récupérer le profil candidat Supabase: {e}")
             return None
+
+    def get_application_by_id(self, app_id: str) -> Optional[Dict[str, Any]]:
+        """Récupère une candidature avec l'offre associée."""
+        if not self.client:
+            return None
+        try:
+            res = self.client.table("applications").select("*, jobs(*)").eq("id", app_id).execute()
+            return res.data[0] if res.data else None
+        except Exception as e:
+            logger.warning(f"Erreur récupération candidature {app_id}: {e}")
+            return None
+
+    def get_all_applications_for_sync(self) -> List[Dict[str, Any]]:
+        """Récupère toutes les candidatures avec les informations de l'offre pour synchronisation."""
+        if not self.client:
+            return []
+        try:
+            res = self.client.table("applications").select("*, jobs(*)").execute()
+            return res.data or []
+        except Exception as e:
+            logger.warning(f"Erreur récupération candidatures pour synchro: {e}")
+            return []
+
+    def update_application(self, app_id: str, data: Dict[str, Any]) -> bool:
+        """Met à jour une candidature en garantissant l'actualisation de updated_at."""
+        if not self.client:
+            return False
+        try:
+            payload = dict(data)
+            if "updated_at" not in payload:
+                payload["updated_at"] = datetime.now(timezone.utc).isoformat()
+            self.client.table("applications").update(payload).eq("id", app_id).execute()
+            return True
+        except Exception as e:
+            logger.error(f"Erreur mise à jour candidature {app_id}: {e}")
+            return False
 
     # Storage helpers
     def upload_document(self, bucket: str, path: str, file_bytes: bytes, content_type: str) -> Optional[str]:

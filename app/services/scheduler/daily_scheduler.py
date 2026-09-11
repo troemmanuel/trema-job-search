@@ -162,6 +162,18 @@ class DailySchedulerService:
                     auto_prepare=True
                 )
 
+            # Réconciliation bidirectionnelle Notion ↔ Supabase
+            reconcile_report = None
+            try:
+                from app.services.notion.sync import notion_sync_service
+                reconcile_report = notion_sync_service.reconcile()
+                logger.info(
+                    f"Réconciliation Notion quotidienne effectuée: {reconcile_report.get('matched_count', 0)} appariées, "
+                    f"{reconcile_report.get('updated_supabase_count', 0)} màj Supabase, {reconcile_report.get('updated_notion_count', 0)} màj Notion."
+                )
+            except Exception as ne:
+                logger.warning(f"Échec de la réconciliation Notion quotidienne: {ne}")
+
             with self._lock:
                 self.state["last_run"] = start_iso
                 self.state["last_result"] = {
@@ -171,6 +183,11 @@ class DailySchedulerService:
                     "qualified_count": result.get("qualified_count", 0),
                     "prepared_count": result.get("prepared_count", 0),
                     "notion_synced_count": result.get("notion_synced_count", 0),
+                    "notion_reconcile": {
+                        "matched_count": reconcile_report.get("matched_count", 0) if reconcile_report else 0,
+                        "updated_supabase": reconcile_report.get("updated_supabase_count", 0) if reconcile_report else 0,
+                        "updated_notion": reconcile_report.get("updated_notion_count", 0) if reconcile_report else 0
+                    } if reconcile_report else None,
                     "jobs": [
                         {
                             "title": j.get("title"),

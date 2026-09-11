@@ -5,15 +5,37 @@ from app.config import Config
 
 logger = logging.getLogger(__name__)
 
-STATUS_MAPPING = {
+# Mapping Supabase status -> Notion status
+SUPABASE_TO_NOTION_STATUS = {
     "QUALIFIED": "Action requise",
     "PREPARING": "Candidature prête - en attente de validation",
     "PREPARED": "Candidature prête - en attente de validation",
     "READY": "Candidature prête - en attente de validation",
     "APPLIED": "Candidature envoyée",
-    "REVIEW": "À vérifier",
+    "INTERVIEW_HR": "Entretien RH confirmé",
+    "INTERVIEW_TECH": "Entretien RH confirmé",
+    "INTERVIEW": "Entretien RH confirmé",
+    "OFFER": "Offre reçue/Acceptée",
     "REJECTED": "Refusée",
+    "REVIEW": "À vérifier",
 }
+
+# Mapping Notion status -> Supabase status
+NOTION_TO_SUPABASE_STATUS = {
+    "Candidature prête - en attente de validation": "PREPARED",
+    "Candidature envoyée": "APPLIED",
+    "En attente de reponse": "APPLIED",
+    "Entretien RH confirmé": "INTERVIEW_HR",
+    "Etretien telephonique": "INTERVIEW_HR",
+    "Offre reçue/Acceptée": "OFFER",
+    "Refusée": "REJECTED",
+    "Refusée - Après entretien RH": "REJECTED",
+    "Action requise": "QUALIFIED",
+    "À vérifier": "REVIEW",
+    "Contacter via LinkedIn": "QUALIFIED",
+}
+
+STATUS_MAPPING = SUPABASE_TO_NOTION_STATUS
 
 class NotionService:
     """Service d'intégration Notion API pour le suivi CRM des candidatures."""
@@ -167,6 +189,33 @@ class NotionService:
         except Exception as e:
             logger.error(f"Erreur lors de la synchronisation Notion: {e}")
             return None
+
+    def update_page_status(self, page_id: str, status_name: str, applied_date: Optional[str] = None) -> bool:
+        """Met à jour le statut et optionnellement la date de candidature d'une page Notion existante."""
+        if not self.client:
+            logger.info(f"Notion non configuré. Mise à jour statut simulée pour {page_id} -> {status_name}")
+            return True
+
+        properties: Dict[str, Any] = {
+            "Statut": {"select": {"name": status_name}}
+        }
+        if applied_date:
+            properties["Date de candidature"] = {"date": {"start": applied_date}}
+
+        return self.update_page_properties(page_id, properties)
+
+    def update_page_properties(self, page_id: str, properties: Dict[str, Any]) -> bool:
+        """Met à jour des propriétés quelconques sur une page Notion existante."""
+        if not self.client:
+            logger.info(f"Notion non configuré. Mise à jour propriétés simulée pour {page_id}")
+            return True
+        try:
+            self.client.pages.update(page_id=page_id, properties=properties)
+            logger.info(f"Propriétés de la page Notion {page_id} mises à jour avec succès.")
+            return True
+        except Exception as e:
+            logger.error(f"Erreur lors de la mise à jour des propriétés Notion {page_id}: {e}")
+            return False
 
     def _build_page_blocks(
         self,
