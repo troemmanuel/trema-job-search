@@ -3,9 +3,12 @@
 {% block title %}Offres — Trema Job Search{% endblock %}
 
 {% block content %}
-<div class="dashboard-header">
-    <h1>Offres d'emploi</h1>
-    <p class="subtitle">Toutes les offres collectées et analysées.</p>
+<div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h1>Offres d'emploi</h1>
+        <p class="subtitle">Toutes les offres collectées et analysées.</p>
+    </div>
+    <button class="btn btn-primary" onclick="document.getElementById('addJobModal').showModal()">+ Ajouter une offre</button>
 </div>
 
 <div class="card">
@@ -30,7 +33,7 @@
                 <td>{{ job.location or 'N/A' }}</td>
                 <td>{{ job.contract_type or 'N/A' }}</td>
                 <td>
-                    {% if job.match_score %}
+                    {% if job.match_score is not none %}
                         <span class="badge badge-score">{{ job.match_score }}/100</span>
                     {% else %}
                         <span class="badge badge-neutral">—</span>
@@ -38,7 +41,7 @@
                 </td>
                 <td><span class="badge">{{ job.status }}</span></td>
                 <td>
-                    <a href="/jobs/{{ job.id }}" class="btn btn-sm">Consulter</a>
+                    <a href="/jobs/{{ job.id }}" class="btn btn-sm btn-secondary">Consulter</a>
                 </td>
             </tr>
             {% endfor %}
@@ -46,8 +49,120 @@
     </table>
     {% else %}
     <div class="empty-state">
-        <p>Aucune offre trouvée.</p>
+        <p>Aucune offre enregistrée pour le moment.</p>
+        <button class="btn btn-primary mt-2" onclick="document.getElementById('addJobModal').showModal()">Ajouter votre première offre</button>
     </div>
     {% endif %}
 </div>
+
+<!-- Modal Ajout d'offre -->
+<dialog id="addJobModal" class="modal" style="max-width: 650px;">
+    <div class="modal-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2>Ajouter une offre d'emploi</h2>
+            <button class="btn btn-sm btn-secondary" onclick="document.getElementById('addJobModal').close()">✕</button>
+        </div>
+
+        <form id="addJobForm" onsubmit="submitJob(event)">
+            <div style="display: flex; flex-direction: column; gap: 0.8rem;">
+                <div>
+                    <label><strong>Titre du poste * :</strong></label>
+                    <input type="text" id="jobTitle" required placeholder="ex: Développeur Backend Python / Cloud" class="code-editor" style="padding: 0.5rem; margin-top: 0.25rem;" />
+                </div>
+
+                <div class="grid-2">
+                    <div>
+                        <label><strong>Entreprise :</strong></label>
+                        <input type="text" id="jobCompany" placeholder="ex: Doctolib" class="code-editor" style="padding: 0.5rem; margin-top: 0.25rem;" />
+                    </div>
+                    <div>
+                        <label><strong>Lieu :</strong></label>
+                        <input type="text" id="jobLocation" placeholder="ex: Paris / Remote" class="code-editor" style="padding: 0.5rem; margin-top: 0.25rem;" />
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div>
+                        <label><strong>Type de contrat :</strong></label>
+                        <select id="jobContract" class="code-editor" style="padding: 0.5rem; margin-top: 0.25rem;">
+                            <option value="CDI">CDI</option>
+                            <option value="Alternance">Alternance</option>
+                            <option value="CDD">CDD</option>
+                            <option value="Stage">Stage</option>
+                            <option value="Freelance">Freelance</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label><strong>URL de l'offre * :</strong></label>
+                        <input type="url" id="jobUrl" required placeholder="https://..." class="code-editor" style="padding: 0.5rem; margin-top: 0.25rem;" />
+                    </div>
+                </div>
+
+                <div>
+                    <label><strong>Description / Exigences du poste :</strong></label>
+                    <textarea id="jobDesc" rows="8" placeholder="Collez ici le texte de l'offre, les missions, la stack technique..." class="code-editor" style="padding: 0.5rem; margin-top: 0.25rem;"></textarea>
+                </div>
+
+                <div style="margin-top: 0.5rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="autoMatch" checked />
+                        <span>Calculer automatiquement le matching IA après l'import</span>
+                    </label>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 1rem;">
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('addJobModal').close()">Annuler</button>
+                    <button type="submit" id="saveJobBtn" class="btn btn-primary">Enregistrer l'offre</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</dialog>
+
+<script>
+async function submitJob(e) {
+    e.preventDefault();
+    const btn = document.getElementById('saveJobBtn');
+    btn.disabled = true;
+    btn.textContent = "⏳ Enregistrement...";
+
+    const payload = {
+        source: "MANUAL",
+        title: document.getElementById('jobTitle').value.trim(),
+        company: document.getElementById('jobCompany').value.trim(),
+        location: document.getElementById('jobLocation').value.trim(),
+        contract_type: document.getElementById('jobContract').value,
+        url: document.getElementById('jobUrl').value.trim(),
+        description: document.getElementById('jobDesc').value.trim(),
+    };
+
+    try {
+        const res = await fetch('/api/jobs/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            const job = data.job;
+            const autoMatch = document.getElementById('autoMatch').checked;
+            if (autoMatch && job && job.id) {
+                btn.textContent = "⏳ Calcul du matching IA...";
+                await fetch(`/api/jobs/${job.id}/match`, { method: 'POST' });
+            }
+            document.getElementById('addJobModal').close();
+            location.reload();
+        } else {
+            alert("Erreur: " + (data.error || "Impossible d'importer l'offre"));
+            btn.disabled = false;
+            btn.textContent = "Enregistrer l'offre";
+        }
+    } catch(err) {
+        alert("Erreur réseau: " + err.message);
+        btn.disabled = false;
+        btn.textContent = "Enregistrer l'offre";
+    }
+}
+</script>
 {% endblock %}

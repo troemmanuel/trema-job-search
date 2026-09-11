@@ -27,6 +27,34 @@ def get_application(app_id: str):
         return jsonify({"error": "Candidature introuvable"}), 404
     return jsonify(res.data[0]), 200
 
+@applications_bp.route("/api/applications/create-from-job/<job_id>", methods=["POST"])
+def create_application_from_job(job_id: str):
+    """Crée une candidature à partir d'une offre d'emploi."""
+    if not supabase_service.client:
+        return jsonify({"error": "Supabase non configuré"}), 503
+
+    profile_data = supabase_service.get_active_candidate_profile()
+    if not profile_data:
+        return jsonify({"error": "Aucun profil candidat actif trouvé"}), 400
+
+    existing = supabase_service.client.table("applications").select("*").eq("job_id", job_id).execute()
+    if existing.data:
+        app_id = existing.data[0]["id"]
+        return jsonify({"message": "Candidature existante", "application_id": app_id}), 200
+
+    res_job = supabase_service.client.table("jobs").select("*").eq("id", job_id).execute()
+    match_score = res_job.data[0].get("match_score") if res_job.data else None
+
+    new_app = {
+        "job_id": job_id,
+        "candidate_profile_id": profile_data["id"],
+        "status": "QUALIFIED",
+        "match_score": match_score
+    }
+    res_create = supabase_service.client.table("applications").insert(new_app).execute()
+    app_id = res_create.data[0]["id"]
+    return jsonify({"message": "Candidature créée", "application_id": app_id}), 201
+
 @applications_bp.route("/api/applications/<app_id>/prepare", methods=["POST"])
 def prepare_application(app_id: str):
     """Génère le CV personnalisé, la lettre et les réponses, puis génère les PDFs."""

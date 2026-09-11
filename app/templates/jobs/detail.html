@@ -5,20 +5,23 @@
 {% block content %}
 {% if job %}
 <div class="card">
-    <div class="job-header">
+    <div class="job-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
         <div>
-            <h1>{{ job.title }}</h1>
-            <p class="company-sub">{{ job.company or 'Entreprise confidentielle' }}</p>
-            <p class="job-meta">
+            <h1 style="font-size: 1.8rem; margin-bottom: 0.25rem;">{{ job.title }}</h1>
+            <p class="company-sub" style="font-size: 1.1rem; color: #94a3b8; font-weight: 500;">{{ job.company or 'Entreprise confidentielle' }}</p>
+            <p class="job-meta mt-2" style="display: flex; gap: 1rem; font-size: 0.9rem; color: #cbd5e1;">
                 <span>📍 {{ job.location or 'Non précisé' }}</span>
                 <span>📄 {{ job.contract_type or 'CDI' }}</span>
                 {% if job.normalized_data and job.normalized_data.remote %}
                     <span>🏠 Télétravail</span>
                 {% endif %}
+                {% if job.salary_min %}
+                    <span>💰 {{ job.salary_min }}€ {{ 'à ' ~ job.salary_max ~ '€' if job.salary_max else '' }}</span>
+                {% endif %}
             </p>
         </div>
         <div>
-            {% if job.match_score %}
+            {% if job.match_score is not none %}
             <div class="score-badge-large">
                 <span class="score-value">{{ job.match_score }}/100</span>
                 <span class="score-level">
@@ -36,13 +39,63 @@
 
     {% if job.match_analysis %}
     <div class="analysis-box">
-        <h3>Analyse du matching :</h3>
+        <h3 style="margin-bottom: 0.75rem;">Analyse du Matching IA :</h3>
+
+        {% if job.match_analysis.dimensions %}
+        <div class="dimensions-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
+            <div class="stat-box" style="padding: 0.5rem;">
+                <small class="text-muted">Poste & Titre</small>
+                <strong>{{ job.match_analysis.dimensions.title_match }}/100</strong>
+            </div>
+            <div class="stat-box" style="padding: 0.5rem;">
+                <small class="text-muted">Compétences</small>
+                <strong>{{ job.match_analysis.dimensions.skills_match }}/100</strong>
+            </div>
+            <div class="stat-box" style="padding: 0.5rem;">
+                <small class="text-muted">Expérience</small>
+                <strong>{{ job.match_analysis.dimensions.experience_match }}/100</strong>
+            </div>
+            <div class="stat-box" style="padding: 0.5rem;">
+                <small class="text-muted">Localisation</small>
+                <strong>{{ job.match_analysis.dimensions.location_match }}/100</strong>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="grid-2">
+            <div>
+                <strong style="color: #34d399;">✓ Compétences en commun :</strong>
+                {% if job.match_analysis.matched_skills %}
+                <ul style="margin: 0.5rem 0 1rem 1.2rem;">
+                    {% for ms in job.match_analysis.matched_skills %}
+                    <li>{{ ms }}</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted" style="margin-top: 0.25rem;">Aucune compétence explicite trouvée.</p>
+                {% endif %}
+            </div>
+
+            <div>
+                <strong style="color: #f87171;">⚠ Compétences manquantes / à acquérir :</strong>
+                {% if job.match_analysis.missing_skills %}
+                <ul style="margin: 0.5rem 0 1rem 1.2rem;">
+                    {% for mis in job.match_analysis.missing_skills %}
+                    <li>{{ mis }}</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted" style="margin-top: 0.25rem;">Aucune lacune bloquante identifiée.</p>
+                {% endif %}
+            </div>
+        </div>
+
         {% if job.match_analysis.strengths %}
-        <div class="strengths">
-            <strong>Points forts :</strong>
-            <ul>
+        <div class="strengths mt-2">
+            <strong style="color: #38bdf8;">Points forts identifiés :</strong>
+            <ul style="margin: 0.5rem 0 0.5rem 1.2rem;">
                 {% for st in job.match_analysis.strengths %}
-                <li>✓ {{ st }}</li>
+                <li>{{ st }}</li>
                 {% endfor %}
             </ul>
         </div>
@@ -50,10 +103,10 @@
 
         {% if job.match_analysis.concerns %}
         <div class="concerns mt-2">
-            <strong>Points d'attention :</strong>
-            <ul>
+            <strong style="color: #fbbf24;">Points d'attention / vigilance :</strong>
+            <ul style="margin: 0.5rem 0 0.5rem 1.2rem;">
                 {% for co in job.match_analysis.concerns %}
-                <li>⚠ {{ co }}</li>
+                <li>{{ co }}</li>
                 {% endfor %}
             </ul>
         </div>
@@ -64,29 +117,72 @@
 
     <div class="job-description">
         <h3>Description de l'offre</h3>
-        <p>{{ job.description or 'Aucune description fournie.' }}</p>
+        <div style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6; margin-top: 0.5rem; color: #cbd5e1;">
+            {{ job.description or 'Aucune description fournie.' }}
+        </div>
     </div>
 
-    <div class="job-actions mt-4">
+    <div class="job-actions mt-4" style="display: flex; gap: 1rem; flex-wrap: wrap;">
         <a href="{{ job.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Voir l'offre originale ↗</a>
-        <button onclick="triggerMatch('{{ job.id }}')" class="btn btn-primary">Calculer matching IA</button>
-        <button onclick="generateApplication('{{ job.id }}')" class="btn btn-success">Générer candidature</button>
+        <button id="matchBtn" onclick="triggerMatch('{{ job.id }}')" class="btn btn-primary">
+            {{ 'Recalculer matching IA' if job.match_score is not none else 'Calculer matching IA' }}
+        </button>
+        <button id="applyBtn" onclick="generateApplication('{{ job.id }}')" class="btn btn-success">
+            ⚡ Générer dossier de candidature
+        </button>
     </div>
 </div>
 
 <script>
 async function triggerMatch(jobId) {
-    const res = await fetch(`/api/jobs/${jobId}/match`, { method: 'POST' });
-    const data = await res.json();
-    if (res.ok) {
-        alert("Matching calculé avec succès ! Score: " + data.match.score);
-        location.reload();
-    } else {
-        alert("Erreur: " + (data.error || "Impossible de calculer"));
+    const btn = document.getElementById('matchBtn');
+    btn.disabled = true;
+    btn.textContent = "⏳ Calcul en cours...";
+    try {
+        const res = await fetch(`/api/jobs/${jobId}/match`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+            alert("Matching calculé avec succès ! Score: " + data.match.score + "/100 (" + data.match.level + ")");
+            location.reload();
+        } else {
+            alert("Erreur: " + (data.error || "Impossible de calculer"));
+            btn.disabled = false;
+            btn.textContent = "Calculer matching IA";
+        }
+    } catch(e) {
+        alert("Erreur réseau: " + e.message);
+        btn.disabled = false;
+        btn.textContent = "Calculer matching IA";
     }
 }
+
 async function generateApplication(jobId) {
-    alert("Génération déclenchée.");
+    const btn = document.getElementById('applyBtn');
+    btn.disabled = true;
+    btn.textContent = "⏳ Préparation du CV & de la lettre...";
+    try {
+        const res = await fetch(`/api/applications/create-from-job/${jobId}`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+            const prepRes = await fetch(`/api/applications/${data.application_id}/prepare`, { method: 'POST' });
+            if (prepRes.ok) {
+                window.location.href = `/applications/${data.application_id}`;
+            } else {
+                const prepData = await prepRes.json();
+                alert("Erreur génération: " + (prepData.error || "Échec"));
+                btn.disabled = false;
+                btn.textContent = "⚡ Générer dossier de candidature";
+            }
+        } else {
+            alert("Erreur: " + (data.error || "Impossible de créer la candidature"));
+            btn.disabled = false;
+            btn.textContent = "⚡ Générer dossier de candidature";
+        }
+    } catch(e) {
+        alert("Erreur réseau: " + e.message);
+        btn.disabled = false;
+        btn.textContent = "⚡ Générer dossier de candidature";
+    }
 }
 </script>
 
