@@ -166,7 +166,12 @@ def sync_notion(app_id: str):
         return jsonify({"error": "Candidature introuvable"}), 404
 
     app_data = res.data[0]
-    job = app_data.get("jobs", {})
+    job = app_data.get("jobs", {}) or {}
+
+    tailored_cv = app_data.get("tailored_cv")
+    cv_url = None
+    if tailored_cv and current_app.config.get("SUPABASE_URL"):
+        cv_url = f"{current_app.config['SUPABASE_URL']}/storage/v1/object/public/applications/applications/{app_id}/cv.pdf"
 
     page_id = notion_service.sync_application(
         application_id=app_id,
@@ -176,6 +181,12 @@ def sync_notion(app_id: str):
         score=app_data.get("match_score"),
         status=app_data.get("status", "QUALIFIED"),
         location=job.get("location"),
+        contract_type=job.get("contract_type"),
+        domain="Ingénierie Logicielle / Backend & Cloud",
+        cv_url=cv_url,
+        cover_letter=app_data.get("cover_letter"),
+        answers=app_data.get("application_answers"),
+        match_analysis=job.get("match_analysis"),
         notes=app_data.get("notes"),
         notion_page_id=app_data.get("notion_page_id")
     )
