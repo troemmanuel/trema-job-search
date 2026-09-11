@@ -58,3 +58,16 @@ def test_pdf_generator():
     assert isinstance(pdf_bytes, bytes)
     assert len(pdf_bytes) > 0
     assert pdf_bytes.startswith(b"%PDF")
+
+def test_prompt_loader():
+    from app.services.ai.prompt_loader import prompt_loader
+
+    system_inst, user_prompt = prompt_loader.load_and_render(
+        "matching",
+        candidate_profile='{"name": "Alice"}',
+        job_data='{"title": "Dev"}'
+    )
+    assert "Tu es un expert en recrutement" in system_inst
+    assert '{"name": "Alice"}' in user_prompt
+    assert '{"title": "Dev"}' in user_prompt
+

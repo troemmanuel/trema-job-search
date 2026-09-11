@@ -4,37 +4,25 @@ from app.schemas.candidate import CandidateProfile
 from app.schemas.job import JobNormalizedData
 from app.schemas.application import TailoredCV
 from app.services.ai.gemini import gemini_service
+from app.services.ai.prompt_loader import prompt_loader
 
 logger = logging.getLogger(__name__)
-
-SYSTEM_CV_PROMPT = """Tu es un coach carrière et expert CV.
-RÈGLES ANTI-HALLUCINATION ABSOLUES :
-1. Tu ne dois JAMAIS inventer une expérience, une entreprise, une compétence, une certification, un diplôme, un chiffre ou un résultat.
-2. Tu ne dois JAMAIS transformer une compétence faible en expertise.
-3. Tu peux : reformuler, raccourcir, réorganiser, sélectionner les expériences les plus pertinentes (via leurs IDs), mettre en avant et adapter le vocabulaire aux termes de l'offre.
-4. Si une information est incertaine ou manque, indique explicitement '[À VALIDER]' et passe validation_required à true.
-"""
 
 class CVGeneratorService:
     def __init__(self, ai_service=None):
         self.ai_service = ai_service or gemini_service
 
     def generate(self, job_id: str, profile: CandidateProfile, job_data: JobNormalizedData, application_id: Optional[str] = None) -> Optional[TailoredCV]:
-        prompt = f"""
-Job ID : {job_id}
-
-Profil candidat maître :
-{profile.model_dump_json(indent=2)}
-
-Offre ciblée :
-{job_data.model_dump_json(indent=2)}
-
-Génère une sélection et synthèse adaptée au poste, en sélectionnant les identifiants d'expériences (`selected_experiences`) et les compétences clés à mettre en avant.
-"""
+        system_instruction, user_prompt = prompt_loader.load_and_render(
+            "cv_generation",
+            job_id=job_id,
+            candidate_profile=profile.model_dump_json(indent=2),
+            job_data=job_data.model_dump_json(indent=2)
+        )
         return self.ai_service.generate_structured(
-            prompt=prompt,
+            prompt=user_prompt,
             response_schema=TailoredCV,
-            system_instruction=SYSTEM_CV_PROMPT,
+            system_instruction=system_instruction,
             operation="CV_GENERATION",
             application_id=application_id
         )
