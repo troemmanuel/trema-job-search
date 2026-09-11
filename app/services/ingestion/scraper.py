@@ -29,6 +29,87 @@ class JobScraper:
     """Scraper intelligent et léger pour extraire les offres d'emploi depuis leur URL."""
 
     @classmethod
+    def extract_from_wttj_api(cls, url: str) -> Optional[Dict[str, Any]]:
+        """Extraction via l'API publique Welcome to the Jungle (robuste, rapide et sans blocage Cloudflare/WAF)."""
+        if "welcometothejungle.com" not in url:
+            return None
+
+        m = re.search(r'/(?:companies|entreprises)/([^/?#]+)/jobs/([^/?#]+)', url)
+        if not m:
+            return None
+
+        org_slug, job_slug = m.group(1), m.group(2)
+        api_url = f"https://api.welcometothejungle.com/api/v1/organizations/{org_slug}/jobs/{job_slug}"
+
+        try:
+            headers = {
+                "User-Agent": USER_AGENT,
+                "Accept": "application/json",
+                "Origin": "https://www.welcometothejungle.com",
+                "Referer": "https://www.welcometothejungle.com/"
+            }
+            with httpx.Client(timeout=15.0) as client:
+                resp = client.get(api_url, headers=headers)
+                if resp.status_code != 200:
+                    logger.warning(f"WTTJ API a retourné le status {resp.status_code} pour {api_url}")
+                    return None
+                data = resp.json()
+                job = data.get("job")
+                if not job:
+                    return None
+
+                title = job.get("name") or job.get("title")
+                org = job.get("organization", {})
+                company = org.get("name") if isinstance(org, dict) else str(org)
+
+                office = job.get("office") or {}
+                location = office.get("city") or office.get("country") or "France"
+
+                raw_contract = (job.get("contract_type") or "").upper()
+                contract_type = CONTRACT_MAPPING.get(raw_contract, raw_contract or "CDI")
+
+                salary_min = job.get("salary_minimum")
+                salary_max = job.get("salary_maximum")
+                salary_curr = job.get("salary_currency") or "EUR"
+
+                desc_parts = []
+                if job.get("description"):
+                    desc_parts.append(BeautifulSoup(job["description"], "html.parser").get_text(separator="\n").strip())
+                if job.get("profile"):
+                    desc_parts.append("\n--- Profil recherché ---\n" + BeautifulSoup(job["profile"], "html.parser").get_text(separator="\n").strip())
+
+                skills_list = []
+                for s in job.get("skills", []):
+                    name_dict = s.get("name", {})
+                    skill_name = name_dict.get("fr") or name_dict.get("en") or (s.get("name") if isinstance(s.get("name"), str) else "")
+                    if skill_name:
+                        skills_list.append(skill_name)
+
+                full_desc = "\n\n".join(desc_parts)
+
+                return {
+                    "source": "WTTJ",
+                    "source_job_id": str(job.get("id") or job.get("reference") or job_slug),
+                    "title": title,
+                    "company": company,
+                    "location": location,
+                    "contract_type": contract_type,
+                    "salary_min": salary_min,
+                    "salary_max": salary_max,
+                    "salary_currency": salary_curr,
+                    "url": url,
+                    "description": full_desc,
+                    "raw_data": {
+                        "wttj_job": job,
+                        "remote": job.get("remote"),
+                        "skills": skills_list
+                    }
+                }
+        except Exception as e:
+            logger.warning(f"Erreur extraction via WTTJ API: {e}")
+            return None
+
+    @classmethod
     def fetch_html(cls, url: str) -> str:
         headers = {
             "User-Agent": USER_AGENT,
@@ -233,23 +314,31 @@ Extrais les informations de l'offre d'emploi sous forme strictement structurée.
 
     @classmethod
     def scrape(cls, url: str) -> Dict[str, Any]:
-        """Méthode principale : tente __NEXT_DATA__, puis JSON-LD, puis fallback Gemini."""
+        """Méthode principale : tente WTTJ API d'abord (si WTTJ), puis __NEXT_DATA__, puis JSON-LD, puis fallback Gemini."""
+        # 1. Tentative API officielle WTTJ (immédiat, propre, sans blocage)
+        if "welcometothejungle.com" in url:
+            data = cls.extract_from_wttj_api(url)
+            if data and data.get("title") and data.get("description"):
+                logger.info(f"Offre extraite via WTTJ API : {data['title']} ({data['company']})")
+                return data
+
+        # 2. Fetch HTML pour les autres sources
         html = cls.fetch_html(url)
         soup = BeautifulSoup(html, "html.parser")
 
-        # 1. Tentative Next.js (__NEXT_DATA__)
+        # 3. Tentative Next.js (__NEXT_DATA__)
         data = cls.extract_from_next_data(soup, url)
         if data and data.get("title") and data.get("description"):
             logger.info(f"Offre extraite via __NEXT_DATA__ : {data['title']} ({data['company']})")
             return data
 
-        # 2. Tentative JSON-LD (Standard SEO)
+        # 4. Tentative JSON-LD (Standard SEO)
         data = cls.extract_from_json_ld(soup, url)
         if data and data.get("title"):
             logger.info(f"Offre extraite via JSON-LD : {data['title']} ({data['company']})")
             return data
 
-        # 3. Fallback Gemini
+        # 5. Fallback Gemini
         logger.info(f"Extraction via Fallback Gemini pour {url}")
         return cls.extract_with_gemini_fallback(soup, url)
 
