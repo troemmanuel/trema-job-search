@@ -47,12 +47,19 @@ class JobImporter:
         }
 
         if supabase_service.client:
-            res = supabase_service.client.table("jobs").insert(job_record).execute()
-            created_job = res.data[0] if res.data else job_record
-            return {
-                "status": "CREATED",
-                "job": created_job
-            }
+            try:
+                res = supabase_service.client.table("jobs").insert(job_record).execute()
+                created_job = res.data[0] if res.data else job_record
+                return {
+                    "status": "CREATED",
+                    "job": created_job
+                }
+            except Exception as e:
+                logger.warning(f"Erreur insertion jobs Supabase ({e}), retour simulé")
+                return {
+                    "status": "SIMULATED",
+                    "job": job_record
+                }
         else:
             logger.info(f"Supabase non connecté. Offre simulée : {job_record['title']}")
             return {

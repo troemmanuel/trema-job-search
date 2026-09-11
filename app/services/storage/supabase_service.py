@@ -32,20 +32,32 @@ class SupabaseService:
     def get_jobs(self, limit: int = 50):
         if not self.client:
             return []
-        res = self.client.table("jobs").select("*").order("created_at", desc=True).limit(limit).execute()
-        return res.data
+        try:
+            res = self.client.table("jobs").select("*").order("created_at", desc=True).limit(limit).execute()
+            return res.data or []
+        except Exception as e:
+            logger.warning(f"Impossible de récupérer les offres Supabase: {e}")
+            return []
 
     def get_applications(self, limit: int = 50):
         if not self.client:
             return []
-        res = self.client.table("applications").select("*, jobs(*)").order("created_at", desc=True).limit(limit).execute()
-        return res.data
+        try:
+            res = self.client.table("applications").select("*, jobs(*)").order("created_at", desc=True).limit(limit).execute()
+            return res.data or []
+        except Exception as e:
+            logger.warning(f"Impossible de récupérer les candidatures Supabase: {e}")
+            return []
 
     def get_active_candidate_profile(self):
         if not self.client:
             return None
-        res = self.client.table("candidate_profiles").select("*").eq("is_active", True).limit(1).execute()
-        return res.data[0] if res.data else None
+        try:
+            res = self.client.table("candidate_profiles").select("*").eq("is_active", True).limit(1).execute()
+            return res.data[0] if res.data else None
+        except Exception as e:
+            logger.warning(f"Impossible de récupérer le profil candidat Supabase: {e}")
+            return None
 
     # Storage helpers
     def upload_document(self, bucket: str, path: str, file_bytes: bytes, content_type: str) -> Optional[str]:

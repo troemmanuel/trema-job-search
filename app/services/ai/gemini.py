@@ -72,6 +72,7 @@ class GeminiService:
             return None
 
         from google.genai import types
+        import time
 
         config = types.GenerateContentConfig(
             response_mime_type="application/json",
@@ -81,31 +82,42 @@ class GeminiService:
         if system_instruction:
             config.system_instruction = system_instruction
 
-        try:
-            response = self.client.models.generate_content(
-                model=self.config.GEMINI_MODEL,
-                contents=prompt,
-                config=config,
-            )
-            result = response_schema.model_validate_json(response.text)
-            self.log_ai_run(
-                operation=operation,
-                input_data={"prompt": prompt, "system_instruction": system_instruction},
-                output_data=result.model_dump(),
-                status="SUCCESS",
-                application_id=application_id
-            )
-            return result
-        except Exception as e:
-            logger.error(f"Erreur appel Gemini generate_structured: {e}")
-            self.log_ai_run(
-                operation=operation,
-                input_data={"prompt": prompt, "system_instruction": system_instruction},
-                output_data=None,
-                status="ERROR",
-                error_message=str(e),
-                application_id=application_id
-            )
-            return None
+        max_retries = 3
+        last_error = None
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                response = self.client.models.generate_content(
+                    model=self.config.GEMINI_MODEL,
+                    contents=prompt,
+                    config=config,
+                )
+                result = response_schema.model_validate_json(response.text)
+                self.log_ai_run(
+                    operation=operation,
+                    input_data={"prompt": prompt, "system_instruction": system_instruction},
+                    output_data=result.model_dump(),
+                    status="SUCCESS",
+                    application_id=application_id
+                )
+                return result
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Tentative {attempt}/{max_retries} échouée pour Gemini ({operation}): {e}")
+                if "503" in str(e) or "429" in str(e) or "UNAVAILABLE" in str(e):
+                    time.sleep(2 * attempt)
+                    continue
+                break
+
+        logger.error(f"Erreur définitive appel Gemini generate_structured: {last_error}")
+        self.log_ai_run(
+            operation=operation,
+            input_data={"prompt": prompt, "system_instruction": system_instruction},
+            output_data=None,
+            status="ERROR",
+            error_message=str(last_error),
+            application_id=application_id
+        )
+        return None
 
 gemini_service = GeminiService()

@@ -73,3 +73,27 @@ def test_candidate_api_and_pages(client):
     res_post = client.post("/api/candidate", json=candidate_data)
     assert res_post.status_code == 200
     assert "profile" in res_post.get_json()
+
+def test_upload_markdown_cv_empty(client):
+    # Test avec contenu vide
+    res = client.post("/api/candidate/upload-md", data={})
+    assert res.status_code == 400
+    assert "error" in res.get_json()
+
+def test_upload_markdown_cv_with_mock(client, monkeypatch):
+    from app.schemas.candidate import CandidateProfile, PersonalInfo, CandidatePreferences
+    mock_profile = CandidateProfile(
+        name="Jean Dupont",
+        personal=PersonalInfo(first_name="Jean", last_name="Dupont", email="jean@example.com"),
+        preferences=CandidatePreferences(target_titles=["Product Manager"])
+    )
+    # Mock transcriber
+    monkeypatch.setattr(
+        "app.services.ai.cv_transcriber.cv_transcriber_service.transcribe_markdown",
+        lambda md: mock_profile
+    )
+    res = client.post("/api/candidate/upload-md", json={"markdown": "# Jean Dupont\nProduct Manager"})
+    assert res.status_code == 200
+    data = res.get_json()
+    assert "profile" in data
+    assert data["profile"]["name"] == "Jean Dupont"
