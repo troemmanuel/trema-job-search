@@ -52,3 +52,5 @@ htmlcov/
 /storage/
 /temp/
 *.log
+instance/
+candidatures/

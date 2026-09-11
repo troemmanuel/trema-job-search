@@ -6,15 +6,30 @@ from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 import httpx
 from app.services.ai.gemini import gemini_service
+from app.services.ai.prompt_loader import prompt_loader
 from app.schemas.job import JobNormalizedData
+
+from urllib.parse import urlparse, parse_qs, urlunparse, urlencode
 
 logger = logging.getLogger(__name__)
 
-USER_AGENT = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/124.0.0.0 Safari/537.36"
-)
+BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": '"macOS"',
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1"
+}
 
 CONTRACT_MAPPING = {
     "FULL_TIME": "CDI",
@@ -24,6 +39,12 @@ CONTRACT_MAPPING = {
     "INTERNSHIP": "Stage",
     "FREELANCE": "Freelance"
 }
+
+TRACKING_PARAMS = {
+    "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+    "refId", "trackingId", "trk", "midToken", "trkInfo", "src", "fbclid", "gclid"
+}
+
 
 class JobScraper:
     """Scraper intelligent et léger pour extraire les offres d'emploi depuis leur URL."""
@@ -110,13 +131,39 @@ class JobScraper:
             return None
 
     @classmethod
+    def clean_url(cls, url: str) -> str:
+        """Nettoie une URL en supprimant les paramètres de tracking et normalise les URLs spécifiques (LinkedIn, etc.)."""
+        if not url:
+            return ""
+        url = url.strip()
+
+        # Cas spécial LinkedIn: /jobs/view/1234567890/
+        linkedin_m = re.search(r'linkedin\.com/jobs/view/([0-9]+)', url)
+        if linkedin_m:
+            job_id = linkedin_m.group(1)
+            return f"https://www.linkedin.com/jobs/view/{job_id}/"
+
+        # Nettoyage générique des paramètres tracking
+        try:
+            parsed = urlparse(url)
+            query_params = parse_qs(parsed.query, keep_blank_values=True)
+            cleaned_params = {k: v for k, v in query_params.items() if k not in TRACKING_PARAMS and not k.startswith("utm_")}
+            new_query = urlencode(cleaned_params, doseq=True)
+            cleaned_url = urlunparse((
+                parsed.scheme,
+                parsed.netloc,
+                parsed.path,
+                parsed.params,
+                new_query,
+                ""  # fragment supprimé
+            ))
+            return cleaned_url
+        except Exception:
+            return url
+
+    @classmethod
     def fetch_html(cls, url: str) -> str:
-        headers = {
-            "User-Agent": USER_AGENT,
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
-        }
-        with httpx.Client(timeout=15.0, follow_redirects=True, headers=headers) as client:
+        with httpx.Client(timeout=20.0, follow_redirects=True, headers=BROWSER_HEADERS) as client:
             resp = client.get(url)
             resp.raise_for_status()
             return resp.text
@@ -255,6 +302,54 @@ class JobScraper:
         return None
 
     @classmethod
+    def extract_from_meta_tags(cls, soup: BeautifulSoup, url: str) -> Optional[Dict[str, Any]]:
+        """Extraction basée sur OpenGraph et les balises meta standards."""
+        og_title = soup.find("meta", property="og:title")
+        og_desc = soup.find("meta", property="og:description")
+        meta_desc = soup.find("meta", attrs={"name": "description"})
+
+        title_content = og_title.get("content", "").strip() if og_title else ""
+        if not title_content and soup.title:
+            title_content = soup.title.get_text().strip()
+
+        desc_content = ""
+        if og_desc and og_desc.get("content"):
+            desc_content = og_desc.get("content").strip()
+        elif meta_desc and meta_desc.get("content"):
+            desc_content = meta_desc.get("content").strip()
+
+        if not title_content or len(desc_content) < 40:
+            return None
+
+        # Tenter d'isoler l'entreprise et le titre si format "Titre - Entreprise" ou "Titre chez Entreprise"
+        company = "Entreprise"
+        job_title = title_content
+        for sep in [" chez ", " at ", " - ", " | "]:
+            if sep in title_content:
+                parts = title_content.split(sep)
+                job_title = parts[0].strip()
+                company = parts[-1].strip()
+                break
+
+        netloc = urlparse(url).netloc.lower()
+        source = "LINKEDIN" if "linkedin" in netloc else (netloc.replace("www.", "").split(".")[0].upper())
+
+        return {
+            "source": source,
+            "source_job_id": None,
+            "title": job_title,
+            "company": company,
+            "location": "France",
+            "contract_type": "CDI",
+            "salary_min": None,
+            "salary_max": None,
+            "salary_currency": "EUR",
+            "url": url,
+            "description": desc_content,
+            "raw_data": {"meta_tags": {"title": title_content, "description": desc_content}}
+        }
+
+    @classmethod
     def extract_with_gemini_fallback(cls, soup: BeautifulSoup, url: str) -> Dict[str, Any]:
         """Fallback IA : extrait les champs essentiels à partir du texte nettoyé."""
         # Supprimer balises inutiles
@@ -264,21 +359,17 @@ class JobScraper:
         text = soup.get_text(separator="\n")
         # Nettoyer les sauts de ligne multiples
         cleaned_text = re.sub(r'\n{3,}', '\n\n', text).strip()
-        truncated_text = cleaned_text[:12000] # Limiter la taille pour l'API
+        truncated_text = cleaned_text[:12000]  # Limiter la taille pour l'API
 
-        prompt = f"""
-Voici le texte brut extrait d'une page Web d'offre d'emploi (URL: {url}) :
-
----
-{truncated_text}
----
-
-Extrais les informations de l'offre d'emploi sous forme strictement structurée.
-"""
+        system_instruction, user_prompt = prompt_loader.load_and_render(
+            "scrape_fallback",
+            url=url,
+            truncated_text=truncated_text
+        )
         extracted = gemini_service.generate_structured(
-            prompt=prompt,
+            prompt=user_prompt,
             response_schema=JobNormalizedData,
-            system_instruction="Tu es un extracteur d'offres d'emploi précis. Extrais titre, entreprise, lieu, remote, contract_type, seniority, skills, requirements.",
+            system_instruction=system_instruction,
             operation="SCRAPE_FALLBACK"
         )
 
@@ -314,7 +405,9 @@ Extrais les informations de l'offre d'emploi sous forme strictement structurée.
 
     @classmethod
     def scrape(cls, url: str) -> Dict[str, Any]:
-        """Méthode principale : tente WTTJ API d'abord (si WTTJ), puis __NEXT_DATA__, puis JSON-LD, puis fallback Gemini."""
+        """Méthode principale : tente WTTJ API d'abord (si WTTJ), puis Next.js, JSON-LD, Meta tags, puis fallback Gemini."""
+        url = cls.clean_url(url)
+
         # 1. Tentative API officielle WTTJ (immédiat, propre, sans blocage)
         if "welcometothejungle.com" in url:
             data = cls.extract_from_wttj_api(url)
@@ -332,14 +425,21 @@ Extrais les informations de l'offre d'emploi sous forme strictement structurée.
             logger.info(f"Offre extraite via __NEXT_DATA__ : {data['title']} ({data['company']})")
             return data
 
-        # 4. Tentative JSON-LD (Standard SEO)
+        # 4. Tentative JSON-LD (Standard SEO Schema.org JobPosting) -> très efficace sur LinkedIn, Apec, etc.
         data = cls.extract_from_json_ld(soup, url)
-        if data and data.get("title"):
+        if data and data.get("title") and len(data.get("description", "")) > 100:
             logger.info(f"Offre extraite via JSON-LD : {data['title']} ({data['company']})")
             return data
 
-        # 5. Fallback Gemini
+        # 5. Tentative OpenGraph & Meta Tags
+        data = cls.extract_from_meta_tags(soup, url)
+        if data and data.get("title") and len(data.get("description", "")) >= 40:
+            logger.info(f"Offre extraite via Meta/OpenGraph : {data['title']} ({data['company']})")
+            return data
+
+        # 6. Fallback Gemini Flash avec cascade anti-quota
         logger.info(f"Extraction via Fallback Gemini pour {url}")
         return cls.extract_with_gemini_fallback(soup, url)
 
 job_scraper = JobScraper()
+clean_url = JobScraper.clean_url

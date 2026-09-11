@@ -66,7 +66,7 @@ class GeminiService:
         operation: str = "GENERIC",
         application_id: Optional[str] = None
     ) -> Optional[BaseModel]:
-        """Génère un résultat structuré validé par un schéma Pydantic."""
+        """Génère un résultat structuré validé par un schéma Pydantic avec bascule automatique de modèle."""
         if not self.client:
             logger.warning("Client Gemini non disponible.")
             return None
@@ -83,34 +83,48 @@ class GeminiService:
         if system_instruction:
             config.system_instruction = system_instruction
 
-        max_retries = 3
+        # Modèles ordonnés avec bascule automatique si quota 429 ou indisponibilité 503
+        candidate_models = [
+            self.config.GEMINI_MODEL,
+            "gemini-3.5-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-flash-latest"
+        ]
+        models_to_try = list(dict.fromkeys(candidate_models))
         last_error = None
 
-        for attempt in range(1, max_retries + 1):
-            try:
-                response = self.client.models.generate_content(
-                    model=self.config.GEMINI_MODEL,
-                    contents=prompt,
-                    config=config,
-                )
-                result = response_schema.model_validate_json(response.text)
-                self.log_ai_run(
-                    operation=operation,
-                    input_data={"prompt": prompt, "system_instruction": system_instruction},
-                    output_data=result.model_dump(),
-                    status="SUCCESS",
-                    application_id=application_id
-                )
-                return result
-            except Exception as e:
-                last_error = e
-                logger.warning(f"Tentative {attempt}/{max_retries} échouée pour Gemini ({operation}): {e}")
-                if "503" in str(e) or "429" in str(e) or "UNAVAILABLE" in str(e):
-                    time.sleep(2 * attempt)
-                    continue
-                break
+        for model_name in models_to_try:
+            max_retries_per_model = 2
+            for attempt in range(1, max_retries_per_model + 1):
+                try:
+                    response = self.client.models.generate_content(
+                        model=model_name,
+                        contents=prompt,
+                        config=config,
+                    )
+                    result = response_schema.model_validate_json(response.text)
+                    self.log_ai_run(
+                        operation=operation,
+                        input_data={"prompt": prompt, "system_instruction": system_instruction, "model": model_name},
+                        output_data=result.model_dump(),
+                        status="SUCCESS",
+                        application_id=application_id
+                    )
+                    return result
+                except Exception as e:
+                    last_error = e
+                    err_str = str(e)
+                    logger.warning(f"Tentative {attempt}/{max_retries_per_model} échouée pour {model_name} ({operation}): {err_str}")
 
-        logger.error(f"Erreur définitive appel Gemini generate_structured: {last_error}")
+                    # Si quota atteint ou modèle surchargé (503), basculer immédiatement vers le modèle suivant
+                    if any(code in err_str for code in ["RESOURCE_EXHAUSTED", "Quota exceeded", "503", "UNAVAILABLE", "high demand"]):
+                        logger.warning(f"Modèle {model_name} indisponible ou quota atteint ({err_str[:80]}), bascule vers le modèle suivant...")
+                        break
+
+                    # Autre erreur, courte pause et tentative suivante
+                    time.sleep(1)
+
+        logger.error(f"Erreur définitive appel Gemini generate_structured (tous modèles épuisés): {last_error}")
         self.log_ai_run(
             operation=operation,
             input_data={"prompt": prompt, "system_instruction": system_instruction},

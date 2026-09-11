@@ -39,6 +39,35 @@ class NotionService:
     def is_configured(self) -> bool:
         return bool(self.config.NOTION_TOKEN and self.config.NOTION_DATABASE_ID)
 
+    def get_next_suivi_number(self) -> int:
+        """Récupère le plus grand 'N suivi' existant dans Notion et l'incrémente de 1."""
+        if not self.client or not self.config.NOTION_DATABASE_ID:
+            return 1
+
+        try:
+            db_res = self.client.request(path=f"databases/{self.config.NOTION_DATABASE_ID}", method="GET")
+            data_sources = db_res.get("data_sources", [])
+            query_path = f"data_sources/{data_sources[0]['id']}/query" if data_sources else f"databases/{self.config.NOTION_DATABASE_ID}/query"
+
+            res = self.client.request(
+                path=query_path,
+                method="POST",
+                body={
+                    "page_size": 100,
+                    "sorts": [{"property": "N suivi", "direction": "descending"}]
+                }
+            )
+            results = res.get("results", [])
+            max_n = 0
+            for page in results:
+                n = page.get("properties", {}).get("N suivi", {}).get("number")
+                if n and isinstance(n, (int, float)) and n > max_n:
+                    max_n = int(n)
+            return max_n + 1 if max_n > 0 else 163
+        except Exception as e:
+            logger.warning(f"Impossible de récupérer le max N suivi dans Notion ({e}), repli sur 163")
+            return 163
+
     def sync_application(
         self,
         application_id: str,
@@ -50,6 +79,7 @@ class NotionService:
         location: Optional[str] = None,
         contract_type: Optional[str] = None,
         domain: Optional[str] = None,
+        company_type: Optional[str] = None,
         cv_url: Optional[str] = None,
         letter_url: Optional[str] = None,
         cover_letter: Optional[str] = None,
@@ -58,7 +88,7 @@ class NotionService:
         notes: Optional[str] = None,
         notion_page_id: Optional[str] = None
     ) -> Optional[str]:
-        """Crée ou met à jour une page de candidature dans la base Notion de suivi."""
+        """Crée ou met à jour une page de candidature dans la base Notion de suivi avec N suivi incrémental."""
         if not self.client or not self.config.NOTION_DATABASE_ID:
             logger.info(f"Notion non configuré. Synchronisation simulée pour application {application_id}")
             return notion_page_id or f"simulated_page_{application_id}"
@@ -72,24 +102,37 @@ class NotionService:
             "Statut": {"select": {"name": clean_status}}
         }
 
+        # N suivi incrémental si nouvelle page
+        if not notion_page_id or notion_page_id.startswith("simulated_"):
+            next_n = self.get_next_suivi_number()
+            properties["N suivi"] = {"number": next_n}
+
         if job_url and (job_url.startswith("http://") or job_url.startswith("https://")):
             properties["Lien de l'offre"] = {"url": job_url}
 
         if location:
             properties["Lieu"] = {"rich_text": [{"text": {"content": location[:2000]}}]}
 
-        if contract_type:
-            properties["Type"] = {"rich_text": [{"text": {"content": contract_type[:2000]}}]}
+        if company_type:
+            properties["Type"] = {"rich_text": [{"text": {"content": company_type[:2000]}}]}
 
         if domain:
             properties["Domaine"] = {"rich_text": [{"text": {"content": domain[:2000]}}]}
 
         if cv_url:
-            clean_company = "".join(c for c in company if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_")
-            properties["CV utilisé"] = {"rich_text": [{"text": {"content": f"CV_{clean_company}.pdf", "link": {"url": cv_url}}}]}
+            from app.services.documents.renderer import sanitize_name
+            clean_company = sanitize_name(company, 30) or "Entreprise"
+            clean_title = sanitize_name(job_title, 35)
+            cv_filename = f"Emmanuel_TRO_CV_{clean_company}_{clean_title}.pdf" if clean_title else f"Emmanuel_TRO_CV_{clean_company}.pdf"
+            is_valid_url = bool(cv_url and (cv_url.startswith("http://") or cv_url.startswith("https://")))
+            rich_item = {"type": "text", "text": {"content": cv_filename}}
+            if is_valid_url:
+                rich_item["text"]["link"] = {"url": cv_url}
+            properties["CV utilisé"] = {"rich_text": [rich_item]}
 
         if status == "APPLIED":
             properties["Date de candidature"] = {"date": {"start": datetime.now(timezone.utc).strftime("%Y-%m-%d")}}
+
 
         # 2. Construction des blocs de contenu pour le corps de la page
         children_blocks = self._build_page_blocks(
@@ -98,6 +141,7 @@ class NotionService:
             cover_letter=cover_letter,
             answers=answers,
             cv_url=cv_url,
+            letter_url=letter_url,
             notes=notes
         )
 
@@ -131,7 +175,8 @@ class NotionService:
         cover_letter: Optional[str],
         answers: Optional[Dict[str, Any]],
         cv_url: Optional[str],
-        notes: Optional[str]
+        letter_url: Optional[str] = None,
+        notes: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Construit les blocs riches de la page Notion (synthèse IA, lettre, réponses)."""
         blocks: List[Dict[str, Any]] = []
@@ -153,6 +198,27 @@ class NotionService:
                     "color": "green_background" if score >= 80 else "yellow_background"
                 }
             })
+
+        # Callout Statut Administratif & Mobilité Candidat
+        blocks.append({
+            "object": "block",
+            "type": "callout",
+            "callout": {
+                "rich_text": [{
+                    "type": "text",
+                    "text": {
+                        "content": (
+                            "📌 Candidat : Emmanuel TRO (Master MIAGE Rennes)\n"
+                            "• Mobilité : Toute la France (Rennes, Paris/IDF, Nantes, Lyon, Toulouse, Bordeaux, Lille, remote)\n"
+                            "• Statut administratif : Étudiant en transition vers statut travailleur (démarche standard post-promesse d'embauche)\n"
+                            "• Rémunération indicative : Fourchette offre ou 42k€ - 46k€ brut annuel [À VALIDER]"
+                        )
+                    }
+                }],
+                "icon": {"type": "emoji", "emoji": "👤"},
+                "color": "blue_background"
+            }
+        })
 
         # Points forts & Points de vigilance
         if match_analysis:
@@ -221,20 +287,42 @@ class NotionService:
                         }
                     })
 
-        # Lien de téléchargement CV PDF
-        if cv_url:
+        # Liens de téléchargement CV & Lettre
+        valid_cv_url = cv_url if (cv_url and (cv_url.startswith("http://") or cv_url.startswith("https://"))) else None
+        valid_letter_url = letter_url if (letter_url and (letter_url.startswith("http://") or letter_url.startswith("https://"))) else None
+
+        if valid_cv_url or valid_letter_url:
             blocks.append({
                 "object": "block",
-                "type": "callout",
-                "callout": {
-                    "rich_text": [{
-                        "type": "text",
-                        "text": {"content": "📥 Télécharger le CV personnalisé (PDF)", "link": {"url": cv_url}}
-                    }],
-                    "icon": {"type": "emoji", "emoji": "📄"},
-                    "color": "blue_background"
-                }
+                "type": "heading_2",
+                "heading_2": {"rich_text": [{"type": "text", "text": {"content": "Documents PDF générés"}}]}
             })
+            if valid_cv_url:
+                blocks.append({
+                    "object": "block",
+                    "type": "callout",
+                    "callout": {
+                        "rich_text": [{
+                            "type": "text",
+                            "text": {"content": "📥 Télécharger le CV personnalisé (PDF)", "link": {"url": valid_cv_url}}
+                        }],
+                        "icon": {"type": "emoji", "emoji": "📄"},
+                        "color": "blue_background"
+                    }
+                })
+            if valid_letter_url:
+                blocks.append({
+                    "object": "block",
+                    "type": "callout",
+                    "callout": {
+                        "rich_text": [{
+                            "type": "text",
+                            "text": {"content": "📥 Télécharger la Lettre de motivation (PDF)", "link": {"url": valid_letter_url}}
+                        }],
+                        "icon": {"type": "emoji", "emoji": "✉️"},
+                        "color": "purple_background"
+                    }
+                })
 
         return blocks
 

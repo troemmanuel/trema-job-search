@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trema-job-search
+    restart: unless-stopped
+    ports:
+      - "${PORT:-5001}:5001"
+    env_file:
+      - .env
+    environment:
+      - PORT=5001
+      - FLASK_ENV=${FLASK_ENV:-production}
+      - FLASK_DEBUG=${FLASK_DEBUG:-0}
+      - LOCAL_STORAGE_DIR=/app/candidatures
+    volumes:
+      # Persistance de l'état du planificateur
+      - ./instance:/app/instance
+      # Sauvegarde locale des dossiers de candidature (PDFs CV & Lettres)
+      - ./candidatures:/app/candidatures
+      # Montage en lecture seule des prompts pour modifications à chaud
+      - ./prompts:/app/prompts:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

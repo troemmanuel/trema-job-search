@@ -107,10 +107,24 @@ def prepare_application(app_id: str):
         # 4. Rendu PDF et upload Storage
         cv_url = None
         letter_url = None
+        company_name = job.get("company") or ""
+        job_name = job.get("title") or ""
         if tailored_cv:
-            cv_url = document_renderer.render_and_save_cv(app_id, profile_data["profile"], tailored_cv.model_dump())
+            cv_url = document_renderer.render_and_save_cv(
+                app_id,
+                profile_data["profile"],
+                tailored_cv.model_dump(),
+                company=company_name,
+                job_title=job_name
+            )
         if cover_letter:
-            letter_url = document_renderer.render_and_save_letter(app_id, profile_data["profile"], cover_letter.model_dump())
+            letter_url = document_renderer.render_and_save_letter(
+                app_id,
+                profile_data["profile"],
+                cover_letter.model_dump(),
+                company=company_name,
+                job_title=job_name
+            )
 
         # Mettre à jour l'application en PREPARED
         update_payload = {
@@ -212,7 +226,9 @@ def download_application_document(app_id: str, doc_type: str):
         return jsonify({"error": "Service Supabase indisponible"}), 503
     job = app_data.get("jobs", {}) or {}
     raw_company = job.get("company") or "Entreprise"
+    raw_title = job.get("title") or ""
     clean_company = "".join(c for c in raw_company if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_")
+    clean_title = "".join(c for c in raw_title if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_")[:35]
 
     profile_data = supabase_service.get_active_candidate_profile()
     raw_profile = profile_data["profile"] if profile_data else {}
@@ -222,22 +238,24 @@ def download_application_document(app_id: str, doc_type: str):
         if not cv_data:
             return jsonify({"error": "CV non encore généré"}), 404
         pdf_bytes = pdf_generator.generate_cv_pdf(raw_profile, cv_data)
+        download_name = f"Emmanuel_TRO_CV_{clean_company}_{clean_title}.pdf" if clean_title else f"Emmanuel_TRO_CV_{clean_company}.pdf"
         return send_file(
             io.BytesIO(pdf_bytes),
             mimetype="application/pdf",
             as_attachment=True,
-            download_name=f"CV_{clean_company}.pdf"
+            download_name=download_name
         )
     elif doc_type in ["letter", "cover-letter"]:
         cover_letter = app_data.get("cover_letter")
         if not cover_letter:
             return jsonify({"error": "Lettre non encore générée"}), 404
         pdf_bytes = pdf_generator.generate_letter_pdf(raw_profile, {"content": cover_letter})
+        download_name = f"Emmanuel_TRO_LM_{clean_company}_{clean_title}.pdf" if clean_title else f"Emmanuel_TRO_LM_{clean_company}.pdf"
         return send_file(
             io.BytesIO(pdf_bytes),
             mimetype="application/pdf",
             as_attachment=True,
-            download_name=f"Lettre_{clean_company}.pdf"
+            download_name=download_name
         )
     else:
         return jsonify({"error": "Type de document invalide (attendu: 'cv' ou 'letter')"}), 400

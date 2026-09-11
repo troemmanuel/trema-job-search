@@ -64,6 +64,40 @@ def test_jobs_scrape_endpoint(client, monkeypatch):
     data = res_scrape.get_json()
     assert data["job"]["title"] == "Ingénieur Backend Cloud"
 
+def test_jobs_collect_endpoint(client, monkeypatch):
+    mock_summary = {
+        "duration": "24h",
+        "query": "Backend",
+        "total_found": 3,
+        "processed_count": 3,
+        "new_imported_count": 2,
+        "qualified_count": 1,
+        "prepared_count": 1,
+        "notion_synced_count": 1,
+        "jobs": [
+            {
+                "title": "Backend Go Developer",
+                "company": "Acme",
+                "status": "PREPARED",
+                "match_score": 82,
+                "notion_page_id": "fake-page-id",
+                "notion_url": "https://app.notion.com/p/fake-page-id"
+            }
+        ]
+    }
+    monkeypatch.setattr(
+        "app.services.ingestion.collector.job_collector_service.run_collection",
+        lambda duration, query, limit, auto_prepare: mock_summary
+    )
+
+    res = client.post("/api/jobs/collect", json={"duration": "24h", "query": "Backend", "limit": 5})
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["total_found"] == 3
+    assert data["qualified_count"] == 1
+    assert data["jobs"][0]["company"] == "Acme"
+
+
 def test_applications_api_and_pages(client):
     # Test GET /api/applications
     res = client.get("/api/applications")

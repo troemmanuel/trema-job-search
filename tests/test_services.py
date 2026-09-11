@@ -67,9 +67,100 @@ def test_prompt_loader():
         candidate_profile='{"name": "Alice"}',
         job_data='{"title": "Dev"}'
     )
-    assert "Tu es un expert en recrutement" in system_inst
+    assert "expert en évaluation d'adéquation" in system_inst
     assert '{"name": "Alice"}' in user_prompt
     assert '{"title": "Dev"}' in user_prompt
+
+def test_document_renderer_naming(monkeypatch):
+    from app.services.documents.renderer import DocumentRenderer, sanitize_name
+    from app.services.storage import supabase_service
+
+    assert sanitize_name("Welcome To The Jungle!") == "Welcome_To_The_Jungle"
+    assert sanitize_name("Développeur Backend (H/F)") == "Developpeur_Backend_HF"
+
+    uploaded = {}
+    def mock_upload(bucket, path, file_bytes, content_type):
+        uploaded["bucket"] = bucket
+        uploaded["path"] = path
+        return f"https://mock-storage/{path}"
+
+    monkeypatch.setattr(supabase_service, "upload_document", mock_upload)
+
+    candidate = {
+        "name": "Emmanuel TRO",
+        "personal": {"first_name": "Emmanuel", "last_name": "TRO"}
+    }
+    tailored_cv = {
+        "job_id": "job_1",
+        "summary": "Résumé ingénieur",
+        "skills": ["Java", "Docker"],
+        "selected_experiences": []
+    }
+
+    url = DocumentRenderer.render_and_save_cv(
+        application_id="app_123",
+        candidate_profile=candidate,
+        tailored_cv=tailored_cv,
+        company="Infomil",
+        job_title="Ingénieur développement"
+    )
+
+    assert "applications/app_123/Emmanuel_TRO_CV_Infomil_Ingenieur_developpement.pdf" in url
+    assert uploaded["path"] == "applications/app_123/Emmanuel_TRO_CV_Infomil_Ingenieur_developpement.pdf"
+
+def test_notion_blocks_building():
+    from app.services.notion.client import NotionService
+
+    notion_svc = NotionService()
+    blocks = notion_svc._build_page_blocks(
+        score=88,
+        match_analysis={"level": "RECOMMENDED", "recommendation": "APPLY", "strengths": ["Java expert"], "concerns": []},
+        cover_letter="Madame, Monsieur,\n\nJe postule avec grand intérêt...",
+        answers={"questions": [{"question": "Salaire souhaité ?", "answer": "42k€ - 46k€", "confidence": "HIGH", "validation_required": True}]},
+        cv_url="https://mock/cv.pdf",
+        letter_url="https://mock/letter.pdf"
+    )
+
+    # Vérifier l'en-tête de score
+    assert any("Score de Matching IA : 88/100" in str(b) for b in blocks)
+    # Vérifier le callout de situation administrative et mobilité
+    assert any("Master MIAGE Rennes" in str(b) for b in blocks)
+    assert any("Toute la France" in str(b) for b in blocks)
+    assert any("42k€ - 46k€" in str(b) for b in blocks)
+    # Vérifier les liens de téléchargement
+    assert any("Télécharger le CV personnalisé" in str(b) for b in blocks)
+    assert any("Télécharger la Lettre de motivation" in str(b) for b in blocks)
+
+def test_candidate_search_criteria_derivation():
+    from app.services.ingestion.collector import JobCollectorService
+    from app.schemas.candidate import CandidateProfile
+
+    sample_profile = CandidateProfile.model_validate({
+        "name": "Emmanuel TRO",
+        "personal": {
+            "first_name": "Emmanuel",
+            "last_name": "TRO",
+            "email": "emmanuel@example.com",
+            "location": "Rennes"
+        },
+        "preferences": {
+            "target_titles": ["Ingénieur Logiciel", "Ingénieur Backend", "Développeur Backend"],
+            "contract_types": ["CDI"]
+        },
+        "skills": {
+            "technical": ["Java", "Python", "Go"],
+            "tools": ["Docker", "Kubernetes", "AWS", "Terraform"]
+        }
+    })
+
+    collector = JobCollectorService()
+    criteria = collector.derive_candidate_search_criteria(sample_profile)
+
+    assert "Ingénieur Logiciel" in criteria["queries"]
+    assert "Développeur Java" in criteria["queries"]
+    assert "Développeur Python" in criteria["queries"]
+    assert "contract_type:full_time" in criteria["contract_facets"]
+
 
 
 

@@ -42,55 +42,52 @@ def import_job():
 
 @jobs_bp.route("/api/jobs/scrape", methods=["POST"])
 def scrape_job():
-    """Scrape automatiquement une offre depuis son URL et l'enregistre."""
+    """Scrape une ou plusieurs offres depuis leurs URLs (LinkedIn, WTTJ, Indeed, etc.), calcule le match et prépare les livrables."""
     payload = request.get_json() or {}
-    url = payload.get("url", "").strip()
-    if not url:
-        return jsonify({"error": "L'URL de l'offre est requise"}), 400
+    raw_urls = payload.get("urls")
+    raw_url = payload.get("url")
+    urls_list = []
 
-    from app.services.ingestion.scraper import job_scraper
+    if isinstance(raw_urls, list):
+        urls_list = [u.strip() for u in raw_urls if isinstance(u, str) and u.strip()]
+    elif isinstance(raw_url, str) and raw_url.strip():
+        # Découper par retour à la ligne ou virgule
+        for part in raw_url.replace(",", "\n").splitlines():
+            clean_part = part.strip()
+            if clean_part:
+                urls_list.append(clean_part)
+
+    if not urls_list:
+        return jsonify({"error": "Au moins une URL d'offre est requise"}), 400
+
+    auto_prepare = payload.get("auto_prepare", True)
+    min_score = payload.get("min_match_score", current_app.config.get("MATCH_THRESHOLD_RECOMMENDED", 75))
+
+    from app.services.ingestion.collector import job_collector_service
 
     try:
-        scraped_data = job_scraper.scrape(url)
-        import_result = job_importer.import_job(scraped_data)
-        
-        job = import_result.get("job")
-        auto_match = payload.get("auto_match", True)
-
-        match_data = None
-        if auto_match and job and job.get("id"):
-            try:
-                profile_data = supabase_service.get_active_candidate_profile()
-                if profile_data:
-                    candidate_profile = CandidateProfile.model_validate(profile_data["profile"])
-                    candidate_profile.preferences = candidate_profile.preferences.model_validate(profile_data.get("preferences", {}))
-                    job_normalized = JobNormalizedData.model_validate(job.get("normalized_data", {}))
-                    match_result = matcher_service.match(candidate_profile, job_normalized)
-                    if match_result:
-                        match_data = match_result.model_dump()
-                        if supabase_service.client:
-                            update_data = {
-                                "match_score": match_result.score,
-                                "match_level": match_result.level,
-                                "match_analysis": match_data,
-                                "status": "QUALIFIED" if match_result.score >= current_app.config["MATCH_THRESHOLD_RECOMMENDED"] else "REVIEW"
-                            }
-                            supabase_service.client.table("jobs").update(update_data).eq("id", job["id"]).execute()
-                            job["match_score"] = match_result.score
-                            job["match_level"] = match_result.level
-            except Exception as me:
-                current_app.logger.warning(f"Erreur calcul auto-match après scrape: {me}")
-
-        return jsonify({
-            "status": import_result.get("status"),
-            "job": job,
-            "match": match_data,
-            "message": import_result.get("message") or "Offre extraite et importée avec succès"
-        }), 201 if import_result.get("status") in ["CREATED", "SIMULATED"] else 200
+        if len(urls_list) == 1:
+            result = job_collector_service.import_and_process_url(
+                url=urls_list[0],
+                auto_prepare=auto_prepare,
+                min_match_score=min_score
+            )
+            if not result.get("success", False):
+                return jsonify({"error": result.get("error", "Erreur lors de l'import")}), 400
+            return jsonify(result), 200
+        else:
+            result = job_collector_service.import_and_process_urls(
+                urls=urls_list,
+                auto_prepare=auto_prepare,
+                min_match_score=min_score
+            )
+            if not result.get("success", False) and result.get("total_unique", 0) == 0:
+                return jsonify({"error": result.get("error", "Erreur lors de l'import du lot")}), 400
+            return jsonify(result), 200
 
     except Exception as e:
-        current_app.logger.error(f"Erreur scraping offre pour {url}: {e}")
-        return jsonify({"error": f"Impossible de récupérer l'offre: {str(e)}"}), 500
+        current_app.logger.error(f"Erreur scraping offres : {e}")
+        return jsonify({"error": f"Impossible de récupérer les offres: {str(e)}"}), 500
 
 @jobs_bp.route("/api/jobs/<job_id>/match", methods=["POST"])
 def match_job(job_id: str):
@@ -129,6 +126,33 @@ def match_job(job_id: str):
 
     return jsonify({"message": "Matching effectué", "match": match_result.model_dump()}), 200
 
+@jobs_bp.route("/api/jobs/collect", methods=["POST"])
+def collect_jobs():
+    """Lance la collecte automatique et scraping batch d'offres récentes (24h, 3j, 7j)."""
+    payload = request.get_json() or {}
+    duration = payload.get("duration", "24h")
+    query = payload.get("query")
+    limit = payload.get("limit", 5)
+    auto_prepare = payload.get("auto_prepare", True)
+
+    try:
+        limit = max(1, min(int(limit), 20))
+    except (ValueError, TypeError):
+        limit = 5
+
+    try:
+        from app.services.ingestion.collector import job_collector_service
+        summary = job_collector_service.run_collection(
+            duration=duration,
+            query=query,
+            limit=limit,
+            auto_prepare=auto_prepare
+        )
+        return jsonify(summary), 200
+    except Exception as e:
+        current_app.logger.error(f"Erreur lors de la collecte d'offres: {e}")
+        return jsonify({"error": f"Erreur lors de la collecte: {str(e)}"}), 500
+
 @jobs_bp.route("/jobs", methods=["GET"])
 def jobs_view():
     """Vue HTML de listing des offres."""
@@ -143,3 +167,4 @@ def job_detail_view(job_id: str):
     res = supabase_service.client.table("jobs").select("*").eq("id", job_id).execute()
     job = res.data[0] if res.data else None
     return render_template("jobs/detail.html", job=job)
+

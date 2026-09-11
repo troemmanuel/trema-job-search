@@ -8,8 +8,31 @@
         <h1>Offres d'emploi</h1>
         <p class="subtitle">Toutes les offres collectées et analysées.</p>
     </div>
-    <button class="btn btn-primary" onclick="document.getElementById('addJobModal').showModal()">+ Importer une offre</button>
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+        <button class="btn btn-primary" onclick="document.getElementById('collectModal').showModal()" style="background: linear-gradient(135deg, #3b82f6, #8b5cf6); border: none; font-weight: 700; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); font-size: 0.95rem; padding: 0.6rem 1.25rem;">
+            ⚡ Collecter les offres (24h / 3j / 7j)
+        </button>
+        <button class="btn btn-secondary" onclick="document.getElementById('urlImportModal').showModal()" style="font-weight: 600;">
+            📥 Importer par URL
+        </button>
+    </div>
 </div>
+
+<!-- Bandeau d'action rapide pour la collecte -->
+<div style="background: linear-gradient(90deg, rgba(59, 130, 246, 0.12), rgba(139, 92, 246, 0.12)); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 0.85rem 1.25rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div style="display: flex; align-items: center; gap: 0.6rem;">
+        <span style="font-size: 1.2rem;">⏱️</span>
+        <span style="font-size: 0.9rem; font-weight: 500;">
+            Lancer le scraping des offres publiées récemment sur WTTJ :
+        </span>
+    </div>
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <button class="btn btn-sm btn-secondary" onclick="openCollectWithDuration('24h')">Dernières 24h</button>
+        <button class="btn btn-sm btn-secondary" onclick="openCollectWithDuration('3j')">3 derniers jours</button>
+        <button class="btn btn-sm btn-secondary" onclick="openCollectWithDuration('7j')">7 derniers jours</button>
+    </div>
+</div>
+
 
 <div class="card">
     {% if jobs %}
@@ -50,171 +73,25 @@
     {% else %}
     <div class="empty-state">
         <p>Aucune offre enregistrée pour le moment.</p>
-        <button class="btn btn-primary mt-2" onclick="document.getElementById('addJobModal').showModal()">Importer votre première offre (Coller un lien)</button>
+        <button class="btn btn-primary mt-2" onclick="document.getElementById('urlImportModal').showModal()">📥 Importer une offre (URL ou Saisie)</button>
     </div>
     {% endif %}
 </div>
 
-<!-- Modal Ajout d'offre -->
-<dialog id="addJobModal" class="modal" style="max-width: 650px;">
-    <div class="modal-content">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <h2>Importer une offre d'emploi</h2>
-            <button class="btn btn-sm btn-secondary" onclick="document.getElementById('addJobModal').close()">✕</button>
-        </div>
-
-        <!-- Section 1 : Import automatique par URL (Recommandé) -->
-        <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
-            <h3 style="color: #60a5fa; font-size: 1rem; margin-bottom: 0.5rem;">⚡ Extraction automatique par URL (WTTJ, etc.)</h3>
-            <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 0.8rem;">
-                Collez simplement le lien de l'offre. Le robot extraira automatiquement le titre, l'entreprise, les missions, les compétences requises, et calculera le score de matching avec votre profil !
-            </p>
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                <input type="url" id="scrapeUrl" placeholder="https://www.welcometothejungle.com/fr/companies/.../jobs/..." class="code-editor" style="flex: 1; padding: 0.5rem;" />
-                <button id="scrapeBtn" type="button" onclick="scrapeAndImportJob()" class="btn btn-success">
-                    ⚡ Extraire & Matcher
-                </button>
-            </div>
-            <span id="scrapeStatus" style="display: block; font-size: 0.85rem; margin-top: 0.5rem; font-weight: 500;"></span>
-        </div>
-
-        <!-- Accordéon saisie manuelle si besoin -->
-        <details>
-            <summary style="cursor: pointer; font-size: 0.9rem; color: #94a3b8; margin-bottom: 0.8rem;">
-                Ou saisie manuelle détaillée (optionnel)
-            </summary>
-            <form id="addJobForm" onsubmit="submitManualJob(event)">
-                <div style="display: flex; flex-direction: column; gap: 0.8rem;">
-                    <div>
-                        <label><strong>Titre du poste * :</strong></label>
-                        <input type="text" id="jobTitle" placeholder="ex: Développeur Backend Python" class="code-editor" style="padding: 0.5rem; margin-top: 0.25rem;" />
-                    </div>
-
-                    <div class="grid-2">
-                        <div>
-                            <label><strong>Entreprise :</strong></label>
-                            <input type="text" id="jobCompany" placeholder="ex: Doctolib" class="code-editor" style="padding: 0.5rem; margin-top: 0.25rem;" />
-                        </div>
-                        <div>
-                            <label><strong>Lieu :</strong></label>
-                            <input type="text" id="jobLocation" placeholder="ex: Paris / Remote" class="code-editor" style="padding: 0.5rem; margin-top: 0.25rem;" />
-                        </div>
-                    </div>
-
-                    <div class="grid-2">
-                        <div>
-                            <label><strong>Type de contrat :</strong></label>
-                            <select id="jobContract" class="code-editor" style="padding: 0.5rem; margin-top: 0.25rem;">
-                                <option value="CDI">CDI</option>
-                                <option value="Alternance">Alternance</option>
-                                <option value="CDD">CDD</option>
-                                <option value="Stage">Stage</option>
-                                <option value="Freelance">Freelance</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label><strong>URL de l'offre :</strong></label>
-                            <input type="url" id="jobUrl" placeholder="https://..." class="code-editor" style="padding: 0.5rem; margin-top: 0.25rem;" />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label><strong>Description :</strong></label>
-                        <textarea id="jobDesc" rows="6" placeholder="Texte de l'offre..." class="code-editor" style="padding: 0.5rem; margin-top: 0.25rem;"></textarea>
-                    </div>
-
-                    <div style="display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 1rem;">
-                        <button type="submit" id="saveJobBtn" class="btn btn-primary">Enregistrer manuellement</button>
-                    </div>
-                </div>
-            </form>
-        </details>
-    </div>
-</dialog>
-
 <script>
-async function scrapeAndImportJob() {
-    const urlInput = document.getElementById('scrapeUrl');
-    const statusSpan = document.getElementById('scrapeStatus');
-    const scrapeBtn = document.getElementById('scrapeBtn');
-    const url = urlInput.value.trim();
-
-    if (!url) {
-        alert("Veuillez saisir une URL d'offre valide");
-        return;
+function openCollectWithDuration(dur) {
+    const modal = document.getElementById('collectModal');
+    if (!modal) return;
+    const radio = modal.querySelector(`input[name="duration"][value="${dur}"]`);
+    if (radio) {
+        radio.checked = true;
+        updatePillSelection(radio);
     }
-
-    scrapeBtn.disabled = true;
-    statusSpan.style.color = '#38bdf8';
-    statusSpan.textContent = "⏳ Extraction de la page et calcul du matching IA...";
-
-    try {
-        const res = await fetch('/api/jobs/scrape', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: url, auto_match: true })
-        });
-        const data = await res.json();
-
-        if (res.ok) {
-            statusSpan.style.color = '#34d399';
-            const scoreMsg = data.match ? ` (Score: ${data.match.score}/100)` : '';
-            statusSpan.textContent = `✅ Offre extraite avec succès !${scoreMsg} Redirection...`;
-            setTimeout(() => {
-                if (data.job && data.job.id) {
-                    window.location.href = `/jobs/${data.job.id}`;
-                } else {
-                    location.reload();
-                }
-            }, 1000);
-        } else {
-            statusSpan.style.color = '#f87171';
-            statusSpan.textContent = "❌ " + (data.error || "Impossible d'extraire l'offre");
-            scrapeBtn.disabled = false;
-        }
-    } catch(err) {
-        statusSpan.style.color = '#f87171';
-        statusSpan.textContent = "❌ Erreur réseau lors de l'extraction";
-        scrapeBtn.disabled = false;
-    }
-}
-
-async function submitManualJob(e) {
-    e.preventDefault();
-    const btn = document.getElementById('saveJobBtn');
-    btn.disabled = true;
-    btn.textContent = "⏳ Enregistrement...";
-
-    const payload = {
-        source: "MANUAL",
-        title: document.getElementById('jobTitle').value.trim(),
-        company: document.getElementById('jobCompany').value.trim(),
-        location: document.getElementById('jobLocation').value.trim(),
-        contract_type: document.getElementById('jobContract').value,
-        url: document.getElementById('jobUrl').value.trim(),
-        description: document.getElementById('jobDesc').value.trim(),
-    };
-
-    try {
-        const res = await fetch('/api/jobs/import', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-
-        if (res.ok) {
-            location.reload();
-        } else {
-            alert("Erreur: " + (data.error || "Erreur lors de l'enregistrement"));
-            btn.disabled = false;
-            btn.textContent = "Enregistrer manuellement";
-        }
-    } catch(err) {
-        alert("Erreur réseau: " + err.message);
-        btn.disabled = false;
-        btn.textContent = "Enregistrer manuellement";
-    }
+    modal.showModal();
 }
 </script>
+
+{% include "components/collect_modal.html" %}
+{% include "components/url_import_modal.html" %}
 {% endblock %}
+

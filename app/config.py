@@ -16,7 +16,7 @@ class Config:
 
     # Gemini
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
 
     # Notion
     NOTION_TOKEN = os.getenv("NOTION_TOKEN", "")
@@ -26,3 +26,10 @@ class Config:
     MATCH_THRESHOLD_PRIORITY = int(os.getenv("MATCH_THRESHOLD_PRIORITY", "85"))
     MATCH_THRESHOLD_RECOMMENDED = int(os.getenv("MATCH_THRESHOLD_RECOMMENDED", "75"))
     MATCH_THRESHOLD_REVIEW = int(os.getenv("MATCH_THRESHOLD_REVIEW", "60"))
+
+    # Scheduler / Cron Quotidien
+    CRON_SCHEDULE_TIME = os.getenv("CRON_SCHEDULE_TIME", "08:00")
+    ENABLE_SCHEDULER = os.getenv("ENABLE_SCHEDULER", "1") == "1"
+
+    # Stockage local des dossiers de candidature (PDFs)
+    LOCAL_STORAGE_DIR = os.getenv("LOCAL_STORAGE_DIR", "/Users/trema/Documents/RECHERCHE EMPLOIE/CANDIDATURES")
