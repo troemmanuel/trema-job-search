@@ -40,6 +40,58 @@ def import_job():
         current_app.logger.error(f"Erreur import offre : {e}")
         return jsonify({"error": "Erreur interne lors de l'import"}), 500
 
+@jobs_bp.route("/api/jobs/scrape", methods=["POST"])
+def scrape_job():
+    """Scrape automatiquement une offre depuis son URL et l'enregistre."""
+    payload = request.get_json() or {}
+    url = payload.get("url", "").strip()
+    if not url:
+        return jsonify({"error": "L'URL de l'offre est requise"}), 400
+
+    from app.services.ingestion.scraper import job_scraper
+
+    try:
+        scraped_data = job_scraper.scrape(url)
+        import_result = job_importer.import_job(scraped_data)
+        
+        job = import_result.get("job")
+        auto_match = payload.get("auto_match", True)
+
+        match_data = None
+        if auto_match and job and job.get("id"):
+            try:
+                profile_data = supabase_service.get_active_candidate_profile()
+                if profile_data:
+                    candidate_profile = CandidateProfile.model_validate(profile_data["profile"])
+                    candidate_profile.preferences = candidate_profile.preferences.model_validate(profile_data.get("preferences", {}))
+                    job_normalized = JobNormalizedData.model_validate(job.get("normalized_data", {}))
+                    match_result = matcher_service.match(candidate_profile, job_normalized)
+                    if match_result:
+                        match_data = match_result.model_dump()
+                        if supabase_service.client:
+                            update_data = {
+                                "match_score": match_result.score,
+                                "match_level": match_result.level,
+                                "match_analysis": match_data,
+                                "status": "QUALIFIED" if match_result.score >= current_app.config["MATCH_THRESHOLD_RECOMMENDED"] else "REVIEW"
+                            }
+                            supabase_service.client.table("jobs").update(update_data).eq("id", job["id"]).execute()
+                            job["match_score"] = match_result.score
+                            job["match_level"] = match_result.level
+            except Exception as me:
+                current_app.logger.warning(f"Erreur calcul auto-match après scrape: {me}")
+
+        return jsonify({
+            "status": import_result.get("status"),
+            "job": job,
+            "match": match_data,
+            "message": import_result.get("message") or "Offre extraite et importée avec succès"
+        }), 201 if import_result.get("status") in ["CREATED", "SIMULATED"] else 200
+
+    except Exception as e:
+        current_app.logger.error(f"Erreur scraping offre pour {url}: {e}")
+        return jsonify({"error": f"Impossible de récupérer l'offre: {str(e)}"}), 500
+
 @jobs_bp.route("/api/jobs/<job_id>/match", methods=["POST"])
 def match_job(job_id: str):
     """Calcule le score de matching IA pour l'offre spécifiée."""

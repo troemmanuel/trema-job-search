@@ -39,6 +39,31 @@ def test_jobs_api_and_pages(client):
     data = res_import.get_json()
     assert data["status"] in ["CREATED", "SIMULATED", "DUPLICATE"]
 
+def test_jobs_scrape_endpoint(client, monkeypatch):
+    # Test sans URL
+    res = client.post("/api/jobs/scrape", json={})
+    assert res.status_code == 400
+
+    # Test avec mock scraper
+    mock_job_data = {
+        "source": "WTTJ",
+        "source_job_id": "scrape-123",
+        "title": "Ingénieur Backend Cloud",
+        "company": "Tech Corp",
+        "location": "Paris",
+        "contract_type": "CDI",
+        "url": "https://example.com/jobs/scrape-123",
+        "description": "Recherche dev backend python"
+    }
+    monkeypatch.setattr(
+        "app.services.ingestion.scraper.job_scraper.scrape",
+        lambda url: mock_job_data
+    )
+    res_scrape = client.post("/api/jobs/scrape", json={"url": "https://example.com/jobs/scrape-123", "auto_match": False})
+    assert res_scrape.status_code in [200, 201]
+    data = res_scrape.get_json()
+    assert data["job"]["title"] == "Ingénieur Backend Cloud"
+
 def test_applications_api_and_pages(client):
     # Test GET /api/applications
     res = client.get("/api/applications")
