@@ -1,0 +1,12 @@
+{
+  "content": "Madame, Monsieur,\n\nIngénieur logiciel diplômé du Master MIAGE de l'Université de Rennes, je souhaite rejoindre vos équipes de Châtillon comme ingénieur développement logiciel et test.\n\nDepuis deux ans et demi, je travaille chez Capgemini sur le projet ANTAI, qui gère l'édition des avis de contravention. J'y développe des fonctionnalités en Java/Spring sur les modules d'édition et de contestation, et j'écris et exécute les tests qui vont avec : unitaires en JUnit, d'intégration en Cucumber, et manuels, avec les protocoles et les résultats documentés dans Confluence. J'ai aussi passé près d'un an en support N2/N3 sur ce projet, à analyser les anomalies remontées de production. C'est un contexte où un défaut logiciel finit sur un courrier envoyé à un citoyen : ça oblige à tester sérieusement et à tracer ce qu'on fait.\n\nCôté outillage, je travaille tous les jours sous Linux avec Git. J'ai également refondu l'automatisation Ansible du projet en rôles modulaires et versionnés, ce qui m'a donné une pratique concrète de la gestion de configuration.\n\nAvant Capgemini, j'ai passé un an et demi en CDI chez Djamo, une fintech, où j'ai conçu le mécanisme de fiabilisation des opérations financières récurrentes : historisation, traçabilité de chaque étape, reprise au point d'échec sans rejouer tout le processus. C'est ce qui se rapproche le plus, dans mon parcours, d'une logique de tolérance aux pannes.\n\nJe préfère être clair sur ce qui me manque : je n'ai jamais développé de logiciel embarqué, je ne connais pas le ferroviaire, et je ne pratique ni ADA ni la méthode B. Je candidate en le sachant, parce que c'est exactement ce que je veux apprendre. J'ai déjà changé d'environnement technique plusieurs fois - de Node.js à Java/Spring, puis à Go - et je sais le faire sans perdre en qualité de travail.\n\nJe suis disponible à partir de début octobre 2026 et ma mobilité vers l'Île-de-France ne pose pas de difficulté. Je reste à votre disposition pour en discuter.\n\nJe vous prie d'agréer, Madame, Monsieur, mes salutations distinguées.",
+  "job": {
+    "company": "Siemens Mobility SAS",
+    "title": "Ingénieur développement logiciel et test f/h",
+    "location": "Châtillon (92)",
+    "reference": "517876"
+  },
+  "date": "2026-09-05",
+  "mobility": "mobilité Île-de-France",
+  "language": "fr"
+}

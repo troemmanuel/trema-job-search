@@ -212,11 +212,64 @@ def test_cv_template_applies_experience_highlights():
     assert len(resolved[0]["achievements"]) == 3  # non surchargée : réalisations du profil maître
 
 
+def test_location_line_helpers():
+    from app.services.documents.templates.common import location_line, sender_city, split_location
+    assert split_location("Rennes - mobile sur la France") == ("Rennes", "mobile sur la France")
+    assert location_line("Rennes - mobile sur la France", "mobilité Île-de-France") == "Rennes - mobilité Île-de-France"
+    assert location_line("Rennes, France", None) == "Rennes, France"
+    assert location_line("Rennes, France", "mobilité Nantes") == "Rennes, France - mobilité Nantes"
+    assert sender_city("Rennes, France") == "Rennes" and sender_city("Rennes - mobile sur la France") == "Rennes"
+
+
 def test_cv_generation_prompt_mentions_template_fields():
     from app.services.ai.prompt_loader import prompt_loader
     system_inst, user_prompt = prompt_loader.load_and_render(
         "cv_generation", job_id="j1", candidate_profile="{}", job_data="{}"
     )
-    for field in ("title", "experience_highlights", "selected_projects", "skill_groups", "language"):
+    for field in ("title", "mobility", "experience_highlights", "selected_projects", "skill_groups", "language"):
         assert field in system_inst and field in user_prompt
     assert "tiret cadratin" in system_inst
+
+
+def test_letter_template_reference_letter():
+    """Le template lettre rend la lettre de référence sur une page avec l'en-tête dérivé de l'offre."""
+    import json
+    from pathlib import Path
+    from app.services.documents.templates.letter_classic import ClassicLetterTemplate, render_letter
+
+    fixtures = Path(__file__).parent / "fixtures"
+    profile = json.loads((fixtures / "profile_emmanuel.json").read_text())
+    letter = json.loads((fixtures / "letter_siemens.json").read_text())
+
+    tpl = ClassicLetterTemplate(profile, letter)
+    assert tpl.date_line() == "Rennes, le 5 septembre 2026"
+    assert tpl.subject_line() == "Objet : candidature au poste d'Ingénieur développement logiciel et test f/h - réf. 517876"
+    assert tpl.recipient_lines() == ["Siemens Mobility SAS", "Service Recrutement", "Châtillon (92)"]
+    assert tpl.sender_lines()[0] == "Rennes - mobilité Île-de-France"  # mobilité adaptée à l'offre
+    body = tpl.body_paragraphs()
+    assert body[0] == "Madame, Monsieur," and body[-1].startswith("Je vous prie d'agréer")
+
+    pdf_bytes = render_letter(profile, letter)
+    assert pdf_bytes.startswith(b"%PDF") and b"/Count 1" in pdf_bytes
+
+
+def test_letter_template_normalizes_body_and_fits_one_page():
+    """Sans appel/politesse/langue explicites, le template les complète ; un corps long est réduit pour tenir sur 1 page."""
+    from app.services.documents.templates.letter_classic import ClassicLetterTemplate, render_letter
+
+    profile = {"name": "Emmanuel TRO", "personal": {"first_name": "Emmanuel", "last_name": "TRO", "email": "e@x.fr",
+                                                     "location": "Rennes - mobile sur la France"}}
+    tpl = ClassicLetterTemplate(profile, {"content": "Premier paragraphe.\n\nSecond paragraphe.\n\nEmmanuel TRO",
+                                          "job": {"title": "Développeur Python", "company": "ACME"}})
+    body = tpl.body_paragraphs()
+    assert body[0] == "Madame, Monsieur," and body[-1].startswith("Je vous prie") and "Emmanuel TRO" not in body
+    assert tpl.subject_line() == "Objet : candidature au poste de Développeur Python"
+    assert tpl.sender_lines()[0] == "Rennes - mobile sur la France"  # mobilité par défaut du profil
+
+    en = ClassicLetterTemplate(profile, {"content": "Dear Hiring Manager,\n\nI am applying.\n\nYours sincerely,"})
+    assert en.labels["recruiting"] == "Recruitment Team"
+
+    # ~670 mots : déborde à 10,5 pt, tient à 9 pt grâce à la réduction automatique
+    long_body = "\n\n".join(["Ceci est un paragraphe de test assez long pour occuper de la place sur la page. " * 6] * 7)
+    pdf_bytes = render_letter(profile, {"content": long_body, "job": {"company": "ACME", "title": "Dev"}})
+    assert b"/Count 1" in pdf_bytes

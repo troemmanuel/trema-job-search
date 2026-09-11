@@ -15,6 +15,7 @@ RÈGLES ABSOLUES :
 7. Si une information est incertaine ou manque, indique explicitement '[À VALIDER]' et passe validation_required à true.
 
 CHAMPS À PRODUIRE :
+- `mobility` : mention de mobilité adaptée au lieu de l'offre, affichée après la ville du candidat (« Rennes - {mobility} ») et réutilisée dans la lettre. Dans la langue de l'offre, 2 à 5 mots, sans verbe. Exemples : offre à Châtillon ou Paris → "mobilité Île-de-France" ; offre à Nantes → "mobilité Nantes" ; offre à Rennes → "Rennes" est déjà la ville, mettre "mobile sur la France" ; offre 100 % télétravail → "télétravail - mobile sur la France" ; offre en anglais à Berlin → "open to relocation (Berlin)".
 - `title` : titre professionnel ciblé sur l'offre, format « Métier - spécialités » (ex: "Développeur Backend - Python / FastAPI"), sans statut transitoire (Junior, Alternance...).
 - `summary` : accroche de 3 à 5 lignes (400 à 650 caractères) : années d'expérience, domaines, 2 ou 3 réalisations ou technologies clés en lien avec l'offre, diplôme. Pas de « je suis passionné ».
 - `selected_experiences` : ids des expériences retenues (ordre indifférent, le template trie chronologiquement).
@@ -36,4 +37,4 @@ Profil candidat maître :
 Offre ciblée :
 {{ job_data }}
 
-Génère le contenu du CV ciblé : `title`, `summary`, `selected_experiences`, `experience_highlights`, `selected_projects`, `skill_groups`, `skills`, `changes`, `language`.
+Génère le contenu du CV ciblé : `title`, `mobility`, `summary`, `selected_experiences`, `experience_highlights`, `selected_projects`, `skill_groups`, `skills`, `changes`, `language`.

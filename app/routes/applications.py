@@ -117,13 +117,17 @@ def prepare_application(app_id: str):
                 company=company_name,
                 job_title=job_name
             )
+        prepared_at = datetime.now(timezone.utc).isoformat()
         if cover_letter:
             letter_url = document_renderer.render_and_save_letter(
                 app_id,
                 profile_data["profile"],
                 cover_letter.model_dump(),
                 company=company_name,
-                job_title=job_name
+                job_title=job_name,
+                job=job,
+                prepared_at=prepared_at,
+                mobility=tailored_cv.mobility if tailored_cv else None
             )
 
         # Mettre à jour l'application en PREPARED
@@ -132,7 +136,7 @@ def prepare_application(app_id: str):
             "tailored_cv": tailored_cv.model_dump() if tailored_cv else None,
             "cover_letter": cover_letter.content if cover_letter else None,
             "application_answers": answers.model_dump() if answers else None,
-            "prepared_at": datetime.now(timezone.utc).isoformat()
+            "prepared_at": prepared_at
         }
         supabase_service.client.table("applications").update(update_payload).eq("id", app_id).execute()
 
@@ -249,7 +253,14 @@ def download_application_document(app_id: str, doc_type: str):
         cover_letter = app_data.get("cover_letter")
         if not cover_letter:
             return jsonify({"error": "Lettre non encore générée"}), 404
-        pdf_bytes = pdf_generator.generate_letter_pdf(raw_profile, {"content": cover_letter})
+        from app.services.documents.renderer import build_letter_payload
+        pdf_bytes = pdf_generator.generate_letter_pdf(
+            raw_profile,
+            build_letter_payload(
+                cover_letter, job=job, prepared_at=app_data.get("prepared_at"),
+                mobility=(app_data.get("tailored_cv") or {}).get("mobility")
+            )
+        )
         download_name = f"Emmanuel_TRO_LM_{clean_company}_{clean_title}.pdf" if clean_title else f"Emmanuel_TRO_LM_{clean_company}.pdf"
         return send_file(
             io.BytesIO(pdf_bytes),

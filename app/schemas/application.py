@@ -23,6 +23,7 @@ class ExperienceHighlight(BaseModel):
 class TailoredCV(BaseModel):
     job_id: str
     title: Optional[str] = None
+    mobility: Optional[str] = None   # ex: "mobilité Île-de-France" ; adaptée au lieu de l'offre, réutilisée par la lettre
     summary: str
     selected_experiences: List[str]  # List of experience IDs to highlight
     experience_highlights: List[ExperienceHighlight] = Field(default_factory=list)
@@ -35,7 +36,8 @@ class TailoredCV(BaseModel):
 
 class CoverLetter(BaseModel):
     type: str = "cover_letter"  # cover_letter or short_message
-    content: str
+    content: str                # corps : de la formule d'appel à la formule de politesse, sans en-tête ni signature
+    language: str = "fr"
     personalization_points: List[str] = Field(default_factory=list)
     validation_required: bool = False
 

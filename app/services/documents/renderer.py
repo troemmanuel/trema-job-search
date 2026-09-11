@@ -18,6 +18,29 @@ def sanitize_name(text: Optional[str], max_len: int = 40) -> str:
     cleaned = re.sub(r'[-\s]+', '_', cleaned)
     return cleaned[:max_len]
 
+def build_letter_payload(
+    content: Optional[str],
+    job: Optional[Dict[str, Any]] = None,
+    prepared_at: Optional[str] = None,
+    language: Optional[str] = None,
+    mobility: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Assemble les données du template lettre : corps IA + en-tête dérivé de l'offre et de la date de préparation."""
+    job = job or {}
+    return {
+        "content": content or "",
+        "job": {
+            "company": job.get("company"),
+            "title": job.get("title"),
+            "location": job.get("location"),
+            "reference": job.get("reference") or job.get("source_job_id"),
+        },
+        "date": prepared_at,
+        "language": language,
+        "mobility": mobility,
+    }
+
+
 class DocumentRenderer:
     """Orchestre le rendu et le stockage des documents d'une candidature."""
 
@@ -71,9 +94,19 @@ class DocumentRenderer:
         candidate_profile: Dict[str, Any],
         cover_letter: Dict[str, Any],
         company: Optional[str] = None,
-        job_title: Optional[str] = None
+        job_title: Optional[str] = None,
+        job: Optional[Dict[str, Any]] = None,
+        prepared_at: Optional[str] = None,
+        mobility: Optional[str] = None
     ) -> str:
-        pdf_bytes = pdf_generator.generate_letter_pdf(candidate_profile, cover_letter)
+        payload = build_letter_payload(
+            cover_letter.get("content"),
+            job=job or {"company": company, "title": job_title},
+            prepared_at=prepared_at,
+            language=cover_letter.get("language"),
+            mobility=mobility,
+        )
+        pdf_bytes = pdf_generator.generate_letter_pdf(candidate_profile, payload)
         clean_company = sanitize_name(company, 30) or "Entreprise"
         clean_title = sanitize_name(job_title, 40)
         filename = f"Emmanuel_TRO_LM_{clean_company}_{clean_title}.pdf" if clean_title else f"Emmanuel_TRO_LM_{clean_company}.pdf"
