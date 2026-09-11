@@ -26,15 +26,15 @@ Avant de détailler les chantiers restants, voici le périmètre d'ores et déj�
 
 ## 🎯 2. Matrice de Priorisation des Fonctionnalités Restantes
 
-| Chantier | Description | Priorité | Impact | Effort |
-| :--- | :--- | :---: | :---: | :---: |
-| **Chantier 1** | Synchronisation Bidirectionnelle Notion ↔ Supabase | **P0 (Immédiat)** | 🔥 Élevé | Faible |
-| **Chantier 2** | Notifications Proactives (Telegram / WhatsApp / Email) | **P0 (Immédiat)** | 🔥 Élevé | Faible |
-| **Chantier 3** | Assistant de Relances & Suivi d'Entretiens | **P1 (Court terme)** | ⚡ Moyen | Faible |
-| **Chantier 4** | Extension Navigateur Chrome (Import 1-Click) | **P1 (Court terme)** | 🔥 Élevé | Moyen |
-| **Chantier 5** | Ingestion par Boîte Mail (Alertes LinkedIn / Indeed) | **P2 (Moyen terme)**| ⚡ Moyen | Moyen |
-| **Chantier 6** | Dashboard Analytique & Taux de Conversion | **P2 (Moyen terme)**| 💡 Valeur | Moyen |
-| **Chantier 7** | A/B Testing de CV & Multi-Profils Maîtres | **P3 (Futur)** | 💡 Valeur | Moyen |
+| Chantier | Description | Priorité | Statut | Impact | Effort |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| **Chantier 1** | Synchronisation Bidirectionnelle Notion ↔ Supabase | **P0 (Immédiat)** | ✅ Terminé | 🔥 Élevé | Faible |
+| **Chantier 2** | Notifications Proactives (Telegram / WhatsApp / Email) | **P0 (Immédiat)** | ⏳ À faire | 🔥 Élevé | Faible |
+| **Chantier 3** | Assistant de Relances & Suivi d'Entretiens | **P1 (Court terme)** | ⏳ À faire | ⚡ Moyen | Faible |
+| **Chantier 4** | Extension Navigateur Chrome (Import 1-Click) | **P1 (Court terme)** | ⏳ À faire | 🔥 Élevé | Moyen |
+| **Chantier 5** | Ingestion par Boîte Mail (Alertes LinkedIn / Indeed) | **P2 (Moyen terme)**| ⏳ À faire | ⚡ Moyen | Moyen |
+| **Chantier 6** | Dashboard Analytique & Taux de Conversion | **P2 (Moyen terme)**| ✅ Terminé | 💡 Valeur | Moyen |
+| **Chantier 7** | A/B Testing de CV & Multi-Profils Maîtres | **P3 (Futur)** | ⏳ À faire | 💡 Valeur | Moyen |
 
 ---
 
