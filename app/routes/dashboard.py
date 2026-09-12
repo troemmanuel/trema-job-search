@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, render_template, current_app
 from app.services.storage import supabase_service
 from app.services.ai.gemini import gemini_service
 from app.services.notion.client import notion_service
+from app.services.scheduler.daily_scheduler import daily_scheduler_service
 
 dashboard_bp = Blueprint("dashboard", __name__)
 
@@ -66,4 +67,16 @@ def index():
         except Exception as e:
             current_app.logger.error(f"Erreur lors de la récupération des stats Supabase: {e}")
 
-    return render_template("dashboard.html", stats=stats, recent_jobs=recent_jobs, recent_applications=recent_applications)
+    scheduler_status = None
+    try:
+        scheduler_status = daily_scheduler_service.get_status()
+    except Exception as se:
+        current_app.logger.warning(f"Erreur récupération statut planificateur: {se}")
+
+    return render_template(
+        "dashboard.html",
+        stats=stats,
+        recent_jobs=recent_jobs,
+        recent_applications=recent_applications,
+        scheduler_status=scheduler_status
+    )

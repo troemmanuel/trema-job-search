@@ -20,6 +20,7 @@ def test_settings_html_view(client):
     assert "Paramètres & Configuration IA".encode("utf-8") in res.data
     assert "Modèle principal".encode("utf-8") in res.data
     assert "Blacklist".encode("utf-8") in res.data
+    assert "Planificateur Quotidien".encode("utf-8") in res.data
 
 def test_get_settings_api(client):
     """Vérifie la récupération des paramètres via l'API GET /api/settings."""

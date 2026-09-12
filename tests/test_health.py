@@ -24,10 +24,12 @@ def test_health_endpoint(client):
     assert "services" in data
 
 def test_dashboard_index(client):
-    """Vérifie que le dashboard d'accueil se charge correctement en HTML."""
+    """Vérifie que le dashboard d'accueil se charge correctement en HTML avec la carte du planificateur."""
     response = client.get("/")
     assert response.status_code == 200
-    assert b"Tableau de bord" in response.data
+    assert "Tableau de bord".encode("utf-8") in response.data
+    assert "Planificateur Quotidien (Cron 24h)".encode("utf-8") in response.data
+    assert "schedulerCard".encode("utf-8") in response.data
 
 def test_candidate_schema_validation():
     """Valide la désérialisation d'un profil candidat maître via Pydantic."""

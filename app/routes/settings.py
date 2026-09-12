@@ -49,10 +49,18 @@ def _get_active_preferences() -> Dict[str, Any]:
 def settings_view():
     """Vue HTML du centre de paramétrage."""
     preferences = _get_active_preferences()
+    scheduler_status = None
+    try:
+        from app.services.scheduler.daily_scheduler import daily_scheduler_service
+        scheduler_status = daily_scheduler_service.get_status()
+    except Exception as se:
+        current_app.logger.warning(f"Erreur récupération statut planificateur: {se}")
+
     return render_template(
         "settings/index.html",
         preferences=preferences,
-        available_models=AVAILABLE_AI_MODELS
+        available_models=AVAILABLE_AI_MODELS,
+        scheduler_status=scheduler_status
     )
 
 @settings_bp.route("/api/settings", methods=["GET"])
