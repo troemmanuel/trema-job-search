@@ -102,6 +102,12 @@ def prepare_application(app_id: str):
 
     profile = CandidateProfile.model_validate(profile_data["profile"])
     job_normalized = JobNormalizedData.model_validate(job.get("normalized_data", {}))
+    if not (job.get("normalized_data") or {}).get("language"):
+        from app.services.ingestion.parser import job_parser
+        job_normalized.language = job_parser.detect_language(
+            f"{job.get('title') or ''}\n{job.get('description') or ''}",
+            job.get("raw_data") if isinstance(job.get("raw_data"), dict) else job
+        )
 
     try:
         # 1. Génération CV JSON

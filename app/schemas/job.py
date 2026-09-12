@@ -14,6 +14,7 @@ class JobNormalizedData(BaseModel):
     nice_to_have: List[str] = Field(default_factory=list)
     company_type: Optional[str] = None
     domain: Optional[str] = None
+    language: str = "fr"
 
 class JobImport(BaseModel):
     source: str

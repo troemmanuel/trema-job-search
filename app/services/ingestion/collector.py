@@ -363,9 +363,13 @@ class JobCollectorService:
                 summary["new_imported_count"] += 1
                 job_id = job_record["id"]
 
-                # Étape C: Matching IA
                 if candidate_profile:
                     job_normalized = JobNormalizedData.model_validate(job_record.get("normalized_data", {}))
+                    if not (job_record.get("normalized_data") or {}).get("language"):
+                        job_normalized.language = job_parser.detect_language(
+                            f"{job_record.get('title') or ''}\n{job_record.get('description') or ''}",
+                            job_record.get("raw_data") if isinstance(job_record.get("raw_data"), dict) else job_record
+                        )
                     match_res = matcher_service.match(candidate_profile, job_normalized)
                     
                     if match_res:
@@ -580,6 +584,11 @@ class JobCollectorService:
         candidate_profile = CandidateProfile.model_validate(profile_record["profile"])
         candidate_profile.preferences = candidate_profile.preferences.model_validate(profile_record.get("preferences", {}))
         job_normalized = JobNormalizedData.model_validate(job.get("normalized_data") or job)
+        if not (job.get("normalized_data") or {}).get("language"):
+            job_normalized.language = job_parser.detect_language(
+                f"{job.get('title') or ''}\n{job.get('description') or ''}",
+                job.get("raw_data") if isinstance(job.get("raw_data"), dict) else job
+            )
 
         prefs = candidate_profile.preferences
         if prefs:

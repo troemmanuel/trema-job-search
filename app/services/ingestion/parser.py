@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from app.schemas.job import JobNormalizedData
 
 class JobParser:
@@ -12,6 +12,52 @@ class JobParser:
         "Analytics", "Amplitude", "Mixpanel", "Jira", "Figma",
         "React", "TypeScript", "JavaScript", "Node.js"
     ]
+
+    FRENCH_INDICATORS = {
+        "le", "la", "les", "un", "une", "des", "du", "de", "d", "et", "en", "dans", "pour",
+        "avec", "sur", "qui", "que", "nous", "vous", "ils", "elles", "au", "aux", "est",
+        "sont", "être", "avoir", "notre", "nos", "votre", "vos", "chez", "par", "ce",
+        "cette", "ces", "son", "sa", "ses", "faire", "plus", "poste", "équipe", "ingénieur",
+        "développeur", "logiciel", "stage", "alternance", "candidature", "recherche",
+        "recherchons", "missions", "profil", "expérience", "conception", "gestion"
+    }
+
+    ENGLISH_INDICATORS = {
+        "the", "and", "with", "for", "from", "this", "that", "these", "those", "have",
+        "has", "had", "will", "would", "should", "can", "could", "is", "are", "was",
+        "were", "been", "being", "our", "their", "your", "they", "them", "which", "what",
+        "who", "when", "where", "why", "how", "about", "into", "you", "we", "looking",
+        "join", "team", "role", "building", "requirements", "skills", "experience",
+        "software", "engineer", "developer", "at", "fullstack", "full-stack", "responsibilities"
+    }
+
+    @classmethod
+    def detect_language(cls, text: str, raw: Optional[Dict[str, Any]] = None) -> str:
+        """Détecte la langue principale d'une offre ('fr' ou 'en')."""
+        if raw:
+            for key in ("language", "locale", "lang"):
+                val = raw.get(key)
+                if isinstance(val, str) and val.strip():
+                    clean = val.strip().lower()
+                    if clean.startswith("en"):
+                        return "en"
+                    if clean.startswith("fr"):
+                        return "fr"
+
+        if not text:
+            return "fr"
+
+        accents = len(re.findall(r"[éèêëàâùûüîïçœæÉÈÊËÀÂÙÛÜÎÏÇŒÆ]", text))
+        words = [w.lower() for w in re.findall(r"\b[a-zA-ZàâäéèêëîïôöùûüÿçœæÀÂÄÉÈÊËÎÏÔÖÙÛÜŸÇŒÆ]+\b", text)]
+        if not words:
+            return "fr"
+
+        fr_score = sum(1 for w in words if w in cls.FRENCH_INDICATORS) + (accents * 2)
+        en_score = sum(1 for w in words if w in cls.ENGLISH_INDICATORS)
+
+        if en_score > fr_score:
+            return "en"
+        return "fr"
 
     @classmethod
     def parse_skills(cls, text: str) -> List[str]:
@@ -52,6 +98,8 @@ class JobParser:
             raw_data=raw.get("raw_data")
         )
 
+        language = cls.detect_language(f"{title}\n{description}", raw)
+
         return JobNormalizedData(
             title=title,
             company=company,
@@ -63,7 +111,8 @@ class JobParser:
             requirements=raw.get("requirements", []),
             nice_to_have=raw.get("nice_to_have", []),
             company_type=comp_type,
-            domain=comp_domain
+            domain=comp_domain,
+            language=language
         )
 
 job_parser = JobParser()

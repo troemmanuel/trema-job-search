@@ -316,17 +316,17 @@ def test_cv_postprocessor_restores_duration_coherence_and_volume():
 
     total = sum(len(h.achievements) for h in cv.experience_highlights)
     assert total >= MIN_TOTAL_BULLETS
-    # Djamo (en tête des highlights) complété en priorité avec ses réalisations maîtres non couvertes
-    djamo = next(h for h in cv.experience_highlights if h.id == "exp_004")
-    assert len(djamo.achievements) == 3 and any("BullMQ" in a for a in djamo.achievements)
+    # exp_004 (en tête des highlights) complété en priorité avec ses réalisations maîtres non couvertes
+    exp_004 = next(h for h in cv.experience_highlights if h.id == "exp_004")
+    assert len(exp_004.achievements) == 3 and any("BullMQ" in a for a in exp_004.achievements)
     # Aucune réalisation inventée : tout provient du profil maître ou de l'IA d'origine
     master = {a for e in profile.experiences for a in e.achievements}
     ai_original = {a for h in _synako_like_cv().experience_highlights for a in h.achievements}
     assert all(a in master or a in ai_original for h in cv.experience_highlights for a in h.achievements)
 
     # Stack : parenthèses retirées, item inconnu (Rust) écarté, rien du profil maître perdu, technos de l'offre en tête
-    assert djamo.skills[:3] == ["Node.js", "NestJS", "PostgreSQL"]
-    assert "Rust" not in djamo.skills and set(profile.experiences[3].skills) <= set(djamo.skills)
+    assert exp_004.skills[:3] == ["Node.js", "NestJS", "PostgreSQL"]
+    assert "Rust" not in exp_004.skills and set(profile.experiences[3].skills) <= set(exp_004.skills)
 
 
 def test_cv_postprocessor_leaves_good_output_untouched():
@@ -374,11 +374,148 @@ def test_cv_postprocessor_restores_accents_from_master_vocabulary():
     profile = CandidateProfile.model_validate(json.loads((Path(__file__).parent / "fixtures/profile_john_doe.json").read_text()))
     cv = TailoredCV(job_id="j", title="Developpeur Full Stack - Node.js", language="fr",
                     summary="Ingenieur logiciel avec plus de 4 ans d'experience cumulee en developpement backend et full stack, "
-                            "dote d'une solide maitrise de Node.js, TypeScript et PostgreSQL. Diplome d'un Master MIAGE.",
+                            "dote d'une solide maitrise de Node.js, TypeScript et PostgreSQL. Diplome d'un Master Informatique.",
                     selected_experiences=[e.id for e in profile.experiences], skills=[],
                     experience_highlights=[ExperienceHighlight(id="exp_004", achievements=[
-                        "Concu et developpe une vingtaine de fonctionnalites autour des coffres dans une architecture orientee microservices (NestJS)."])])
+                        "Concu et developpe une vingtaine de fonctionnalites autour de la gestion des comptes dans une architecture orientee microservices (NestJS)."])])
     out = finalize_tailored_cv(cv, profile)
     assert out.title.startswith("Développeur") and out.summary.startswith("Ingénieur logiciel avec plus de 4 ans d'expérience cumulée")
     assert out.experience_highlights[0].achievements[0].startswith("Conçu et développé une vingtaine de fonctionnalités")
     assert any("Accents restaurés" in c for c in out.changes)
+
+
+def test_job_parser_language_detection():
+    # 1. French text
+    fr_desc = "Nous recherchons un Développeur Backend expérimenté pour concevoir des APIs avec FastAPI et PostgreSQL. Notre équipe est basée à Rennes."
+    assert JobParser.detect_language(fr_desc) == "fr"
+
+    # 2. English text
+    en_desc = "We are looking for a Senior Software Engineer to join our team. You will build and scale backend services with Python, AWS, and Docker."
+    assert JobParser.detect_language(en_desc) == "en"
+
+    # 3. Explicit raw language metadata takes precedence
+    assert JobParser.detect_language("Some ambiguous text", raw={"language": "en"}) == "en"
+    assert JobParser.detect_language("Some ambiguous text", raw={"locale": "fr-FR"}) == "fr"
+    assert JobParser.detect_language("Some ambiguous text", raw={"lang": "en_US"}) == "en"
+
+    # 4. Empty text defaults to 'fr'
+    assert JobParser.detect_language("") == "fr"
+
+    # 5. Normalization sets language
+    norm_en = JobParser.normalize({
+        "title": "Staff Software Engineer",
+        "company": "Stripe",
+        "description": "We are looking for an experienced software engineer to join our infrastructure team."
+    })
+    assert norm_en.language == "en"
+
+    norm_fr = JobParser.normalize({
+        "title": "Ingénieur Logiciel",
+        "company": "Qonto",
+        "description": "Nous recherchons un ingénieur logiciel pour renforcer notre équipe backend."
+    })
+    assert norm_fr.language == "fr"
+
+
+def test_cv_and_letter_generators_enforce_offer_language(monkeypatch):
+    import json
+    from pathlib import Path
+    from app.schemas.candidate import CandidateProfile
+    from app.schemas.job import JobNormalizedData
+    from app.schemas.application import TailoredCV, CoverLetter
+    from app.services.ai.cv_generator import CVGeneratorService
+    from app.services.ai.letter_generator import LetterGeneratorService
+
+    profile = CandidateProfile.model_validate(
+        json.loads((Path(__file__).parent / "fixtures/profile_john_doe.json").read_text())
+    )
+
+    captured_cv_calls = []
+    class MockAICVService:
+        def generate_structured(self, prompt, response_schema, system_instruction, operation, application_id=None):
+            captured_cv_calls.append({"system_instruction": system_instruction, "prompt": prompt})
+            return TailoredCV(
+                job_id="job_en_1",
+                title="Senior Backend Engineer",
+                summary="Over 4 years of experience building reliable backend systems.",
+                selected_experiences=[profile.experiences[0].id],
+                skills=["Python", "PostgreSQL"],
+                language="fr"  # Simulate AI mistakenly returning "fr"
+            )
+
+    cv_service = CVGeneratorService(ai_service=MockAICVService())
+    en_job = JobNormalizedData(
+        title="Senior Backend Engineer",
+        company="Datadog",
+        description="We are looking for a Senior Backend Engineer to join our team.",
+        language="en"
+    )
+
+    result_cv = cv_service.generate("job_en_1", profile, en_job)
+    assert result_cv is not None
+    assert result_cv.language == "en"  # Enforced to "en"
+    assert "EXIGENCE STRICTE DE LANGUE" in captured_cv_calls[0]["system_instruction"]
+    assert "anglais (English)" in captured_cv_calls[0]["system_instruction"]
+
+    captured_letter_calls = []
+    class MockAILetterService:
+        def generate_structured(self, prompt, response_schema, system_instruction, operation, application_id=None):
+            captured_letter_calls.append({"system_instruction": system_instruction, "prompt": prompt})
+            return CoverLetter(
+                content="Dear Hiring Manager,\n\nI am writing to express my strong interest in the role.",
+                language="fr"  # Simulate AI mistakenly returning "fr"
+            )
+
+    letter_service = LetterGeneratorService(ai_service=MockAILetterService())
+    result_letter = letter_service.generate(profile, en_job)
+    assert result_letter is not None
+    assert result_letter.language == "en"  # Enforced to "en"
+    assert "EXIGENCE STRICTE DE LANGUE" in captured_letter_calls[0]["system_instruction"]
+    assert "anglais (English)" in captured_letter_calls[0]["system_instruction"]
+
+
+def test_pdf_templates_multilingual_rendering():
+    import json
+    from pathlib import Path
+    from app.services.documents.templates.cv_classic import ClassicCVTemplate
+    from app.services.documents.templates.letter_classic import ClassicLetterTemplate
+
+    profile = json.loads((Path(__file__).parent / "fixtures/profile_john_doe.json").read_text())
+
+    # 1. English CV template labels
+    cv_en = ClassicCVTemplate(profile, {"language": "en", "summary": "Experienced engineer"})
+    assert cv_en.labels["profile"] == "PROFILE"
+    assert cv_en.labels["experience"] == "EXPERIENCE"
+    assert cv_en.labels["skills"] == "TECHNICAL SKILLS"
+    assert cv_en.labels["education"] == "EDUCATION"
+    assert cv_en.labels["languages"] == "LANGUAGES"
+    pdf_cv_en = cv_en.build()
+    assert len(pdf_cv_en) > 0
+
+    # 2. French CV template labels
+    cv_fr = ClassicCVTemplate(profile, {"language": "fr", "summary": "Ingénieur expérimenté"})
+    assert cv_fr.labels["profile"] == "PROFIL"
+    assert cv_fr.labels["experience"] == "EXPÉRIENCE"
+
+    # 3. English Letter template
+    letter_en_payload = {
+        "content": "Dear Hiring Manager,\n\nI am excited to apply for this software engineer position.\n\nSincerely,",
+        "language": "en",
+        "job": {"title": "Software Engineer", "company": "Tech Inc"}
+    }
+    letter_en = ClassicLetterTemplate(profile, letter_en_payload)
+    assert letter_en.labels["recruiting"] == "Recruitment Team"
+    assert letter_en.subject_line() == "Subject: application for the Software Engineer position"
+    pdf_letter_en = letter_en.build()
+    assert len(pdf_letter_en) > 0
+
+    # 4. French Letter template
+    letter_fr_payload = {
+        "content": "Madame, Monsieur,\n\nJe vous propose ma candidature.\n\nCordialement,",
+        "language": "fr",
+        "job": {"title": "Développeur Python", "company": "Tech Corp"}
+    }
+    letter_fr = ClassicLetterTemplate(profile, letter_fr_payload)
+    assert letter_fr.labels["recruiting"] == "Service Recrutement"
+    assert "candidature au poste de Développeur Python" in letter_fr.subject_line()
+
