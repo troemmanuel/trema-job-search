@@ -1,4 +1,4 @@
-"""Charge le profil maître de référence (tests/fixtures/profile_emmanuel.json) dans Supabase.
+"""Charge le profil maître de référence (tests/fixtures/profile_john_doe.json) dans Supabase.
 
 Usage : .venv/bin/python scripts/load_master_profile.py [--dry-run]
 Incrémente la version du profil actif ou crée le premier profil.
@@ -15,7 +15,7 @@ from app.schemas.candidate import CandidateProfile  # noqa: E402
 from app.services.storage import supabase_service  # noqa: E402
 
 dry_run = "--dry-run" in sys.argv
-profile = CandidateProfile.model_validate(json.loads((ROOT / "tests/fixtures/profile_emmanuel.json").read_text()))
+profile = CandidateProfile.model_validate(json.loads((ROOT / "tests/fixtures/profile_john_doe.json").read_text()))
 
 current = supabase_service.get_active_candidate_profile() if supabase_service.client else None
 record = {

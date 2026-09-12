@@ -1,14 +1,14 @@
 {
-  "name": "Emmanuel TRO",
+  "name": "John Doe",
   "title": "Développeur Full-Stack - Python / Data / DevOps",
   "personal": {
-    "first_name": "Emmanuel",
-    "last_name": "TRO",
-    "email": "trohkopeemmanuel@gmail.com",
-    "phone": "+33 7 53 78 25 19",
+    "first_name": "John",
+    "last_name": "Doe",
+    "email": "john.doe@example.com",
+    "phone": "+33 6 00 00 00 00",
     "location": "Rennes - mobile sur la France",
-    "linkedin": "linkedin.com/in/kope-emmanuel-tro",
-    "portfolio": "trema-hub.github.io/tremafolio"
+    "linkedin": "linkedin.com/in/john-doe",
+    "portfolio": "johndoe.example.com"
   },
   "summary": "Ingénieur logiciel avec plus de 4 ans d'expérience cumulée (CDI en fintech, alternances et conseil), combinant développement backend Python (FastAPI) et Java/Node.js, avec une solide pratique des architectures orientées services : synchronisation par message brokers (Kafka, RabbitMQ, BullMQ), pipelines de traitement de données, et conteneurisation/observabilité (Kubernetes, Docker, ELK). J'ai conçu et déployé un service Python (FastAPI) en lien avec une équipe Machine Learning, et je porte un intérêt réel aux problématiques de sécurité et de détection. Diplômé d'un Master MIAGE (Université de Rennes, 2026).",
   "experiences": [

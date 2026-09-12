@@ -62,11 +62,11 @@ def test_import_and_process_url_orchestration(monkeypatch):
     mock_profile = {
         "id": "profile_active_1",
         "profile": {
-            "name": "Emmanuel TRO",
+            "name": "John Doe",
             "personal": {
-                "first_name": "Emmanuel",
-                "last_name": "TRO",
-                "email": "emmanuel@example.com",
+                "first_name": "John",
+                "last_name": "Doe",
+                "email": "john.doe@example.com",
                 "location": "Rennes, France"
             },
             "summary": "Ingénieur Logiciel Backend",

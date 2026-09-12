@@ -21,21 +21,22 @@ def sanitize_name(text: Optional[str], max_len: int = 40) -> str:
 DOC_TYPE_DIRS = {"CV": "CV", "LM": "Lettre"}
 
 
-def build_document_filename(doc_type: str, company: Optional[str], job_title: Optional[str]) -> str:
+def build_document_filename(doc_type: str, company: Optional[str], job_title: Optional[str], candidate_name: Optional[str] = None) -> str:
     """Nom de fichier canonique d'un document (CV ou LM), identique pour le local, Supabase et Notion."""
     clean_company = sanitize_name(company, 30) or "Entreprise"
     clean_title = sanitize_name(job_title, 40)
+    prefix = sanitize_name(candidate_name, 40) if candidate_name else "Emmanuel_TRO"
     if clean_title:
-        return f"Emmanuel_TRO_{doc_type}_{clean_company}_{clean_title}.pdf"
-    return f"Emmanuel_TRO_{doc_type}_{clean_company}.pdf"
+        return f"{prefix}_{doc_type}_{clean_company}_{clean_title}.pdf"
+    return f"{prefix}_{doc_type}_{clean_company}.pdf"
 
 
-def local_document_path(doc_type: str, company: Optional[str], job_title: Optional[str]) -> Path:
+def local_document_path(doc_type: str, company: Optional[str], job_title: Optional[str], candidate_name: Optional[str] = None) -> Path:
     """Chemin du miroir local d'un document : <LOCAL_STORAGE_DIR>/<Entreprise>/<CV|Lettre>/<fichier>."""
     from app.config import Config
     base_dir = Path(getattr(Config, "LOCAL_STORAGE_DIR", "/Users/trema/Documents/RECHERCHE EMPLOIE/CANDIDATURES"))
     clean_company = sanitize_name(company, 30) or "Entreprise"
-    return base_dir / clean_company / DOC_TYPE_DIRS[doc_type] / build_document_filename(doc_type, company, job_title)
+    return base_dir / clean_company / DOC_TYPE_DIRS[doc_type] / build_document_filename(doc_type, company, job_title, candidate_name=candidate_name)
 
 
 def build_letter_payload(
@@ -102,10 +103,11 @@ class DocumentRenderer:
         job_title: Optional[str] = None
     ) -> str:
         pdf_bytes = pdf_generator.generate_cv_pdf(candidate_profile, tailored_cv)
-        filename = build_document_filename("CV", company, job_title)
+        cand_name = candidate_profile.get("name") if isinstance(candidate_profile, dict) else getattr(candidate_profile, "name", None)
+        filename = build_document_filename("CV", company, job_title, candidate_name=cand_name)
 
         # 1. Sauvegarde locale (si autorisée par l'environnement)
-        cls._save_local_backup(pdf_bytes, local_document_path("CV", company, job_title))
+        cls._save_local_backup(pdf_bytes, local_document_path("CV", company, job_title, candidate_name=cand_name))
 
         # 2. Upload Supabase Storage
         storage_path = f"applications/{application_id}/{filename}"
@@ -137,10 +139,11 @@ class DocumentRenderer:
             mobility=mobility,
         )
         pdf_bytes = pdf_generator.generate_letter_pdf(candidate_profile, payload)
-        filename = build_document_filename("LM", company, job_title)
+        cand_name = candidate_profile.get("name") if isinstance(candidate_profile, dict) else getattr(candidate_profile, "name", None)
+        filename = build_document_filename("LM", company, job_title, candidate_name=cand_name)
 
         # 1. Sauvegarde locale
-        cls._save_local_backup(pdf_bytes, local_document_path("LM", company, job_title))
+        cls._save_local_backup(pdf_bytes, local_document_path("LM", company, job_title, candidate_name=cand_name))
 
         # 2. Upload Supabase Storage
         storage_path = f"applications/{application_id}/{filename}"

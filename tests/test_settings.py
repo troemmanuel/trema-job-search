@@ -116,10 +116,10 @@ def test_collector_filters_blacklisted_and_keywords():
     ]
 
     mock_profile = {
-        "name": "Emmanuel TRO",
+        "name": "John Doe",
         "profile": {
-            "name": "Emmanuel TRO",
-            "personal": {"first_name": "Emmanuel", "last_name": "TRO", "email": "e@example.com"}
+            "name": "John Doe",
+            "personal": {"first_name": "John", "last_name": "Doe", "email": "john.doe@example.com"}
         },
         "preferences": {
             "excluded_companies": ["BannedCorp"],
@@ -141,10 +141,10 @@ def test_import_and_process_url_blacklisted():
     """Vérifie que l'import d'une offre d'une entreprise blacklistée s'arrête immédiatement."""
     mock_profile = {
         "id": "cand-123",
-        "name": "Emmanuel TRO",
+        "name": "John Doe",
         "profile": {
-            "name": "Emmanuel TRO",
-            "personal": {"first_name": "Emmanuel", "last_name": "TRO", "email": "e@example.com"}
+            "name": "John Doe",
+            "personal": {"first_name": "John", "last_name": "Doe", "email": "john.doe@example.com"}
         },
         "preferences": {
             "excluded_companies": ["BlacklistedEnterprise"]

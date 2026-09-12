@@ -95,8 +95,8 @@ def test_document_renderer_naming(monkeypatch):
     monkeypatch.setattr(supabase_service, "upload_document", mock_upload)
 
     candidate = {
-        "name": "Emmanuel TRO",
-        "personal": {"first_name": "Emmanuel", "last_name": "TRO"}
+        "name": "John Doe",
+        "personal": {"first_name": "John", "last_name": "Doe"}
     }
     tailored_cv = {
         "job_id": "job_1",
@@ -113,8 +113,8 @@ def test_document_renderer_naming(monkeypatch):
         job_title="Ingénieur développement"
     )
 
-    assert "applications/app_123/Emmanuel_TRO_CV_Infomil_Ingenieur_developpement.pdf" in url
-    assert uploaded["path"] == "applications/app_123/Emmanuel_TRO_CV_Infomil_Ingenieur_developpement.pdf"
+    assert "applications/app_123/John_Doe_CV_Infomil_Ingenieur_developpement.pdf" in url
+    assert uploaded["path"] == "applications/app_123/John_Doe_CV_Infomil_Ingenieur_developpement.pdf"
 
 def test_notion_blocks_building():
     from app.services.notion.client import NotionService
@@ -144,11 +144,11 @@ def test_candidate_search_criteria_derivation():
     from app.schemas.candidate import CandidateProfile
 
     sample_profile = CandidateProfile.model_validate({
-        "name": "Emmanuel TRO",
+        "name": "John Doe",
         "personal": {
-            "first_name": "Emmanuel",
-            "last_name": "TRO",
-            "email": "emmanuel@example.com",
+            "first_name": "John",
+            "last_name": "Doe",
+            "email": "john.doe@example.com",
             "location": "Rennes"
         },
         "preferences": {
@@ -181,7 +181,7 @@ def test_cv_template_reference_profile():
     from app.services.documents.templates.cv_classic import render_cv, _date_range, LABELS
 
     fixtures = Path(__file__).parent / "fixtures"
-    profile = json.loads((fixtures / "profile_emmanuel.json").read_text())
+    profile = json.loads((fixtures / "profile_john_doe.json").read_text())
     tailored = json.loads((fixtures / "tailored_cv_itrust.json").read_text())
     # Les fixtures doivent rester conformes aux schémas
     CandidateProfile.model_validate(profile)
@@ -209,7 +209,7 @@ def test_cv_template_applies_experience_highlights():
     from pathlib import Path
     from app.services.documents.templates.cv_classic import _resolve_experiences
 
-    profile = json.loads((Path(__file__).parent / "fixtures/profile_emmanuel.json").read_text())
+    profile = json.loads((Path(__file__).parent / "fixtures/profile_john_doe.json").read_text())
     tailored = {
         "selected_experiences": ["exp_004", "exp_001"],
         "experience_highlights": [{"id": "exp_004", "achievements": ["Réalisation ciblée KYC"]}],
@@ -246,7 +246,7 @@ def test_letter_template_reference_letter():
     from app.services.documents.templates.letter_classic import ClassicLetterTemplate, render_letter
 
     fixtures = Path(__file__).parent / "fixtures"
-    profile = json.loads((fixtures / "profile_emmanuel.json").read_text())
+    profile = json.loads((fixtures / "profile_john_doe.json").read_text())
     letter = json.loads((fixtures / "letter_siemens.json").read_text())
 
     tpl = ClassicLetterTemplate(profile, letter)
@@ -265,12 +265,12 @@ def test_letter_template_normalizes_body_and_fits_one_page():
     """Sans appel/politesse/langue explicites, le template les complète ; un corps long est réduit pour tenir sur 1 page."""
     from app.services.documents.templates.letter_classic import ClassicLetterTemplate, render_letter
 
-    profile = {"name": "Emmanuel TRO", "personal": {"first_name": "Emmanuel", "last_name": "TRO", "email": "e@x.fr",
+    profile = {"name": "John Doe", "personal": {"first_name": "John", "last_name": "Doe", "email": "e@x.fr",
                                                      "location": "Rennes - mobile sur la France"}}
-    tpl = ClassicLetterTemplate(profile, {"content": "Premier paragraphe.\n\nSecond paragraphe.\n\nEmmanuel TRO",
+    tpl = ClassicLetterTemplate(profile, {"content": "Premier paragraphe.\n\nSecond paragraphe.\n\nJohn Doe",
                                           "job": {"title": "Développeur Python", "company": "ACME"}})
     body = tpl.body_paragraphs()
-    assert body[0] == "Madame, Monsieur," and body[-1].startswith("Je vous prie") and "Emmanuel TRO" not in body
+    assert body[0] == "Madame, Monsieur," and body[-1].startswith("Je vous prie") and "John Doe" not in body
     assert tpl.subject_line() == "Objet : candidature au poste de Développeur Python"
     assert tpl.sender_lines()[0] == "Rennes - mobile sur la France"  # mobilité par défaut du profil
 
@@ -305,7 +305,7 @@ def test_cv_postprocessor_restores_duration_coherence_and_volume():
     from app.schemas.candidate import CandidateProfile
     from app.services.ai.cv_postprocessor import finalize_tailored_cv, MIN_TOTAL_BULLETS
 
-    profile = CandidateProfile.model_validate(json.loads((Path(__file__).parent / "fixtures/profile_emmanuel.json").read_text()))
+    profile = CandidateProfile.model_validate(json.loads((Path(__file__).parent / "fixtures/profile_john_doe.json").read_text()))
     cv = finalize_tailored_cv(_synako_like_cv(), profile)
 
     # 4 expériences retenues ≈ 3,5 ans < 4 ans annoncés → l'expérience manquante la plus longue est réintégrée (1 réalisation)
@@ -336,7 +336,7 @@ def test_cv_postprocessor_leaves_good_output_untouched():
     from app.schemas.candidate import CandidateProfile
     from app.services.ai.cv_postprocessor import finalize_tailored_cv
 
-    profile = CandidateProfile.model_validate(json.loads((Path(__file__).parent / "fixtures/profile_emmanuel.json").read_text()))
+    profile = CandidateProfile.model_validate(json.loads((Path(__file__).parent / "fixtures/profile_john_doe.json").read_text()))
     tailored = TailoredCV.model_validate(json.loads((Path(__file__).parent / "fixtures/tailored_cv_itrust.json").read_text()))
     before = tailored.model_dump()
     after = finalize_tailored_cv(tailored, profile).model_dump()
@@ -371,7 +371,7 @@ def test_cv_postprocessor_restores_accents_from_master_vocabulary():
     from app.schemas.candidate import CandidateProfile
     from app.services.ai.cv_postprocessor import finalize_tailored_cv
 
-    profile = CandidateProfile.model_validate(json.loads((Path(__file__).parent / "fixtures/profile_emmanuel.json").read_text()))
+    profile = CandidateProfile.model_validate(json.loads((Path(__file__).parent / "fixtures/profile_john_doe.json").read_text()))
     cv = TailoredCV(job_id="j", title="Developpeur Full Stack - Node.js", language="fr",
                     summary="Ingenieur logiciel avec plus de 4 ans d'experience cumulee en developpement backend et full stack, "
                             "dote d'une solide maitrise de Node.js, TypeScript et PostgreSQL. Diplome d'un Master MIAGE.",
