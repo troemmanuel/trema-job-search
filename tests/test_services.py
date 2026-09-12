@@ -28,6 +28,14 @@ def test_job_parser():
     assert "Python" in normalized.skills
     assert "SQL" in normalized.skills
 
+def test_job_parser_tolerates_missing_fields():
+    """Les scrapers renvoient None (pas une clé absente) pour l'entreprise, le lieu ou la description."""
+    raw = {"title": "Ingénieur Backend", "company": None, "location": None, "description": None, "url": "https://x.io/j/1"}
+    normalized = JobParser.normalize(raw)
+    assert normalized.title == "Ingénieur Backend"
+    assert normalized.company == "" and normalized.location == ""
+    assert normalized.remote is False and normalized.skills == []
+
 def test_pdf_generator():
     profile = {
         "name": "Jean Dupont",
@@ -273,3 +281,104 @@ def test_letter_template_normalizes_body_and_fits_one_page():
     long_body = "\n\n".join(["Ceci est un paragraphe de test assez long pour occuper de la place sur la page. " * 6] * 7)
     pdf_bytes = render_letter(profile, {"content": long_body, "job": {"company": "ACME", "title": "Dev"}})
     assert b"/Count 1" in pdf_bytes
+
+
+def _synako_like_cv():
+    from app.schemas.application import ExperienceHighlight, TailoredCV
+    return TailoredCV(
+        job_id="j", title="Dev Full Stack - Node.js", summary="Ingénieur logiciel avec plus de 4 ans d'expérience cumulée.",
+        selected_experiences=["exp_001", "exp_002", "exp_004", "exp_005"], skills=["Node.js"],
+        experience_highlights=[
+            ExperienceHighlight(id="exp_004", achievements=["Conçu une vingtaine de fonctionnalités en microservices NestJS (Node.js)."],
+                                skills=["Node.js", "NestJS (Node.js / TypeScript)", "PostgreSQL", "Rust"]),
+            ExperienceHighlight(id="exp_001", achievements=["Développé une dizaine de user stories."]),
+            ExperienceHighlight(id="exp_002", achievements=["Déployé une stack ELK sur Kubernetes."]),
+            ExperienceHighlight(id="exp_005", achievements=["Développé les interfaces Angular."]),
+        ],
+    )
+
+
+def test_cv_postprocessor_restores_duration_coherence_and_volume():
+    """Un modèle faible supprime des expériences et minimise les réalisations : le post-traitement compense depuis le profil maître."""
+    import json
+    from pathlib import Path
+    from app.schemas.candidate import CandidateProfile
+    from app.services.ai.cv_postprocessor import finalize_tailored_cv, MIN_TOTAL_BULLETS
+
+    profile = CandidateProfile.model_validate(json.loads((Path(__file__).parent / "fixtures/profile_emmanuel.json").read_text()))
+    cv = finalize_tailored_cv(_synako_like_cv(), profile)
+
+    # 4 expériences retenues ≈ 3,5 ans < 4 ans annoncés → l'expérience manquante la plus longue est réintégrée (1 réalisation)
+    from app.services.ai.cv_postprocessor import _months
+    assert "exp_003" in cv.selected_experiences
+    assert any(h.id == "exp_003" and len(h.achievements) == 1 for h in cv.experience_highlights)
+    assert sum(_months(e) for e in profile.experiences if e.id in cv.selected_experiences) >= 48
+
+    total = sum(len(h.achievements) for h in cv.experience_highlights)
+    assert total >= MIN_TOTAL_BULLETS
+    # Djamo (en tête des highlights) complété en priorité avec ses réalisations maîtres non couvertes
+    djamo = next(h for h in cv.experience_highlights if h.id == "exp_004")
+    assert len(djamo.achievements) == 3 and any("BullMQ" in a for a in djamo.achievements)
+    # Aucune réalisation inventée : tout provient du profil maître ou de l'IA d'origine
+    master = {a for e in profile.experiences for a in e.achievements}
+    ai_original = {a for h in _synako_like_cv().experience_highlights for a in h.achievements}
+    assert all(a in master or a in ai_original for h in cv.experience_highlights for a in h.achievements)
+
+    # Stack : parenthèses retirées, item inconnu (Rust) écarté, rien du profil maître perdu, technos de l'offre en tête
+    assert djamo.skills[:3] == ["Node.js", "NestJS", "PostgreSQL"]
+    assert "Rust" not in djamo.skills and set(profile.experiences[3].skills) <= set(djamo.skills)
+
+
+def test_cv_postprocessor_leaves_good_output_untouched():
+    import json
+    from pathlib import Path
+    from app.schemas.application import TailoredCV
+    from app.schemas.candidate import CandidateProfile
+    from app.services.ai.cv_postprocessor import finalize_tailored_cv
+
+    profile = CandidateProfile.model_validate(json.loads((Path(__file__).parent / "fixtures/profile_emmanuel.json").read_text()))
+    tailored = TailoredCV.model_validate(json.loads((Path(__file__).parent / "fixtures/tailored_cv_itrust.json").read_text()))
+    before = tailored.model_dump()
+    after = finalize_tailored_cv(tailored, profile).model_dump()
+    # Toutes les expériences sont retenues sans consigne : leurs réalisations maîtres sont matérialisées, rien d'autre ne bouge
+    assert after["selected_experiences"] == before["selected_experiences"] and after["changes"] == []
+    assert sum(len(h["achievements"]) for h in after["experience_highlights"]) == sum(len(e.achievements) for e in profile.experiences)
+
+
+def test_restore_accents_only_when_stripped_and_unambiguous():
+    from app.services.ai.accents import build_vocabulary, looks_stripped, restore_accents
+
+    vocab = build_vocabulary(["Développé et déployé un service, livré en production. Qualité des données."])
+    stripped = ("Developpe une dizaine de user stories completes, de l'analyse technique a l'implementation, "
+                "et deploye un service livre en production avec une grande qualite de donnees.")
+    assert looks_stripped(stripped)
+    fixed = restore_accents(stripped, vocab)
+    assert fixed.startswith("Développé") and "déployé" in fixed and "livré" in fixed and "qualité" in fixed and "données" in fixed
+    assert " a l'" in fixed  # mot court : jamais modifié (a / à ambigu)
+    assert "implementation" in fixed  # absent du vocabulaire : inchangé (pas d'invention)
+
+    healthy = "Développé une dizaine de user stories complètes, livrées en production avec une grande qualité de données."
+    assert restore_accents(healthy, vocab) == healthy  # texte sain : no-op
+
+    ambiguous = build_vocabulary(["le marché", "ça marche"])  # deux formes → jamais touché
+    assert restore_accents("Le marche est porteur. " * 6, ambiguous, force=True) == "Le marche est porteur. " * 6
+
+
+def test_cv_postprocessor_restores_accents_from_master_vocabulary():
+    import json
+    from pathlib import Path
+    from app.schemas.application import ExperienceHighlight, TailoredCV
+    from app.schemas.candidate import CandidateProfile
+    from app.services.ai.cv_postprocessor import finalize_tailored_cv
+
+    profile = CandidateProfile.model_validate(json.loads((Path(__file__).parent / "fixtures/profile_emmanuel.json").read_text()))
+    cv = TailoredCV(job_id="j", title="Developpeur Full Stack - Node.js", language="fr",
+                    summary="Ingenieur logiciel avec plus de 4 ans d'experience cumulee en developpement backend et full stack, "
+                            "dote d'une solide maitrise de Node.js, TypeScript et PostgreSQL. Diplome d'un Master MIAGE.",
+                    selected_experiences=[e.id for e in profile.experiences], skills=[],
+                    experience_highlights=[ExperienceHighlight(id="exp_004", achievements=[
+                        "Concu et developpe une vingtaine de fonctionnalites autour des coffres dans une architecture orientee microservices (NestJS)."])])
+    out = finalize_tailored_cv(cv, profile)
+    assert out.title.startswith("Développeur") and out.summary.startswith("Ingénieur logiciel avec plus de 4 ans d'expérience cumulée")
+    assert out.experience_highlights[0].achievements[0].startswith("Conçu et développé une vingtaine de fonctionnalités")
+    assert any("Accents restaurés" in c for c in out.changes)

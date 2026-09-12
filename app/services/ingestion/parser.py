@@ -28,10 +28,11 @@ class JobParser:
     @classmethod
     def normalize(cls, raw: Dict[str, Any]) -> JobNormalizedData:
         """Produit un objet JobNormalizedData à partir des données brutes."""
-        title = raw.get("title", "").strip()
-        company = raw.get("company", "").strip()
-        location = raw.get("location", "").strip()
-        description = raw.get("description", "")
+        # `or ""` : les scrapers renvoient explicitement None quand une info manque (get() ne suffit pas)
+        title = (raw.get("title") or "").strip()
+        company = (raw.get("company") or "").strip()
+        location = (raw.get("location") or "").strip()
+        description = raw.get("description") or ""
 
         # Détection télétravail basique
         remote = False

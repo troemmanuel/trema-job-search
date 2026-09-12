@@ -1,0 +1,477 @@
+{% extends "base.html" %}
+
+{% block title %}Paramètres & IA — Trema Job Search{% endblock %}
+
+{% block content %}
+<div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h1>⚙️ Paramètres & Configuration IA</h1>
+        <p class="subtitle">Ajustez le modèle d'intelligence artificielle, votre liste noire d'entreprises, les filtres stricts et les seuils de scoring.</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem;">
+        <button type="button" onclick="saveAllSettings()" class="btn btn-primary" id="saveTopBtn" style="font-weight: 600; padding: 0.6rem 1.4rem;">
+            💾 Enregistrer les modifications
+        </button>
+    </div>
+</div>
+
+<div id="alertBanner" style="display: none; padding: 0.85rem 1.25rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.95rem; font-weight: 500;"></div>
+
+<form id="settingsForm" onsubmit="event.preventDefault(); saveAllSettings();">
+    <div class="grid-2" style="gap: 1.5rem; align-items: start;">
+        
+        <!-- SECTION 1 : MODÈLE IA & GÉNÉRATION -->
+        <div class="card">
+            <div class="card-header-actions" style="margin-bottom: 1rem; border-bottom: 1px solid var(--card-border); padding-bottom: 0.75rem;">
+                <h2 style="font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>🤖</span> Modèle d'Intelligence Artificielle
+                </h2>
+                <span class="badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa;">Gemini GenAI</span>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1.25rem;">
+                <label for="ai_model" style="display: block; font-weight: 600; margin-bottom: 0.4rem;">
+                    Modèle principal :
+                </label>
+                <select id="ai_model" class="filter-select" style="font-size: 0.95rem;" onchange="toggleCustomModelInput()">
+                    {% for m in available_models %}
+                    <option value="{{ m.id }}" {% if preferences.ai_model == m.id %}selected{% endif %}>
+                        {{ m.name }} — {{ m.description }}
+                    </option>
+                    {% endfor %}
+                    <option value="custom" {% if preferences.ai_model not in ['gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite'] and preferences.ai_model %}selected{% endif %}>
+                        Autre modèle personnalisé (saisie libre)...
+                    </option>
+                </select>
+            </div>
+
+            <div class="form-group" id="customModelGroup" style="display: none; margin-bottom: 1.25rem;">
+                <label for="custom_ai_model" style="display: block; font-weight: 600; margin-bottom: 0.4rem; color: #cbd5e1;">
+                    Nom du modèle Gemini personnalisé :
+                </label>
+                <input type="text" id="custom_ai_model" class="filter-input" placeholder="ex: gemini-1.5-pro, gemini-experimental" value="{{ preferences.ai_model }}">
+            </div>
+
+            <!-- Test connexion IA -->
+            <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                    <div>
+                        <strong style="font-size: 0.9rem; color: #e2e8f0;">Vérification de l'API :</strong>
+                        <div class="text-muted" style="font-size: 0.8rem;">Envoie un ping direct pour tester la clé et le modèle.</div>
+                    </div>
+                    <button type="button" onclick="testAIModel()" class="btn btn-secondary" id="testAIBtn" style="font-size: 0.85rem;">
+                        ⚡ Tester la connexion
+                    </button>
+                </div>
+                <div id="aiTestResult" style="margin-top: 0.6rem; font-size: 0.85rem; display: none;"></div>
+            </div>
+
+            <!-- Température -->
+            <div class="form-group" style="margin-bottom: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                    <label for="ai_temperature" style="font-weight: 600;">Température de génération :</label>
+                    <span id="tempValueBadge" class="badge badge-neutral" style="font-family: monospace;">{{ preferences.ai_temperature }}</span>
+                </div>
+                <input type="range" id="ai_temperature" min="0" max="1" step="0.05" value="{{ preferences.ai_temperature }}" style="width: 100%; cursor: pointer;" oninput="document.getElementById('tempValueBadge').textContent = this.value">
+                <div class="text-muted" style="font-size: 0.75rem; margin-top: 0.3rem;">
+                    0.1 - 0.2 recommandé pour éviter toute hallucination lors du scoring et des dates de CV.
+                </div>
+            </div>
+
+            <!-- Directives & consignes personnalisées -->
+            <div class="form-group">
+                <label for="ai_custom_instructions" style="display: block; font-weight: 600; margin-bottom: 0.4rem;">
+                    Consignes & directives personnalisées pour l'IA :
+                </label>
+                <textarea id="ai_custom_instructions" rows="4" class="filter-input" style="font-family: inherit; resize: vertical;" placeholder="Exemple : Mettre systématiquement l'accent sur mon expertise en Cloud/Kubernetes et mon diplôme MIAGE. Adopter un ton direct, orienté résultat business et chiffré dans les lettres.">{{ preferences.ai_custom_instructions or '' }}</textarea>
+                <div class="text-muted" style="font-size: 0.75rem; margin-top: 0.3rem;">
+                    Ces consignes sont automatiquement injectées dans les prompts de matching, de génération du CV et de la lettre de motivation.
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 2 : BLACKLIST & FILTRES D'EXCLUSION -->
+        <div class="card">
+            <div class="card-header-actions" style="margin-bottom: 1rem; border-bottom: 1px solid var(--card-border); padding-bottom: 0.75rem;">
+                <h2 style="font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>🚫</span> Blacklist & Filtres d'Exclusion
+                </h2>
+                <span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171;">Filtres stricts</span>
+            </div>
+
+            <!-- Entreprises blacklistées -->
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label style="display: block; font-weight: 600; margin-bottom: 0.4rem;">
+                    Entreprises sur liste noire (Blacklist) :
+                </label>
+                <div class="text-muted" style="font-size: 0.8rem; margin-bottom: 0.6rem;">
+                    Toute offre d'une entreprise blacklistée sera automatiquement écartée sans consommer de quota IA.
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 0.8rem;">
+                    <input type="text" id="newCompanyInput" class="filter-input" placeholder="Ajouter une entreprise (ex: Capgemini, Alten...)" onkeydown="if(event.key==='Enter'){event.preventDefault(); addCompanyTag();}">
+                    <button type="button" onclick="addCompanyTag()" class="btn btn-secondary" style="white-space: nowrap;">
+                        + Ajouter
+                    </button>
+                </div>
+
+                <div id="companyTagsContainer" style="display: flex; flex-wrap: wrap; gap: 0.4rem; min-height: 38px; padding: 0.5rem; background: rgba(0,0,0,0.2); border: 1px dashed var(--card-border); border-radius: 6px;">
+                    <!-- Tags injectés en JS -->
+                </div>
+            </div>
+
+            <!-- Mots-clés exclus -->
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label style="display: block; font-weight: 600; margin-bottom: 0.4rem;">
+                    Mots-clés indésirables / exclus du titre :
+                </label>
+                <div class="text-muted" style="font-size: 0.8rem; margin-bottom: 0.6rem;">
+                    Exclut les offres contenant ces termes (ex: Stage, Alternance, WordPress, PHP, Freelance...).
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 0.8rem;">
+                    <input type="text" id="newKeywordInput" class="filter-input" placeholder="Ajouter un mot-clé (ex: Stage, PHP...)" onkeydown="if(event.key==='Enter'){event.preventDefault(); addKeywordTag();}">
+                    <button type="button" onclick="addKeywordTag()" class="btn btn-secondary" style="white-space: nowrap;">
+                        + Ajouter
+                    </button>
+                </div>
+
+                <div id="keywordTagsContainer" style="display: flex; flex-wrap: wrap; gap: 0.4rem; min-height: 38px; padding: 0.5rem; background: rgba(0,0,0,0.2); border: 1px dashed var(--card-border); border-radius: 6px;">
+                    <!-- Tags injectés en JS -->
+                </div>
+            </div>
+
+            <!-- Filtre ESN -->
+            <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.85rem 1rem;">
+                <label style="display: flex; align-items: flex-start; gap: 0.65rem; cursor: pointer;">
+                    <input type="checkbox" id="filter_esn" {% if preferences.filter_esn %}checked{% endif %} style="margin-top: 0.25rem; transform: scale(1.15);">
+                    <div>
+                        <strong style="color: #f8fafc; font-size: 0.95rem;">Filtrer les ESN & Sociétés de conseil</strong>
+                        <div class="text-muted" style="font-size: 0.8rem; margin-top: 0.15rem;">
+                            Utilise le classifieur d'entreprises pour écarter automatiquement les ESN (Capgemini, Sopra Steria, SII...) et se concentrer uniquement sur les <strong>clients finaux</strong> (Scale-ups, Éditeurs SaaS, DSI).
+                        </div>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <!-- SECTION 3 : SEUILS DE SCORING & DÉCISION -->
+        <div class="card">
+            <div class="card-header-actions" style="margin-bottom: 1rem; border-bottom: 1px solid var(--card-border); padding-bottom: 0.75rem;">
+                <h2 style="font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>🎯</span> Seuils de Matching & Scoring
+                </h2>
+                <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399;">Critères / 100</span>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+                    <label for="match_threshold_priority" style="font-weight: 600;">Seuil Prioritaire (Match Idéal) :</label>
+                    <span id="priorityBadge" class="badge badge-priority">{{ preferences.match_threshold_priority }} / 100</span>
+                </div>
+                <input type="range" id="match_threshold_priority" min="70" max="95" step="1" value="{{ preferences.match_threshold_priority }}" style="width: 100%;" oninput="document.getElementById('priorityBadge').textContent = this.value + ' / 100'">
+                <div class="text-muted" style="font-size: 0.75rem;">Offres au top de la pile pour lesquelles postuler immédiatement.</div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+                    <label for="match_threshold_recommended" style="font-weight: 600;">Seuil Recommandé (Qualification auto) :</label>
+                    <span id="recommendedBadge" class="badge badge-recommended">{{ preferences.match_threshold_recommended }} / 100</span>
+                </div>
+                <input type="range" id="match_threshold_recommended" min="60" max="90" step="1" value="{{ preferences.match_threshold_recommended }}" style="width: 100%;" oninput="document.getElementById('recommendedBadge').textContent = this.value + ' / 100'">
+                <div class="text-muted" style="font-size: 0.75rem;">Déclenche la préparation du dossier complet (CV ReportLab, Lettre orale) et la synchro Notion.</div>
+            </div>
+
+            <div class="form-group">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+                    <label for="match_threshold_review" style="font-weight: 600;">Seuil d'Examen (En-dessous = Rejet automatique) :</label>
+                    <span id="reviewBadge" class="badge badge-review">{{ preferences.match_threshold_review }} / 100</span>
+                </div>
+                <input type="range" id="match_threshold_review" min="40" max="75" step="1" value="{{ preferences.match_threshold_review }}" style="width: 100%;" oninput="document.getElementById('reviewBadge').textContent = this.value + ' / 100'">
+                <div class="text-muted" style="font-size: 0.75rem;">Toute offre en-dessous de ce seuil passe directement en statut REJECTED.</div>
+            </div>
+        </div>
+
+        <!-- SECTION 4 : AUTOMATISATION & COLLECTE -->
+        <div class="card">
+            <div class="card-header-actions" style="margin-bottom: 1rem; border-bottom: 1px solid var(--card-border); padding-bottom: 0.75rem;">
+                <h2 style="font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>⚡</span> Automatisation & Ingestion
+                </h2>
+                <span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24;">Planificateur</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.85rem; margin-bottom: 1.25rem;">
+                <label style="display: flex; align-items: center; gap: 0.65rem; cursor: pointer;">
+                    <input type="checkbox" id="auto_prepare_documents" {% if preferences.auto_prepare_documents %}checked{% endif %} style="transform: scale(1.15);">
+                    <div>
+                        <strong style="color: #f8fafc; font-size: 0.95rem;">Générer automatiquement les livrables</strong>
+                        <div class="text-muted" style="font-size: 0.75rem;">Crée le CV ReportLab adapté, la lettre orale et les réponses dès qu'une offre est qualifiée.</div>
+                    </div>
+                </label>
+
+                <label style="display: flex; align-items: center; gap: 0.65rem; cursor: pointer;">
+                    <input type="checkbox" id="auto_sync_notion" {% if preferences.auto_sync_notion %}checked{% endif %} style="transform: scale(1.15);">
+                    <div>
+                        <strong style="color: #f8fafc; font-size: 0.95rem;">Synchroniser automatiquement vers Notion</strong>
+                        <div class="text-muted" style="font-size: 0.75rem;">Crée la fiche dans la base « 💼 Suivi candidatures » avec numéro séquentiel et liens signés.</div>
+                    </div>
+                </label>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="default_search_duration" style="display: block; font-weight: 600; margin-bottom: 0.4rem;">Période par défaut :</label>
+                    <select id="default_search_duration" class="filter-select">
+                        <option value="24h" {% if preferences.default_search_duration == '24h' %}selected{% endif %}>Dernières 24 heures</option>
+                        <option value="48h" {% if preferences.default_search_duration == '48h' %}selected{% endif %}>Dernières 48 heures</option>
+                        <option value="3j" {% if preferences.default_search_duration == '3j' %}selected{% endif %}>Derniers 3 jours</option>
+                        <option value="7j" {% if preferences.default_search_duration == '7j' %}selected{% endif %}>Derniers 7 jours</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="daily_collection_limit" style="display: block; font-weight: 600; margin-bottom: 0.4rem;">Limite d'offres / run :</label>
+                    <input type="number" id="daily_collection_limit" class="filter-input" min="1" max="50" value="{{ preferences.daily_collection_limit }}">
+                </div>
+            </div>
+
+            <!-- Préférences salaire & contrat -->
+            <div style="margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--card-border);">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label for="minimum_salary" style="display: block; font-weight: 600; margin-bottom: 0.4rem;">Salaire minimum (€ brut/an) :</label>
+                        <input type="number" id="minimum_salary" class="filter-input" step="1000" placeholder="ex: 42000" value="{{ preferences.minimum_salary or '' }}">
+                    </div>
+                    <div class="form-group" style="display: flex; flex-direction: column; justify-content: center;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-top: 1.2rem;">
+                            <input type="checkbox" id="remote_allowed" {% if preferences.remote %}checked{% endif %} style="transform: scale(1.15);">
+                            <span style="font-weight: 600;">Télétravail accepté / souhaité</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div style="margin-top: 2rem; display: flex; justify-content: flex-end; gap: 1rem;">
+        <button type="button" onclick="saveAllSettings()" class="btn btn-primary" id="saveBottomBtn" style="font-weight: 600; font-size: 1rem; padding: 0.75rem 2rem;">
+            💾 Enregistrer tous les paramètres
+        </button>
+    </div>
+</form>
+
+<script>
+// État local des listes de tags
+let excludedCompanies = {{ preferences.excluded_companies | tojson }};
+let excludedKeywords = {{ preferences.excluded_keywords | tojson }};
+let contractTypes = {{ preferences.contract_types | tojson }};
+let targetTitles = {{ preferences.target_titles | tojson }};
+let locations = {{ preferences.locations | tojson }};
+let sectors = {{ preferences.sectors | tojson }};
+
+function renderCompanyTags() {
+    const container = document.getElementById('companyTagsContainer');
+    container.innerHTML = '';
+    if (excludedCompanies.length === 0) {
+        container.innerHTML = '<span class="text-muted" style="font-size: 0.85rem; font-style: italic;">Aucune entreprise dans la liste noire.</span>';
+        return;
+    }
+    excludedCompanies.forEach(comp => {
+        const tag = document.createElement('span');
+        tag.className = 'badge';
+        tag.style.cssText = 'background: rgba(239, 68, 68, 0.2); color: #f87171; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.6rem; font-size: 0.85rem;';
+        tag.innerHTML = `<span>🚫 ${escapeHtml(comp)}</span> <button type="button" onclick="removeCompanyTag('${escapeHtml(comp)}')" style="background: none; border: none; color: #f87171; cursor: pointer; font-weight: bold; font-size: 0.9rem; padding: 0 2px;">✕</button>`;
+        container.appendChild(tag);
+    });
+}
+
+function renderKeywordTags() {
+    const container = document.getElementById('keywordTagsContainer');
+    container.innerHTML = '';
+    if (excludedKeywords.length === 0) {
+        container.innerHTML = '<span class="text-muted" style="font-size: 0.85rem; font-style: italic;">Aucun mot-clé indésirable configuré.</span>';
+        return;
+    }
+    excludedKeywords.forEach(kw => {
+        const tag = document.createElement('span');
+        tag.className = 'badge badge-neutral';
+        tag.style.cssText = 'display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.6rem; font-size: 0.85rem;';
+        tag.innerHTML = `<span>${escapeHtml(kw)}</span> <button type="button" onclick="removeKeywordTag('${escapeHtml(kw)}')" style="background: none; border: none; color: #94a3b8; cursor: pointer; font-weight: bold; font-size: 0.9rem; padding: 0 2px;">✕</button>`;
+        container.appendChild(tag);
+    });
+}
+
+function addCompanyTag() {
+    const input = document.getElementById('newCompanyInput');
+    const val = input.value.trim();
+    if (!val) return;
+    if (!excludedCompanies.some(c => c.toLowerCase() === val.toLowerCase())) {
+        excludedCompanies.push(val);
+        renderCompanyTags();
+    }
+    input.value = '';
+    input.focus();
+}
+
+function removeCompanyTag(company) {
+    excludedCompanies = excludedCompanies.filter(c => c.toLowerCase() !== company.toLowerCase());
+    renderCompanyTags();
+}
+
+function addKeywordTag() {
+    const input = document.getElementById('newKeywordInput');
+    const val = input.value.trim();
+    if (!val) return;
+    if (!excludedKeywords.some(k => k.toLowerCase() === val.toLowerCase())) {
+        excludedKeywords.push(val);
+        renderKeywordTags();
+    }
+    input.value = '';
+    input.focus();
+}
+
+function removeKeywordTag(kw) {
+    excludedKeywords = excludedKeywords.filter(k => k.toLowerCase() !== kw.toLowerCase());
+    renderKeywordTags();
+}
+
+function toggleCustomModelInput() {
+    const select = document.getElementById('ai_model');
+    const customGroup = document.getElementById('customModelGroup');
+    if (select.value === 'custom') {
+        customGroup.style.display = 'block';
+    } else {
+        customGroup.style.display = 'none';
+    }
+}
+
+function getSelectedAIModel() {
+    const select = document.getElementById('ai_model');
+    if (select.value === 'custom') {
+        return document.getElementById('custom_ai_model').value.trim() || 'gemini-3.5-flash';
+    }
+    return select.value;
+}
+
+async function testAIModel() {
+    const btn = document.getElementById('testAIBtn');
+    const resDiv = document.getElementById('aiTestResult');
+    const model = getSelectedAIModel();
+
+    btn.disabled = true;
+    btn.textContent = "⏳ Test en cours...";
+    resDiv.style.display = "block";
+    resDiv.style.color = "#38bdf8";
+    resDiv.textContent = `Envoi d'un ping à Gemini (${model})...`;
+
+    try {
+        const resp = await fetch('/api/settings/test-ai', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ model: model })
+        });
+        const data = await resp.json();
+
+        if (resp.ok && data.success) {
+            resDiv.style.color = "#34d399";
+            resDiv.innerHTML = `✅ <strong>Succès :</strong> Modèle <code>${data.model}</code> disponible (latence : ${data.response_time_ms} ms). Réponse : <em>${escapeHtml(data.output)}</em>`;
+        } else {
+            resDiv.style.color = "#f87171";
+            resDiv.innerHTML = `❌ <strong>Erreur :</strong> ${escapeHtml(data.error || "Impossible de joindre le modèle")}`;
+        }
+    } catch (e) {
+        resDiv.style.color = "#f87171";
+        resDiv.innerHTML = `❌ <strong>Erreur réseau :</strong> ${escapeHtml(e.message)}`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "⚡ Tester la connexion";
+    }
+}
+
+async function saveAllSettings() {
+    const banner = document.getElementById('alertBanner');
+    const topBtn = document.getElementById('saveTopBtn');
+    const btmBtn = document.getElementById('saveBottomBtn');
+
+    topBtn.disabled = true;
+    btmBtn.disabled = true;
+
+    const payload = {
+        ai_model: getSelectedAIModel(),
+        ai_temperature: parseFloat(document.getElementById('ai_temperature').value) || 0.2,
+        ai_custom_instructions: document.getElementById('ai_custom_instructions').value.trim(),
+        excluded_companies: excludedCompanies,
+        excluded_keywords: excludedKeywords,
+        filter_esn: document.getElementById('filter_esn').checked,
+        match_threshold_priority: parseInt(document.getElementById('match_threshold_priority').value) || 85,
+        match_threshold_recommended: parseInt(document.getElementById('match_threshold_recommended').value) || 75,
+        match_threshold_review: parseInt(document.getElementById('match_threshold_review').value) || 60,
+        auto_prepare_documents: document.getElementById('auto_prepare_documents').checked,
+        auto_sync_notion: document.getElementById('auto_sync_notion').checked,
+        default_search_duration: document.getElementById('default_search_duration').value,
+        daily_collection_limit: parseInt(document.getElementById('daily_collection_limit').value) || 5,
+        minimum_salary: parseInt(document.getElementById('minimum_salary').value) || null,
+        remote: document.getElementById('remote_allowed').checked,
+        contract_types: contractTypes,
+        target_titles: targetTitles,
+        locations: locations,
+        sectors: sectors
+    };
+
+    try {
+        const resp = await fetch('/api/settings', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ preferences: payload })
+        });
+        const data = await resp.json();
+
+        banner.style.display = 'block';
+        if (resp.ok) {
+            banner.style.background = 'rgba(16, 185, 129, 0.15)';
+            banner.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+            banner.style.color = '#34d399';
+            banner.textContent = '✅ ' + (data.message || 'Paramètres enregistrés avec succès !');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+            banner.style.background = 'rgba(239, 68, 68, 0.15)';
+            banner.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+            banner.style.color = '#f87171';
+            banner.textContent = '❌ ' + (data.error || 'Erreur lors de la sauvegarde.');
+        }
+    } catch (e) {
+        banner.style.display = 'block';
+        banner.style.background = 'rgba(239, 68, 68, 0.15)';
+        banner.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+        banner.style.color = '#f87171';
+        banner.textContent = '❌ Erreur réseau : ' + e.message;
+    } finally {
+        topBtn.disabled = false;
+        btmBtn.disabled = false;
+        setTimeout(() => {
+            if (banner.style.color.includes('34d399')) {
+                banner.style.display = 'none';
+            }
+        }, 4000);
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    renderCompanyTags();
+    renderKeywordTags();
+    toggleCustomModelInput();
+});
+</script>
+{% endblock %}

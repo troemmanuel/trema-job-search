@@ -48,6 +48,7 @@
                 <option value="NEW" {% if filters and filters.status == 'NEW' %}selected{% endif %}>NEW</option>
                 <option value="QUALIFIED" {% if filters and filters.status == 'QUALIFIED' %}selected{% endif %}>QUALIFIED</option>
                 <option value="REVIEW" {% if filters and filters.status == 'REVIEW' %}selected{% endif %}>REVIEW</option>
+                <option value="BLACKLISTED" {% if filters and filters.status == 'BLACKLISTED' %}selected{% endif %}>BLACKLISTED (Exclues)</option>
                 <option value="ARCHIVED" {% if filters and filters.status == 'ARCHIVED' %}selected{% endif %}>ARCHIVED</option>
             </select>
         </div>
@@ -108,7 +109,19 @@
                         <span class="badge badge-neutral">—</span>
                     {% endif %}
                 </td>
-                <td><span class="badge">{{ job.status }}</span></td>
+                <td>
+                    {% if job.status == 'BLACKLISTED' %}
+                        <span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171;">🚫 BLACKLISTÉE</span>
+                    {% elif job.status == 'QUALIFIED' %}
+                        <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399;">QUALIFIED</span>
+                    {% elif job.status == 'REVIEW' %}
+                        <span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24;">REVIEW</span>
+                    {% elif job.status in ['FILTERED_KEYWORD', 'FILTERED_ESN', 'REJECTED'] %}
+                        <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171;">{{ job.status }}</span>
+                    {% else %}
+                        <span class="badge">{{ job.status }}</span>
+                    {% endif %}
+                </td>
                 <td>
                     <a href="/jobs/{{ job.id }}" class="btn btn-sm btn-secondary">Consulter</a>
                 </td>

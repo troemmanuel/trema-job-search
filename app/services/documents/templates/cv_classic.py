@@ -164,15 +164,17 @@ def _sort_key(exp: Dict[str, Any]) -> str:
 def _resolve_experiences(profile: Dict[str, Any], tailored: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Applique la sélection ciblée : ids retenus, et réalisations réécrites par id (experience_highlights)."""
     ids = [item.get("id") if isinstance(item, dict) else item for item in tailored.get("selected_experiences") or []]
-    overrides = {h["id"]: h["achievements"] for h in tailored.get("experience_highlights") or []
-                 if h.get("id") and h.get("achievements")}
+    overrides = {h["id"]: h for h in tailored.get("experience_highlights") or [] if h.get("id")}
     experiences = []
     for exp in profile.get("experiences", []):
         if ids and exp.get("id") not in ids:
             continue
         merged = dict(exp)
-        if exp.get("id") in overrides:
-            merged["achievements"] = overrides[exp["id"]]
+        override = overrides.get(exp.get("id")) or {}
+        if override.get("achievements"):
+            merged["achievements"] = override["achievements"]
+        if override.get("skills"):
+            merged["skills"] = override["skills"]
         experiences.append(merged)
     return sorted(experiences, key=_sort_key, reverse=True)
 

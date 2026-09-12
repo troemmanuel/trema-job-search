@@ -20,8 +20,12 @@
                 {% endif %}
             </p>
         </div>
-        <div>
-            {% if job.match_score is not none %}
+            {% if job.status == 'BLACKLISTED' %}
+            <div class="score-badge-large" style="background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.4);">
+                <span class="score-value" style="color: #f87171; font-size: 1.1rem;">🚫 Blacklistée</span>
+                <span class="score-level" style="color: #fca5a5;">Entreprise exclue</span>
+            </div>
+            {% elif job.match_score is not none %}
             <div class="score-badge-large">
                 <span class="score-value">{{ job.match_score }}/100</span>
                 <span class="score-level">
@@ -122,7 +126,7 @@
         </div>
     </div>
 
-    <div class="job-actions mt-4" style="display: flex; gap: 1rem; flex-wrap: wrap;">
+    <div class="job-actions mt-4" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
         <a href="{{ job.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Voir l'offre originale ↗</a>
         <button id="matchBtn" onclick="triggerMatch('{{ job.id }}')" class="btn btn-primary">
             {{ 'Recalculer matching IA' if job.match_score is not none else 'Calculer matching IA' }}
@@ -130,10 +134,50 @@
         <button id="applyBtn" onclick="generateApplication('{{ job.id }}')" class="btn btn-success">
             ⚡ Générer dossier de candidature
         </button>
+        {% if job.company and job.status != 'BLACKLISTED' %}
+        <button id="blacklistBtn" onclick="blacklistCompany('{{ job.company | escape }}')" class="btn" style="margin-left: auto; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171;">
+            🚫 Blacklister cette entreprise
+        </button>
+        {% endif %}
     </div>
 </div>
 
 <script>
+async function blacklistCompany(company) {
+    if (!confirm(`Voulez-vous vraiment blacklister "${company}" ?\nToutes ses offres actuelles et futures seront écartées.`)) {
+        return;
+    }
+    const btn = document.getElementById('blacklistBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = "⏳ Ajout...";
+    }
+    try {
+        const res = await fetch('/api/settings/blacklist', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ company: company })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            alert(`✅ ${company} a été ajoutée à votre liste noire !`);
+            location.reload();
+        } else {
+            alert("Erreur: " + (data.error || "Impossible de blacklister"));
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = "🚫 Blacklister cette entreprise";
+            }
+        }
+    } catch(e) {
+        alert("Erreur réseau: " + e.message);
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = "🚫 Blacklister cette entreprise";
+        }
+    }
+}
+
 async function triggerMatch(jobId) {
     const btn = document.getElementById('matchBtn');
     btn.disabled = true;

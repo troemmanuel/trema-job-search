@@ -291,3 +291,74 @@ def test_api_jobs_scrape_batch_endpoint(monkeypatch):
         assert data_multiline["is_batch"] is True
         assert data_multiline["processed_count"] == 2
 
+
+
+def test_wttj_api_extraction_builds_headers(monkeypatch):
+    """Régression : l'appel API WTTJ référençait une constante USER_AGENT supprimée (NameError silencieux → fallback vide)."""
+    import httpx
+    from app.services.ingestion.scraper import JobScraper
+
+    captured = {}
+
+    class FakeResponse:
+        status_code = 200
+        def json(self):
+            return {"job": {"name": "Dev Backend", "organization": {"name": "ACME"}, "slug": "dev-backend",
+                            "office": {"city": "Paris"}, "contract_type": "full_time", "description": "<p>Python</p>"}}
+
+    class FakeClient:
+        def __init__(self, *a, **k): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def get(self, url, headers=None):
+            captured["headers"] = headers
+            return FakeResponse()
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+    result = JobScraper.extract_from_wttj_api("https://www.welcometothejungle.com/fr/companies/acme/jobs/dev-backend")
+    assert "Mozilla" in captured["headers"]["User-Agent"]
+    assert result and result["company"] == "ACME" and result["title"] == "Dev Backend"
+
+
+def test_gemini_fallback_rejects_empty_extraction(monkeypatch):
+    """Une page anti-bot ne doit pas produire une offre squelette (« Offre d'emploi », sans entreprise)."""
+    import pytest
+    from bs4 import BeautifulSoup
+    from app.schemas.job import JobNormalizedData
+    from app.services.ingestion.scraper import JobScraper, gemini_service
+
+    monkeypatch.setattr(gemini_service, "generate_structured",
+                        lambda **k: JobNormalizedData(title="Offre d'emploi", company=None, location=None))
+    with pytest.raises(ValueError, match="anti-bot"):
+        JobScraper.extract_with_gemini_fallback(BeautifulSoup("<html><body>Access denied</body></html>", "html.parser"),
+                                                "https://example.com/job")
+
+
+def test_collector_enriches_incomplete_existing_job(monkeypatch):
+    """Un doublon d'URL dont l'enregistrement est vide est remplacé par le scraping complet."""
+    from app.services.ingestion.collector import JobCollectorService
+    from app.services.storage import supabase_service
+
+    updated = {}
+
+    class FakeTable:
+        def update(self, payload): updated.update(payload); return self
+        def eq(self, *a): return self
+        def execute(self):
+            class R: data = [{"id": "job_1", **updated}]
+            return R()
+
+    class FakeClient:
+        def table(self, name): return FakeTable()
+
+    monkeypatch.setattr(type(supabase_service), "client", property(lambda self: FakeClient()))
+    existing = {"id": "job_1", "title": "Offre d'emploi", "company": None, "url": "https://x.io/j/1"}
+    scraped = {"title": "Dev Backend", "company": "ACME", "location": "Paris", "description": "Python", "url": "https://x.io/j/1"}
+    job = JobCollectorService._enrich_incomplete_job(existing, scraped)
+    assert job["title"] == "Dev Backend" and job["company"] == "ACME"
+    assert updated["normalized_data"]["title"] == "Dev Backend"
+
+    # Un enregistrement déjà complet n'est pas touché
+    updated.clear()
+    full = {"id": "job_2", "title": "Lead Dev", "company": "Beta"}
+    assert JobCollectorService._enrich_incomplete_job(full, scraped) is full and not updated

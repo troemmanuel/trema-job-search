@@ -15,6 +15,7 @@ def create_app(config_class=Config):
     from app.routes.candidate import candidate_bp
     from app.routes.scheduler import scheduler_bp
     from app.routes.analytics import analytics_bp
+    from app.routes.settings import settings_bp
 
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(jobs_bp)
@@ -22,6 +23,7 @@ def create_app(config_class=Config):
     app.register_blueprint(candidate_bp)
     app.register_blueprint(scheduler_bp)
     app.register_blueprint(analytics_bp)
+    app.register_blueprint(settings_bp)
 
     # Démarrage du planificateur en tâche de fond si activé et hors tests
     if app.config.get("ENABLE_SCHEDULER") and not app.testing:

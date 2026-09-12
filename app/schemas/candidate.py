@@ -54,6 +54,21 @@ class CandidatePreferences(BaseModel):
     sectors: List[str] = Field(default_factory=list)
     excluded_companies: List[str] = Field(default_factory=list)
     excluded_keywords: List[str] = Field(default_factory=list)
+    # Paramètres avancés du modèle IA & Génération
+    ai_model: str = Field(default="gemini-3.5-flash")
+    ai_temperature: float = Field(default=0.2)
+    ai_custom_instructions: Optional[str] = Field(default="")
+    # Filtres avancés
+    filter_esn: bool = Field(default=False)
+    # Seuils de scoring et qualification
+    match_threshold_priority: int = Field(default=85)
+    match_threshold_recommended: int = Field(default=75)
+    match_threshold_review: int = Field(default=60)
+    # Règles d'automatisation
+    auto_prepare_documents: bool = Field(default=True)
+    auto_sync_notion: bool = Field(default=True)
+    default_search_duration: str = Field(default="24h")
+    daily_collection_limit: int = Field(default=5)
 
 class CandidateProfile(BaseModel):
     name: str

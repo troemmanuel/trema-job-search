@@ -14,7 +14,7 @@ class JobImporter:
     def import_job(cls, payload: Dict[str, Any]) -> Dict[str, Any]:
         source = payload.get("source", "MANUAL")
         source_job_id = payload.get("source_job_id")
-        url = payload.get("url", "").strip()
+        url = (payload.get("url") or "").strip()
 
         if not url or not payload.get("title"):
             raise ValueError("L'URL et le titre de l'offre sont obligatoires.")
@@ -28,6 +28,14 @@ class JobImporter:
 
         # Normalisation
         normalized = job_parser.normalize(payload)
+
+        # Vérification si l'entreprise est dans la blacklist candidat
+        initial_status = "NEW"
+        profile = supabase_service.get_active_candidate_profile()
+        if profile and profile.get("preferences"):
+            from app.services.ingestion.filters import is_company_blacklisted
+            if is_company_blacklisted(payload.get("company"), profile["preferences"].get("excluded_companies")):
+                initial_status = "BLACKLISTED"
 
         job_record = {
             "source": source,
@@ -43,7 +51,7 @@ class JobImporter:
             "description": payload.get("description"),
             "raw_data": payload,
             "normalized_data": normalized.model_dump(),
-            "status": "NEW"
+            "status": initial_status
         }
 
         if supabase_service.client:

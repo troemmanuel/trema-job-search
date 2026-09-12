@@ -18,6 +18,8 @@ class MatcherService:
             candidate_profile=profile.model_dump_json(indent=2),
             job_data=job_data.model_dump_json(indent=2)
         )
+        if profile.preferences and getattr(profile.preferences, "ai_custom_instructions", None):
+            system_instruction += f"\n\nDirectives spécifiques et priorités du candidat :\n{profile.preferences.ai_custom_instructions}"
         return self.ai_service.generate_structured(
             prompt=user_prompt,
             response_schema=MatchResult,

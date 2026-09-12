@@ -70,7 +70,7 @@
         "Réduit de 90 % les pertes de revenus sur les abonnements et coffres en fiabilisant les opérations récurrentes avec BullMQ (synchronisation asynchrone des services) : historisation des transactions, traçabilité des étapes et reprise au point d'échec sans rejouer l'intégralité du processus.",
         "Conçu et développé une vingtaine de fonctionnalités autour des coffres dans une architecture orientée microservices (NestJS), couvrant leur cycle de vie, les transactions et opérations récurrentes, ainsi que l'optimisation des performances grâce au cache Redis et à l'optimisation des requêtes PostgreSQL."
       ],
-      "skills": ["FastAPI", "Python", "NestJS", "TypeScript", "PostgreSQL", "Kafka", "RabbitMQ", "BullMQ", "AWS", "Terraform"]
+      "skills": ["NestJS", "Node.js", "TypeScript", "FastAPI", "Python", "PostgreSQL", "Redis", "Kafka", "RabbitMQ", "BullMQ", "AWS", "Terraform"]
     },
     {
       "id": "exp_005",

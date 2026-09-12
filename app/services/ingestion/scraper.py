@@ -64,7 +64,7 @@ class JobScraper:
 
         try:
             headers = {
-                "User-Agent": USER_AGENT,
+                "User-Agent": BROWSER_HEADERS["User-Agent"],
                 "Accept": "application/json",
                 "Origin": "https://www.welcometothejungle.com",
                 "Referer": "https://www.welcometothejungle.com/"
@@ -376,32 +376,28 @@ class JobScraper:
         netloc = urlparse(url).netloc.lower()
         source = netloc.replace("www.", "").split(".")[0].upper()
 
-        if extracted:
-            return {
-                "source": source,
-                "source_job_id": None,
-                "title": extracted.title,
-                "company": extracted.company,
-                "location": extracted.location,
-                "contract_type": extracted.contract_type or "CDI",
-                "salary_min": None,
-                "salary_max": None,
-                "salary_currency": "EUR",
-                "url": url,
-                "description": truncated_text[:3000],
-                "normalized_data": extracted.model_dump()
-            }
-        else:
-            return {
-                "source": source,
-                "source_job_id": None,
-                "title": "Offre sans titre",
-                "company": "Entreprise inconnue",
-                "location": "France",
-                "contract_type": "CDI",
-                "url": url,
-                "description": truncated_text[:2000]
-            }
+        # Une extraction sans titre exploitable ni entreprise = page anti-bot ou vide : ne jamais persister ce squelette
+        generic_titles = {"", "offre d'emploi", "offre sans titre", "job", "job offer", "poste"}
+        if (not extracted or not (extracted.company or "").strip()
+                or (extracted.title or "").strip().lower() in generic_titles):
+            raise ValueError(
+                "Extraction impossible : la page ne contient pas d'offre lisible (protection anti-bot ou contenu vide)"
+            )
+
+        return {
+            "source": source,
+            "source_job_id": None,
+            "title": extracted.title,
+            "company": extracted.company,
+            "location": extracted.location,
+            "contract_type": extracted.contract_type or "CDI",
+            "salary_min": None,
+            "salary_max": None,
+            "salary_currency": "EUR",
+            "url": url,
+            "description": truncated_text[:3000],
+            "normalized_data": extracted.model_dump()
+        }
 
     @classmethod
     def scrape(cls, url: str) -> Dict[str, Any]:

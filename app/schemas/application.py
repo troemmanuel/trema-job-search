@@ -19,6 +19,7 @@ class SkillGroup(BaseModel):
 class ExperienceHighlight(BaseModel):
     id: str                                      # id d'une expérience du profil maître
     achievements: List[str] = Field(default_factory=list)  # réalisations retenues/reformulées pour l'offre
+    skills: List[str] = Field(default_factory=list)        # stack du poste réordonnée (technos de l'offre en tête)
 
 class TailoredCV(BaseModel):
     job_id: str

@@ -6,6 +6,7 @@ from app.config import Config
 from app.services.storage import supabase_service
 from app.services.ingestion.scraper import job_scraper
 from app.services.ingestion.importer import job_importer
+from app.services.ingestion.parser import job_parser
 from app.services.ai.matcher import matcher_service
 from app.services.ai.cv_generator import cv_generator_service
 from app.services.ai.letter_generator import letter_generator_service
@@ -14,6 +15,7 @@ from app.services.documents.renderer import document_renderer
 from app.services.notion.client import notion_service
 from app.schemas.candidate import CandidateProfile
 from app.schemas.job import JobNormalizedData
+from app.services.ingestion.filters import is_company_blacklisted, matches_excluded_keyword, is_esn_company
 
 logger = logging.getLogger(__name__)
 
@@ -299,6 +301,14 @@ class JobCollectorService:
         }
 
 
+        # Valeurs par défaut issues des préférences si non spécifiées
+        if candidate_profile and candidate_profile.preferences:
+            prefs = candidate_profile.preferences
+            if min_match_score == 75 and getattr(prefs, "match_threshold_recommended", None):
+                min_match_score = prefs.match_threshold_recommended
+            if auto_prepare is True and getattr(prefs, "auto_prepare_documents", None) is False:
+                auto_prepare = False
+
         for item in found_jobs:
             job_url = item["url"]
             job_title = item["title"]
@@ -314,6 +324,28 @@ class JobCollectorService:
                 "match_score": None,
                 "notion_page_id": None
             }
+
+            # Étape A0: Filtrage préalable Blacklist & Mots-clés (économie de tokens et scraping)
+            if candidate_profile and candidate_profile.preferences:
+                prefs = candidate_profile.preferences
+                if is_company_blacklisted(company, prefs.excluded_companies):
+                    logger.info(f"Offre ignorée (Blacklist entreprise) : {company} - {job_title}")
+                    job_detail_summary["status"] = "BLACKLISTED"
+                    summary["jobs"].append(job_detail_summary)
+                    continue
+
+                matched_kw = matches_excluded_keyword(job_title, prefs.excluded_keywords)
+                if matched_kw:
+                    logger.info(f"Offre ignorée (Mot-clé exclu '{matched_kw}') : {company} - {job_title}")
+                    job_detail_summary["status"] = "FILTERED_KEYWORD"
+                    summary["jobs"].append(job_detail_summary)
+                    continue
+
+                if getattr(prefs, "filter_esn", False) and is_esn_company(company, job_title):
+                    logger.info(f"Offre ignorée (Filtre ESN) : {company} - {job_title}")
+                    job_detail_summary["status"] = "FILTERED_ESN"
+                    summary["jobs"].append(job_detail_summary)
+                    continue
 
             try:
                 # Étape A: Scrape complet de l'offre
@@ -471,6 +503,28 @@ class JobCollectorService:
 
         return summary
 
+    @staticmethod
+    def _enrich_incomplete_job(existing: Dict[str, Any], scraped: Dict[str, Any]) -> Dict[str, Any]:
+        """Remplace le contenu d'une offre enregistrée incomplète (import précédent raté) par un scraping complet."""
+        placeholder_titles = {"", "offre d'emploi", "offre sans titre", "poste"}
+        incomplete = (not existing.get("company")
+                      or (existing.get("title") or "").strip().lower() in placeholder_titles)
+        complete = bool(scraped.get("title") and scraped.get("company"))
+        if not (incomplete and complete):
+            return existing
+        fields = ("source", "source_job_id", "title", "company", "location", "contract_type",
+                  "salary_min", "salary_max", "description", "raw_data", "normalized_data")
+        update = {k: scraped.get(k) for k in fields if scraped.get(k) is not None}
+        if "normalized_data" not in update:
+            update["normalized_data"] = job_parser.normalize(scraped).model_dump()
+        try:
+            res = supabase_service.client.table("jobs").update(update).eq("id", existing["id"]).execute()
+            logger.info(f"Offre {existing['id']} enrichie : {update.get('title')} ({update.get('company')})")
+            return res.data[0] if res.data else {**existing, **update}
+        except Exception as ue:
+            logger.warning(f"Enrichissement de l'offre {existing.get('id')} impossible : {ue}")
+            return existing
+
     def import_and_process_url(
         self,
         url: str,
@@ -500,12 +554,12 @@ class JobCollectorService:
         job = import_result.get("job") or scraped_data
         normalized_url = deduplicator.normalize_url(url)
 
-        # Si doublon, récupérer l'enregistrement existant
+        # Si doublon, récupérer l'enregistrement existant (et l'enrichir s'il est incomplet)
         if import_result.get("status") == "DUPLICATE" and supabase_service.client:
             try:
                 res_exist = supabase_service.client.table("jobs").select("*").eq("url", normalized_url).execute()
                 if res_exist.data:
-                    job = res_exist.data[0]
+                    job = self._enrich_incomplete_job(res_exist.data[0], scraped_data)
             except Exception as de:
                 logger.warning(f"Impossible de récupérer l'offre existante: {de}")
 
@@ -526,6 +580,63 @@ class JobCollectorService:
         candidate_profile = CandidateProfile.model_validate(profile_record["profile"])
         candidate_profile.preferences = candidate_profile.preferences.model_validate(profile_record.get("preferences", {}))
         job_normalized = JobNormalizedData.model_validate(job.get("normalized_data") or job)
+
+        prefs = candidate_profile.preferences
+        if prefs:
+            # Surcharges par défaut issues des préférences
+            if min_match_score == 75 and getattr(prefs, "match_threshold_recommended", None):
+                min_match_score = prefs.match_threshold_recommended
+            if auto_prepare is True and getattr(prefs, "auto_prepare_documents", None) is False:
+                auto_prepare = False
+
+            # Filtrage Blacklist entreprise
+            if is_company_blacklisted(company, prefs.excluded_companies):
+                logger.info(f"Import URL ignoré (Blacklist entreprise) : {company} - {title}")
+                if supabase_service.client and job.get("id"):
+                    try:
+                        supabase_service.client.table("jobs").update({"status": "BLACKLISTED"}).eq("id", job["id"]).execute()
+                    except Exception:
+                        pass
+                return {
+                    "success": True,
+                    "status": "BLACKLISTED",
+                    "job": job,
+                    "score": 0,
+                    "message": f"Offre enregistrée mais écartée : l'entreprise '{company}' figure dans votre liste noire."
+                }
+
+            # Filtrage Mots-clés indésirables
+            matched_kw = matches_excluded_keyword(title, prefs.excluded_keywords)
+            if matched_kw:
+                logger.info(f"Import URL ignoré (Mot-clé exclu '{matched_kw}') : {company} - {title}")
+                if supabase_service.client and job.get("id"):
+                    try:
+                        supabase_service.client.table("jobs").update({"status": "FILTERED_KEYWORD"}).eq("id", job["id"]).execute()
+                    except Exception:
+                        pass
+                return {
+                    "success": True,
+                    "status": "FILTERED_KEYWORD",
+                    "job": job,
+                    "score": 0,
+                    "message": f"Offre enregistrée mais écartée : le titre contient le mot-clé exclu '{matched_kw}'."
+                }
+
+            # Filtrage ESN / Sociétés de conseil si activé
+            if getattr(prefs, "filter_esn", False) and is_esn_company(company, title, job.get("description", "")):
+                logger.info(f"Import URL ignoré (Filtre ESN) : {company} - {title}")
+                if supabase_service.client and job.get("id"):
+                    try:
+                        supabase_service.client.table("jobs").update({"status": "FILTERED_ESN"}).eq("id", job["id"]).execute()
+                    except Exception:
+                        pass
+                return {
+                    "success": True,
+                    "status": "FILTERED_ESN",
+                    "job": job,
+                    "score": 0,
+                    "message": f"Offre enregistrée mais écartée : l'entreprise '{company}' a été identifiée comme ESN ou cabinet de conseil."
+                }
 
         # 4. Matching IA
         match_res = matcher_service.match(candidate_profile, job_normalized)
@@ -633,30 +744,32 @@ class JobCollectorService:
                 final_type = (match_res.company_type if match_res and match_res.company_type else None) or (job_normalized.company_type if job_normalized else None) or cl_type
                 final_domain = (match_res.company_domain if match_res and match_res.company_domain else None) or (job_normalized.domain if job_normalized else None) or cl_domain
 
-                # Synchronisation Notion avec N suivi incrémental
-                page_id = notion_service.sync_application(
-                    application_id=app_id,
-                    company=company,
-                    job_title=title,
-                    job_url=job.get("url") or url,
-                    score=score,
-                    status="PREPARED",
-                    location=job.get("location"),
-                    contract_type=job.get("contract_type"),
-                    domain=final_domain,
-                    company_type=final_type,
-                    cv_url=cv_url,
-                    letter_url=letter_url,
-                    cover_letter=cover_letter.content if cover_letter else None,
-                    answers=answers.model_dump() if answers else None,
-                    match_analysis=match_res.model_dump() if match_res else None
-                )
+                # Synchronisation Notion avec N suivi incrémental (si activée dans les préférences)
+                should_sync_notion = getattr(prefs, "auto_sync_notion", True) if prefs else True
+                if should_sync_notion:
+                    page_id = notion_service.sync_application(
+                        application_id=app_id,
+                        company=company,
+                        job_title=title,
+                        job_url=job.get("url") or url,
+                        score=score,
+                        status="PREPARED",
+                        location=job.get("location"),
+                        contract_type=job.get("contract_type"),
+                        domain=final_domain,
+                        company_type=final_type,
+                        cv_url=cv_url,
+                        letter_url=letter_url,
+                        cover_letter=cover_letter.content if cover_letter else None,
+                        answers=answers.model_dump() if answers else None,
+                        match_analysis=match_res.model_dump() if match_res else None
+                    )
 
-                if page_id:
-                    if supabase_service.client and not app_id.startswith("simulated_"):
-                        supabase_service.client.table("applications").update({"notion_page_id": page_id}).eq("id", app_id).execute()
-                    response["notion_page_id"] = page_id
-                    response["notion_url"] = f"https://app.notion.com/p/{page_id.replace('-', '')}"
+                    if page_id:
+                        if supabase_service.client and not app_id.startswith("simulated_"):
+                            supabase_service.client.table("applications").update({"notion_page_id": page_id}).eq("id", app_id).execute()
+                        response["notion_page_id"] = page_id
+                        response["notion_url"] = f"https://app.notion.com/p/{page_id.replace('-', '')}"
 
                 response["prepared"] = True
                 response["cv_url"] = cv_url
