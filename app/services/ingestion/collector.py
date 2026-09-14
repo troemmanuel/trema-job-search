@@ -315,11 +315,15 @@ class JobCollectorService:
         elif auto_prepare is None:
             auto_prepare = False
 
+        logger.info(f"[Collecte] 🚀 Démarrage collecte automatique : durée={duration}, limite={limit}, auto_prepare={auto_prepare}")
+
         for item in found_jobs:
             job_url = item["url"]
             job_title = item["title"]
             company = item["company"]
             summary["processed_count"] += 1
+
+            logger.info(f"[Collecte] 📥 [{summary['processed_count']}/{len(found_jobs)}] Traitement offre : '{job_title}' chez '{company}' (source: {item.get('source', 'WTTJ')})")
 
             job_detail_summary = {
                 "title": job_title,
@@ -524,6 +528,10 @@ class JobCollectorService:
             if pacing > 0:
                 time.sleep(pacing)
 
+        logger.info(
+            f"[Collecte] 🏁 Fin de collecte : {summary['new_imported_count']} nouvelles offres importées, "
+            f"{summary['qualified_count']} qualifiées, {summary['prepared_count']} préparées (Total traitées: {summary['processed_count']})."
+        )
         return summary
 
     @staticmethod
@@ -561,10 +569,11 @@ class JobCollectorService:
         """
         from app.services.ingestion.deduplicator import deduplicator
 
-        logger.info(f"Début de l'import externe pour l'URL : {url}")
+        logger.info(f"[Import URL] 🌐 Démarrage import d'offre externe : {url}")
         # 1. Scraping
         try:
             scraped_data = job_scraper.scrape(url)
+            logger.info(f"[Import URL] 📄 Scraping réussi : '{scraped_data.get('title')}' chez '{scraped_data.get('company')}'")
         except Exception as se:
             logger.error(f"Erreur lors du scraping de {url}: {se}")
             return {
@@ -694,6 +703,7 @@ class JobCollectorService:
             score = match_res.score if match_res else 0
             level = match_res.level if match_res else "REJECTED"
             qualified = score >= min_match_score
+            logger.info(f"[Import URL] 🎯 Matching calculé : score={score}/100, niveau='{level}' (qualifiée={qualified})")
 
         if supabase_service.client and job.get("id"):
             try:

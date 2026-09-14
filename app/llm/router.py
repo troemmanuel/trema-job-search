@@ -164,7 +164,7 @@ class LLMRouter:
             if not force_refresh:
                 cached_res = llm_cache.get(cache_key)
                 if cached_res is not None:
-                    logger.info(f"[LLM Router] Cache HIT pour tâche='{canonical_task}' (clé={cache_key[:8]}...)")
+                    logger.info(f"[LLM Router] ⚡ Cache HIT ({cache_key[:8]}) pour tâche='{canonical_task}' → réponse instantanée (0.0s, 0 token)")
                     return cached_res
 
         candidate_names = list(self.routing_config.get(canonical_task, ["gemini", "groq", "openrouter"]))
@@ -173,6 +173,8 @@ class LLMRouter:
             if preferred_provider in candidate_names:
                 candidate_names.remove(preferred_provider)
             candidate_names.insert(0, preferred_provider)
+
+        logger.info(f"[LLM Router] 🎯 Tâche: '{canonical_task}' | Chaîne de fallback: {candidate_names}")
 
         primary_provider_name = candidate_names[0] if candidate_names else None
         errors: Dict[str, str] = {}
@@ -183,7 +185,7 @@ class LLMRouter:
                 continue
 
             if not provider.is_configured():
-                logger.info(f"[LLM Router] Provider '{provider_name}' non configuré (clé absente), passage au suivant.")
+                logger.info(f"[LLM Router] ⏭️ Provider '{provider_name}' non configuré (clé absente), passage au suivant.")
                 errors[provider_name] = "Clé API non configurée"
                 continue
 
@@ -202,7 +204,8 @@ class LLMRouter:
                     elif provider.name == "openrouter":
                         provider_model = override_model
 
-                logger.info(f"[LLM Router] Tentative avec '{provider_name}' pour la tâche '{canonical_task}' (fallback={fallback_flag})...")
+                effective_model = provider_model or provider.default_model
+                logger.info(f"[LLM Router] ⏳ [{idx+1}/{len(candidate_names)}] Appel provider='{provider_name}' (modèle='{effective_model}', fallback={fallback_flag})...")
                 result = provider.generate(
                     prompt=prompt,
                     response_schema=response_schema,
@@ -221,8 +224,8 @@ class LLMRouter:
                     llm_cache.set(cache_key, result)
 
                 logger.info(
-                    f"[LLM Router] Succès provider='{provider_name}' modèle='{result.model}' "
-                    f"durée={result.latency}s fallback={fallback_flag}"
+                    f"[LLM Router] ✅ Succès provider='{provider_name}' modèle='{result.model}' "
+                    f"en {result.latency}s (fallback={fallback_flag})"
                 )
                 return result
 
@@ -231,12 +234,12 @@ class LLMRouter:
                 self._record_error(provider_name, err_msg)
                 errors[provider_name] = err_msg
                 logger.warning(
-                    f"[LLM Router] Échec du provider '{provider_name}' pour la tâche '{canonical_task}': {err_msg}. "
+                    f"[LLM Router] ⚠️ Échec du provider '{provider_name}' ({effective_model if 'effective_model' in locals() else 'default'}): {err_msg[:120]}. "
                     f"Bascule automatique vers le fallback suivant..."
                 )
 
         # Tous les providers ont échoué
-        logger.error(f"[LLM Router] Tous les providers pour la tâche '{task}' ({canonical_task}) ont échoué: {errors}")
+        logger.error(f"[LLM Router] ❌ Tous les providers pour la tâche '{task}' ({canonical_task}) ont échoué: {errors}")
         raise LLMAllProvidersFailedError(task=task, errors=errors)
 
 router = LLMRouter()

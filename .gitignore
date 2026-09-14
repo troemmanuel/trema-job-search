@@ -51,6 +51,7 @@ htmlcov/
 # Local data & temporary files
 /storage/
 /temp/
+/logs/
 *.log
 instance/
 candidatures/

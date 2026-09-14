@@ -1,11 +1,15 @@
 import os
 from flask import Flask
 from app.config import Config
+from app.logging_config import setup_logging
 
 def create_app(config_class=Config):
     """Application Factory Flask."""
     app = Flask(__name__)
     app.config.from_object(config_class)
+
+    # Initialisation du système de logs structurés
+    setup_logging(app)
 
     # Assurer que les dossiers templates et static sont trouvés
     # Enregistrement des Blueprints

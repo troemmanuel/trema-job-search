@@ -1,6 +1,9 @@
 import io
+import logging
 from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request, render_template, current_app, send_file
+
+logger = logging.getLogger(__name__)
 from app.services.storage import supabase_service
 from app.services.ai.cv_generator import cv_generator_service
 from app.services.ai.letter_generator import letter_generator_service
@@ -115,8 +118,13 @@ def prepare_application(app_id: str):
         request.is_json and request.get_json(silent=True) and request.get_json(silent=True).get("force")
     )
 
+    company_name = job.get("company") or ""
+    job_name = job.get("title") or ""
+    logger.info(f"[Candidature] 🎯 Démarrage préparation dossier : '{job_name}' chez '{company_name}' (app_id={app_id}, force={force_refresh})")
+
     try:
         # 1 & 2. Génération groupée CV + Lettre en un seul appel LLM (Bundle Generation)
+        logger.info(f"[Candidature] 📝 Génération groupée CV + Lettre via LLM Router...")
         tailored_cv, cover_letter = dossier_generator_service.generate(
             job_id=job.get("id", ""),
             profile=profile,
@@ -124,6 +132,11 @@ def prepare_application(app_id: str):
             application_id=app_id,
             force_refresh=bool(force_refresh)
         )
+
+        if tailored_cv:
+            logger.info(f"[Candidature] 📄 CV adapté généré : titre='{tailored_cv.title}', {len(tailored_cv.skills)} compétences, langue='{tailored_cv.language}'")
+        if cover_letter:
+            logger.info(f"[Candidature] ✉️  Lettre de motivation générée ({len(cover_letter.content)} caractères, langue='{cover_letter.language}')")
 
         # 3. Réponses aux questions
         answers = answer_generator_service.generate(
@@ -133,10 +146,9 @@ def prepare_application(app_id: str):
         )
 
         # 4. Rendu PDF et upload Storage
+        logger.info(f"[Candidature] 🖨️ Rendu des PDFs locaux et stockage distant...")
         cv_url = None
         letter_url = None
-        company_name = job.get("company") or ""
-        job_name = job.get("title") or ""
         if tailored_cv:
             cv_url = document_renderer.render_and_save_cv(
                 app_id,
@@ -145,6 +157,7 @@ def prepare_application(app_id: str):
                 company=company_name,
                 job_title=job_name
             )
+            logger.info(f"[Candidature] 📎 PDF CV prêt : {cv_url}")
         prepared_at = datetime.now(timezone.utc).isoformat()
         if cover_letter:
             letter_url = document_renderer.render_and_save_letter(
@@ -157,6 +170,7 @@ def prepare_application(app_id: str):
                 prepared_at=prepared_at,
                 mobility=tailored_cv.mobility if tailored_cv else None
             )
+            logger.info(f"[Candidature] 📎 PDF Lettre prêt : {letter_url}")
 
         # Mettre à jour l'application en PREPARED
         update_payload = {
@@ -171,6 +185,8 @@ def prepare_application(app_id: str):
         # 5. Synchronisation Notion (création ou mise à jour de la page avec les documents)
         from app.services.notion.sync import notion_sync_service
         notion_page_id = notion_sync_service.push_application({**application, **update_payload}, cv_url, letter_url)
+        logger.info(f"[Candidature] 🔗 Synchronisation Notion réussie (Page ID: {notion_page_id})")
+        logger.info(f"[Candidature] ✨ Candidature {app_id} entièrement préparée avec succès.")
 
         return jsonify({
             "message": "Candidature préparée avec succès",
