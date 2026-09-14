@@ -22,7 +22,7 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY . .
 
 # Création des dossiers de persistance
-RUN mkdir -p /app/instance /app/candidatures
+RUN mkdir -p /app/instance /app/candidatures /app/logs
 
 # Exposition du port Web
 EXPOSE 5001

@@ -23,6 +23,8 @@ services:
       - ./candidatures:/app/candidatures
       # Montage en lecture seule des prompts pour modifications à chaud
       - ./prompts:/app/prompts:ro
+      # Fichiers de logs rotatifs persistants
+      - ./logs:/app/logs
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
       interval: 30s
