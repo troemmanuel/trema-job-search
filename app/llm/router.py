@@ -1,6 +1,8 @@
+from collections import deque
 from datetime import datetime, timezone
 import logging
 from typing import Any, Dict, List, Optional, Type
+import uuid
 from pydantic import BaseModel
 
 from app.config import Config
@@ -74,6 +76,10 @@ class LLMRouter:
             name: ProviderStats(provider=name) for name in self.providers
         }
 
+        # Télémétrie en temps réel et historique récent des exécutions
+        self.recent_runs: deque = deque(maxlen=50)
+        self.failover_count: int = 0
+
     def get_canonical_task(self, task: str) -> str:
         """Normalise le nom de la tâche selon les alias et mots-clés supportés."""
         task_normalized = task.lower().strip()
@@ -91,12 +97,16 @@ class LLMRouter:
         """Retourne un instantané des compteurs d'utilisation de chaque provider et du cache."""
         provider_data = {name: stat.model_dump() for name, stat in self.stats.items()}
         provider_data["cache"] = llm_cache.get_stats()
+        provider_data["failover_count"] = self.failover_count
+        provider_data["recent_runs"] = list(self.recent_runs)
         return provider_data
 
     def reset_stats(self):
         """Réinitialise l'ensemble des métriques d'utilisation et le cache."""
         for name in self.providers:
             self.stats[name] = ProviderStats(provider=name)
+        self.failover_count = 0
+        self.recent_runs.clear()
         llm_cache.clear()
 
     def test_provider(self, name: str, model: Optional[str] = None) -> Dict[str, Any]:
@@ -201,6 +211,18 @@ class LLMRouter:
                 cached_res = llm_cache.get(cache_key)
                 if cached_res is not None:
                     logger.info(f"[LLM Router] ⚡ Cache HIT ({cache_key[:8]}) pour tâche='{canonical_task}' → réponse instantanée (0.0s, 0 token)")
+                    self.recent_runs.appendleft({
+                        "id": f"cache-{cache_key[:8]}",
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "operation": canonical_task,
+                        "provider": "cache",
+                        "model": "SHA-256 Memory",
+                        "status": "CACHE_HIT",
+                        "latency": 0.0,
+                        "tokens": 0,
+                        "fallback_used": False,
+                        "error": None
+                    })
                     return cached_res
 
         candidate_names = list(self.routing_config.get(canonical_task, ["gemini", "groq", "openrouter"]))
@@ -252,8 +274,24 @@ class LLMRouter:
 
                 # Si le résultat a été produit par un fallback
                 result.fallback_used = fallback_flag
+                if fallback_flag:
+                    self.failover_count += 1
 
                 self._record_success(provider_name, result.latency, result.tokens)
+
+                total_tok = result.tokens if isinstance(result.tokens, int) else (result.tokens.get("total_tokens", 0) if isinstance(result.tokens, dict) else 0)
+                self.recent_runs.appendleft({
+                    "id": f"run-{uuid.uuid4().hex[:8]}",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "operation": canonical_task,
+                    "provider": provider_name,
+                    "model": result.model,
+                    "status": "FALLBACK" if fallback_flag else "SUCCESS",
+                    "latency": result.latency,
+                    "tokens": total_tok,
+                    "fallback_used": fallback_flag,
+                    "error": None
+                })
 
                 # Sauvegarde dans le cache si actif
                 if use_cache and cache_key:
@@ -269,6 +307,18 @@ class LLMRouter:
                 err_msg = str(e)
                 self._record_error(provider_name, err_msg)
                 errors[provider_name] = err_msg
+                self.recent_runs.appendleft({
+                    "id": f"err-{uuid.uuid4().hex[:8]}",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "operation": canonical_task,
+                    "provider": provider_name,
+                    "model": effective_model if 'effective_model' in locals() else (provider.default_model if provider else "unknown"),
+                    "status": "ERROR",
+                    "latency": 0.0,
+                    "tokens": 0,
+                    "fallback_used": False,
+                    "error": err_msg[:160]
+                })
                 logger.warning(
                     f"[LLM Router] ⚠️ Échec du provider '{provider_name}' ({effective_model if 'effective_model' in locals() else 'default'}): {err_msg[:120]}. "
                     f"Bascule automatique vers le fallback suivant..."

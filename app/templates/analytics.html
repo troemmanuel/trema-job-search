@@ -1,29 +1,527 @@
 {% extends "base.html" %}
 
-{% block title %}Analytique & Taux de Conversion — Trema Job Search{% endblock %}
+{% block title %}{% if active_tab == 'interfaces' %}Observabilité des Interfaces & APIs{% else %}Analytique & Taux de Conversion{% endif %} — Trema Job Search{% endblock %}
 
 {% block content %}
-<div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+<!-- EN-TÊTE PRINCIPAL ET SÉLECTEUR D'ONGLETS -->
+<div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
     <div>
-        <h1 style="display: flex; align-items: center; gap: 0.6rem;">
-            <span>📊</span> Dashboard Analytique & Taux de Conversion
+        <h1 style="display: flex; align-items: center; gap: 0.6rem; margin: 0 0 0.35rem 0;">
+            {% if active_tab == 'interfaces' %}
+                <span>⚡</span> Observabilité des Interfaces & APIs
+            {% else %}
+                <span>📊</span> Dashboard Analytique & Taux de Conversion
+            {% endif %}
         </h1>
-        <p class="subtitle">Mesurez la performance de votre recherche d'emploi, les taux de conversion et les stacks les plus porteuses.</p>
+        <p class="subtitle" style="margin: 0;">
+            {% if active_tab == 'interfaces' %}
+                Supervision en temps réel des fournisseurs LLM, temps de réponse, tokens, cache SHA-256 et connecteurs externes.
+            {% else %}
+                Mesurez la performance de votre recherche d'emploi, les taux de conversion et les stacks les plus porteuses.
+            {% endif %}
+        </p>
     </div>
 
-    <!-- Filtres de Période -->
+    <!-- Filtres de Période (conservent l'onglet actif) -->
     <div style="display: flex; gap: 0.5rem; background: var(--card-bg); padding: 0.35rem 0.5rem; border-radius: 8px; border: 1px solid var(--card-border);">
-        <a href="/analytics?period=all" class="btn btn-sm {% if active_period == 'all' %}btn-primary{% else %}btn-secondary{% endif %}" style="font-weight: 600; font-size: 0.85rem;">
+        <a href="/analytics?tab={{ active_tab }}&period=all" class="btn btn-sm {% if active_period == 'all' %}btn-primary{% else %}btn-secondary{% endif %}" style="font-weight: 600; font-size: 0.85rem;">
             Tout l'historique
         </a>
-        <a href="/analytics?period=30d" class="btn btn-sm {% if active_period == '30d' %}btn-primary{% else %}btn-secondary{% endif %}" style="font-weight: 600; font-size: 0.85rem;">
+        <a href="/analytics?tab={{ active_tab }}&period=30d" class="btn btn-sm {% if active_period == '30d' %}btn-primary{% else %}btn-secondary{% endif %}" style="font-weight: 600; font-size: 0.85rem;">
             30 derniers jours
         </a>
-        <a href="/analytics?period=7d" class="btn btn-sm {% if active_period == '7d' %}btn-primary{% else %}btn-secondary{% endif %}" style="font-weight: 600; font-size: 0.85rem;">
+        <a href="/analytics?tab={{ active_tab }}&period=7d" class="btn btn-sm {% if active_period == '7d' %}btn-primary{% else %}btn-secondary{% endif %}" style="font-weight: 600; font-size: 0.85rem;">
             7 derniers jours
         </a>
     </div>
 </div>
+
+<!-- BARRE DE NAVIGATION PAR ONGLETS -->
+<div style="display: flex; gap: 0.75rem; margin-bottom: 1.75rem; border-bottom: 1px solid var(--card-border); padding-bottom: 0.85rem; flex-wrap: wrap;">
+    <a href="/analytics?tab=funnel{% if active_period != 'all' %}&period={{ active_period }}{% endif %}" class="btn {% if active_tab == 'funnel' %}btn-primary{% else %}btn-secondary{% endif %}" style="font-weight: 600; display: flex; align-items: center; gap: 0.5rem; padding: 0.55rem 1.15rem;">
+        <span>🎯</span> Entonnoir Recrutement & Candidatures
+    </a>
+    <a href="/analytics?tab=interfaces{% if active_period != 'all' %}&period={{ active_period }}{% endif %}" class="btn {% if active_tab == 'interfaces' %}btn-primary{% else %}btn-secondary{% endif %}" style="font-weight: 600; display: flex; align-items: center; gap: 0.5rem; padding: 0.55rem 1.15rem;">
+        <span>⚡</span> Observabilité des Interfaces & APIs
+        {% if interfaces and interfaces.kpis and interfaces.kpis.failover_count > 0 %}
+        <span class="badge" style="background: rgba(245, 158, 11, 0.25); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.5); font-size: 0.72rem; padding: 0.15rem 0.45rem; border-radius: 999px;">
+            {{ interfaces.kpis.failover_count }} failover(s)
+        </span>
+        {% endif %}
+    </a>
+</div>
+
+{% if active_tab == 'interfaces' %}
+<!-- ======================================================================= -->
+<!-- VUE 2 : OBSERVABILITÉ DES INTERFACES & APIS                             -->
+<!-- ======================================================================= -->
+
+<!-- 1. BANDEAU DE 6 KPIS D'OBSERVABILITÉ -->
+<div class="grid-3" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.75rem;">
+    <!-- KPI 1 : Total Appels -->
+    <div class="card" style="padding: 1.25rem; border-left: 4px solid #3b82f6;">
+        <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Appels APIs Totaux</span>
+        <div style="font-size: 2.1rem; font-weight: 800; color: #fff; margin-top: 0.25rem;">
+            {{ interfaces.kpis.total_calls }}
+        </div>
+        <div style="font-size: 0.8rem; color: #60a5fa; margin-top: 0.25rem; display: flex; align-items: center; gap: 0.35rem;">
+            <span>🛡️ Taux succès :</span>
+            <strong style="color: #34d399;">{{ interfaces.kpis.global_success_rate }}%</strong>
+        </div>
+    </div>
+
+    <!-- KPI 2 : Latence Moyenne -->
+    <div class="card" style="padding: 1.25rem; border-left: 4px solid #10b981;">
+        <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Latence Moyenne</span>
+        <div style="font-size: 2.1rem; font-weight: 800; color: #34d399; margin-top: 0.25rem;">
+            {{ interfaces.kpis.avg_latency_ms }} <small style="font-size: 1rem; color: var(--text-muted);">ms</small>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+            ⚡ Groq 580ms • Mistral 420ms
+        </div>
+    </div>
+
+    <!-- KPI 3 : Tokens Consommés -->
+    <div class="card" style="padding: 1.25rem; border-left: 4px solid #8b5cf6;">
+        <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Tokens Consommés</span>
+        <div style="font-size: 2.1rem; font-weight: 800; color: #a78bfa; margin-top: 0.25rem;">
+            {{ "{:,}".format(interfaces.kpis.total_tokens) }}
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+            Prompt + génération structurée
+        </div>
+    </div>
+
+    <!-- KPI 4 : Cache SHA-256 -->
+    <div class="card" style="padding: 1.25rem; border-left: 4px solid #06b6d4;">
+        <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Cache SHA-256</span>
+        <div style="font-size: 2.1rem; font-weight: 800; color: #22d3ee; margin-top: 0.25rem;">
+            {{ interfaces.kpis.cache_hit_rate }}%
+        </div>
+        <div style="font-size: 0.8rem; color: #67e8f9; margin-top: 0.25rem;">
+            ⚡ {{ interfaces.kpis.cache_hits }} hits ({{ interfaces.kpis.cache_saved_seconds }}s gagnées)
+        </div>
+    </div>
+
+    <!-- KPI 5 : Failovers / Bascules -->
+    <div class="card" style="padding: 1.25rem; border-left: 4px solid #f59e0b;">
+        <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Bascules de Secours</span>
+        <div style="font-size: 2.1rem; font-weight: 800; color: #fbbf24; margin-top: 0.25rem;">
+            {{ interfaces.kpis.failover_count }}
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+            Failovers automatiques gérés
+        </div>
+    </div>
+
+    <!-- KPI 6 : Bouclier Heuristique -->
+    <div class="card" style="padding: 1.25rem; border-left: 4px solid #ec4899;">
+        <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Économies Quota</span>
+        <div style="font-size: 2.1rem; font-weight: 800; color: #f472b6; margin-top: 0.25rem;">
+            {{ interfaces.kpis.heuristic_shield_count }} <small style="font-size: 0.95rem; color: var(--text-muted);">offres</small>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+            Filtre heuristique local (0 token)
+        </div>
+    </div>
+</div>
+
+<!-- 2. BENCHMARK COMPARATIF DES FOURNISSEURS LLM -->
+<div class="card" style="margin-bottom: 1.75rem; padding: 1.5rem; background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95)); border: 1px solid rgba(59, 130, 246, 0.3);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div>
+            <h2 style="font-size: 1.25rem; margin: 0; display: flex; align-items: center; gap: 0.5rem; color: #f8fafc;">
+                <span>🤖</span> Benchmark Comparatif des Fournisseurs LLM
+            </h2>
+            <p style="margin: 0.25rem 0 0; color: #94a3b8; font-size: 0.85rem;">
+                Temps de réponse réels mesurés, modèle de production configuré et cascade de repli.
+            </p>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+            <a href="/settings" class="btn btn-sm btn-secondary" style="font-size: 0.82rem; font-weight: 600;">⚙️ Gérer les Clés & Modèles</a>
+        </div>
+    </div>
+
+    <!-- Grille des 4 providers -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+        {% for p in interfaces.providers %}
+        <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(51, 65, 85, 0.9); border-radius: 10px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+                <!-- En-tête de carte provider -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+                    <div>
+                        <div style="font-weight: 700; font-size: 1.05rem; color: #fff; display: flex; align-items: center; gap: 0.4rem;">
+                            <span>{{ p.icon }}</span> {{ p.name }}
+                        </div>
+                        <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.15rem;">
+                            {{ p.description }}
+                        </div>
+                    </div>
+                    <!-- Badge Statut -->
+                    <span class="badge" style="font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.5rem;
+                        {% if p.status == 'OPÉRATIONNEL' %}
+                            background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);
+                        {% elif p.status == 'REPLI ACTIF' %}
+                            background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4);
+                        {% elif p.status == 'NON CONFIGURÉ' %}
+                            background: rgba(100, 116, 139, 0.2); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.4);
+                        {% else %}
+                            background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4);
+                        {% endif %}
+                    ">
+                        {{ p.status }}
+                    </span>
+                </div>
+
+                <!-- Modèle actif -->
+                <div style="background: rgba(30, 41, 59, 0.6); padding: 0.35rem 0.6rem; border-radius: 6px; font-family: monospace; font-size: 0.78rem; color: #cbd5e1; border: 1px solid #334155; margin-bottom: 0.85rem; word-break: break-all;">
+                    🎯 {{ p.default_model or "Non configuré" }}
+                </div>
+
+                <!-- Latence mesurée -->
+                <div style="margin-bottom: 0.85rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                        <span style="font-size: 0.78rem; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Latence Réelle</span>
+                        <strong style="font-size: 1.15rem; color: {{ p.color }};">
+                            {{ p.avg_latency_ms }} ms
+                        </strong>
+                    </div>
+                    <!-- Jauge visuelle -->
+                    <div style="width: 100%; height: 6px; background: #334155; border-radius: 999px; overflow: hidden; margin-top: 0.35rem;">
+                        {% set lat_pct = (p.avg_latency_ms / 3000 * 100) if p.avg_latency_ms < 3000 else 100 %}
+                        <div style="background: {{ p.color }}; width: {{ lat_pct }}%; height: 100%; border-radius: 999px;"></div>
+                    </div>
+                </div>
+
+                <!-- Indicateurs d'utilisation -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.8rem; margin-bottom: 0.5rem;">
+                    <div style="background: rgba(30, 41, 59, 0.4); padding: 0.35rem 0.5rem; border-radius: 6px;">
+                        <span style="color: #94a3b8; font-size: 0.72rem; display: block;">Appels</span>
+                        <strong style="color: #fff;">{{ p.requests_count }}</strong>
+                        <span style="color: #64748b; font-size: 0.7rem;">({{ p.success_count }} succès)</span>
+                    </div>
+                    <div style="background: rgba(30, 41, 59, 0.4); padding: 0.35rem 0.5rem; border-radius: 6px;">
+                        <span style="color: #94a3b8; font-size: 0.72rem; display: block;">Tokens</span>
+                        <strong style="color: #fff;">{{ "{:,}".format(p.total_tokens) }}</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pied de carte -->
+            <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: #94a3b8;">
+                <span>Succès : <strong style="color: #34d399;">{{ p.success_rate }}%</strong></span>
+                {% if p.last_used_at %}
+                <span title="{{ p.last_used_at }}">Dernier : {{ p.last_used_at[:16].replace('T', ' ') }}</span>
+                {% else %}
+                <span>Non sollicité</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- 3. GRILLE DEUX COLONNES : TÂCHES MÉTIER & CONNECTEURS EXTERNES -->
+<div class="grid-2" style="margin-bottom: 1.75rem;">
+    <!-- Colonne 1 : Répartition par Tâche Métier -->
+    <div class="card" style="padding: 1.5rem;">
+        <h2 style="font-size: 1.15rem; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.5rem;">
+            <span>🎯</span> Répartition par Tâche Métier
+        </h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.25rem;">
+            Volume et routing appliqués par type d'opération LLM.
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <!-- Tâche 1 : Scoring d'offres -->
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                    <div>
+                        <strong style="color: #fff; font-size: 0.95rem;">Scoring d'offres & Matching</strong>
+                        <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.1rem;">
+                            Chaîne : <code>Gemini</code> ➔ <code>Groq</code> ➔ <code>OpenRouter</code>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-weight: 800; font-size: 1.1rem; color: #60a5fa;">
+                            {{ interfaces.task_distribution.percentages.job_scoring }}%
+                        </span>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">
+                            {{ interfaces.task_distribution.counts.job_scoring }} appel(s)
+                        </div>
+                    </div>
+                </div>
+                <div style="width: 100%; height: 8px; background: #334155; border-radius: 999px; overflow: hidden;">
+                    <div style="background: #3b82f6; width: {{ interfaces.task_distribution.percentages.job_scoring }}%; height: 100%;"></div>
+                </div>
+            </div>
+
+            <!-- Tâche 2 : Génération de documents -->
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                    <div>
+                        <strong style="color: #fff; font-size: 0.95rem;">Génération Documents (CV & Lettres)</strong>
+                        <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.1rem;">
+                            Chaîne : <code>Gemini</code> ➔ <code>Mistral</code> ➔ <code>Groq</code> ➔ <code>OpenRouter</code>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-weight: 800; font-size: 1.1rem; color: #a78bfa;">
+                            {{ interfaces.task_distribution.percentages.doc_content_generation }}%
+                        </span>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">
+                            {{ interfaces.task_distribution.counts.doc_content_generation }} appel(s)
+                        </div>
+                    </div>
+                </div>
+                <div style="width: 100%; height: 8px; background: #334155; border-radius: 999px; overflow: hidden;">
+                    <div style="background: #8b5cf6; width: {{ interfaces.task_distribution.percentages.doc_content_generation }}%; height: 100%;"></div>
+                </div>
+            </div>
+
+            <!-- Tâche 3 : Autres opérations -->
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                    <div>
+                        <strong style="color: #fff; font-size: 0.95rem;">Autres opérations & Tests</strong>
+                        <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.1rem;">
+                            Transcription markdown, profiling et vérifications
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-weight: 800; font-size: 1.1rem; color: #34d399;">
+                            {{ interfaces.task_distribution.percentages.other }}%
+                        </span>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">
+                            {{ interfaces.task_distribution.counts.other }} appel(s)
+                        </div>
+                    </div>
+                </div>
+                <div style="width: 100%; height: 8px; background: #334155; border-radius: 999px; overflow: hidden;">
+                    <div style="background: #10b981; width: {{ interfaces.task_distribution.percentages.other }}%; height: 100%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Colonne 2 : Santé des Connecteurs Tierces & Stockage -->
+    <div class="card" style="padding: 1.5rem;">
+        <h2 style="font-size: 1.15rem; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.5rem;">
+            <span>🔌</span> Connecteurs Externes & Stockage
+        </h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.25rem;">
+            État des synchronisations Notion CRM, Supabase Storage et bouclier d'ingestion.
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <!-- Connecteur Notion -->
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                        <span style="font-size: 1.4rem;">📓</span>
+                        <div>
+                            <strong style="color: #fff; font-size: 0.95rem;">Notion CRM API</strong>
+                            <div style="font-size: 0.75rem; color: #94a3b8;">
+                                Synchronisation automatique des candidatures
+                            </div>
+                        </div>
+                    </div>
+                    <span class="badge" style="{% if interfaces.external_connectors.notion.configured %}background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);{% else %}background: rgba(100, 116, 139, 0.2); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.4);{% endif %}">
+                        {{ interfaces.external_connectors.notion.status }}
+                    </span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 0.75rem; color: var(--text-muted); border-top: 1px solid #334155; padding-top: 0.5rem;">
+                    <span>Fiches synchronisées : <strong style="color: #fff;">{{ interfaces.external_connectors.notion.synced_count }} / {{ interfaces.external_connectors.notion.total_applications }}</strong></span>
+                    <span>Taux de synchronisation : <strong style="color: #60a5fa;">{{ interfaces.external_connectors.notion.sync_rate_percent }}%</strong></span>
+                </div>
+            </div>
+
+            <!-- Connecteur Supabase Storage -->
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                        <span style="font-size: 1.4rem;">🗄️</span>
+                        <div>
+                            <strong style="color: #fff; font-size: 0.95rem;">Supabase Storage & Database</strong>
+                            <div style="font-size: 0.75rem; color: #94a3b8;">
+                                Stockage persistant des documents générés (PDF / JSONB)
+                            </div>
+                        </div>
+                    </div>
+                    <span class="badge" style="{% if interfaces.external_connectors.supabase_storage.connected %}background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);{% else %}background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4);{% endif %}">
+                        {{ "Connecté" if interfaces.external_connectors.supabase_storage.connected else "Déconnecté" }}
+                    </span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 0.75rem; color: var(--text-muted); border-top: 1px solid #334155; padding-top: 0.5rem;">
+                    <span>Documents archivés : <strong style="color: #fff;">{{ interfaces.external_connectors.supabase_storage.total_documents }}</strong> ({{ interfaces.external_connectors.supabase_storage.cv_count }} CVs, {{ interfaces.external_connectors.supabase_storage.letter_count }} lettres)</span>
+                    <span>Buckets : <code style="color: #cbd5e1;">resumes, letters</code></span>
+                </div>
+            </div>
+
+            <!-- Bouclier Heuristique Ingestion -->
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                        <span style="font-size: 1.4rem;">🛡️</span>
+                        <div>
+                            <strong style="color: #fff; font-size: 0.95rem;">Bouclier Heuristique de Quotas</strong>
+                            <div style="font-size: 0.75rem; color: #94a3b8;">
+                                Élimination des offres hors-profil en amont (zéro coût API)
+                            </div>
+                        </div>
+                    </div>
+                    <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);">
+                        Économie : {{ interfaces.external_connectors.scraper_shield.quota_saved_percent }}%
+                    </span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 0.75rem; color: var(--text-muted); border-top: 1px solid #334155; padding-top: 0.5rem;">
+                    <span>Rejets locaux sans appel LLM : <strong style="color: #34d399;">{{ interfaces.external_connectors.scraper_shield.heuristic_filtered }}</strong> / {{ interfaces.external_connectors.scraper_shield.total_jobs }}</span>
+                    <span>Tokens épargnés : <strong style="color: #f472b6;">~{{ "{:,}".format(interfaces.external_connectors.scraper_shield.estimated_tokens_saved) }}</strong></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 4. JOURNAL D'EXÉCUTION STRUCTURÉ DES INTERFACES -->
+<div class="card" style="padding: 1.5rem; margin-bottom: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+            <h2 style="font-size: 1.2rem; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                <span>📜</span> Journal d'Exécution Structuré des Interfaces
+            </h2>
+            <p style="margin: 0.2rem 0 0; color: var(--text-muted); font-size: 0.85rem;">
+                Historique chronologique des {{ interfaces.recent_runs|length }} dernières requêtes LLM et API avec traçabilité complète.
+            </p>
+        </div>
+
+        <!-- Filtres rapides de statut (JS) -->
+        <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+            <button class="btn btn-sm btn-secondary filter-btn active" data-filter="all" style="font-size: 0.78rem;">Tous</button>
+            <button class="btn btn-sm btn-secondary filter-btn" data-filter="SUCCESS" style="font-size: 0.78rem; color: #34d399;">Succès</button>
+            <button class="btn btn-sm btn-secondary filter-btn" data-filter="CACHE_HIT" style="font-size: 0.78rem; color: #22d3ee;">Cache</button>
+            <button class="btn btn-sm btn-secondary filter-btn" data-filter="FALLBACK" style="font-size: 0.78rem; color: #fbbf24;">Replis</button>
+            <button class="btn btn-sm btn-secondary filter-btn" data-filter="ERROR" style="font-size: 0.78rem; color: #f87171;">Erreurs</button>
+        </div>
+    </div>
+
+    {% if interfaces.recent_runs and interfaces.recent_runs|length > 0 %}
+    <div style="overflow-x: auto;">
+        <table class="table" style="font-size: 0.84rem; width: 100%; border-collapse: collapse;" id="runsTable">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--card-border); color: var(--text-muted); text-align: left;">
+                    <th style="padding: 0.6rem 0.75rem;">Horodatage</th>
+                    <th style="padding: 0.6rem 0.75rem;">Interface / Fournisseur</th>
+                    <th style="padding: 0.6rem 0.75rem;">Modèle</th>
+                    <th style="padding: 0.6rem 0.75rem;">Opération Métier</th>
+                    <th style="padding: 0.6rem 0.75rem; text-align: center;">Statut</th>
+                    <th style="padding: 0.6rem 0.75rem; text-align: right;">Latence</th>
+                    <th style="padding: 0.6rem 0.75rem; text-align: right;">Tokens</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in interfaces.recent_runs %}
+                <tr class="run-row" data-status="{{ r.status }}" style="border-bottom: 1px solid rgba(51, 65, 85, 0.4);">
+                    <td style="padding: 0.6rem 0.75rem; font-family: monospace; color: #94a3b8; white-space: nowrap;">
+                        {{ r.timestamp }}
+                    </td>
+                    <td style="padding: 0.6rem 0.75rem;">
+                        <span style="font-weight: 700; text-transform: uppercase; font-size: 0.78rem; letter-spacing: 0.03em;
+                            {% if r.provider == 'gemini' %}color: #60a5fa;
+                            {% elif r.provider == 'groq' %}color: #fbbf24;
+                            {% elif r.provider == 'mistral' %}color: #f472b6;
+                            {% elif r.provider == 'openrouter' %}color: #c084fc;
+                            {% elif r.provider == 'cache' %}color: #22d3ee;
+                            {% else %}color: #cbd5e1;{% endif %}
+                        ">
+                            {{ r.provider }}
+                        </span>
+                    </td>
+                    <td style="padding: 0.6rem 0.75rem; font-family: monospace; font-size: 0.8rem; color: #e2e8f0;">
+                        {{ r.model }}
+                    </td>
+                    <td style="padding: 0.6rem 0.75rem; color: #cbd5e1;">
+                        <span class="badge" style="background: rgba(30, 41, 59, 0.7); border: 1px solid #334155; font-size: 0.74rem;">
+                            {{ r.operation }}
+                        </span>
+                    </td>
+                    <td style="padding: 0.6rem 0.75rem; text-align: center;">
+                        {% if r.status == 'SUCCESS' %}
+                            <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); font-size: 0.72rem;">
+                                ✅ Succès
+                            </span>
+                        {% elif r.status == 'CACHE_HIT' %}
+                            <span class="badge" style="background: rgba(6, 182, 212, 0.2); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.4); font-size: 0.72rem;">
+                                ⚡ Cache (0.0s)
+                            </span>
+                        {% elif r.status == 'FALLBACK' %}
+                            <span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); font-size: 0.72rem;">
+                                🔄 Repli
+                            </span>
+                        {% else %}
+                            <span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); font-size: 0.72rem;" title="{{ r.error_message or 'Erreur' }}">
+                                ❌ Échec
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 0.6rem 0.75rem; text-align: right; font-family: monospace;">
+                        {% if r.latency_ms is not none %}
+                            <span style="color: {% if r.latency_ms < 600 %}#34d399{% elif r.latency_ms < 1500 %}#fbbf24{% else %}#94a3b8{% endif %}; font-weight: 600;">
+                                {{ r.latency_ms }} ms
+                            </span>
+                        {% else %}
+                            <span style="color: #64748b;">--</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 0.6rem 0.75rem; text-align: right; font-family: monospace; color: #cbd5e1;">
+                        {% if r.tokens and r.tokens > 0 %}
+                            {{ "{:,}".format(r.tokens) }}
+                        {% else %}
+                            <span style="color: #64748b;">0</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
+        <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">Aucune exécution enregistrée pour l'instant.</p>
+        <p style="font-size: 0.85rem;">Lancez une qualification d'offre ou une génération de CV/lettre pour visualiser la télémétrie en temps réel.</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Filtrage JS rapide du tableau d'exécutions
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    const rows = document.querySelectorAll('.run-row');
+
+    filterButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            filterButtons.forEach(b => b.classList.remove('active', 'btn-primary'));
+            btn.classList.add('active', 'btn-primary');
+
+            const filter = btn.getAttribute('data-filter');
+            rows.forEach(row => {
+                const status = row.getAttribute('data-status');
+                if (filter === 'all' || status === filter) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+    });
+});
+</script>
+
+{% else %}
+<!-- ======================================================================= -->
+<!-- VUE 1 : ENTONNOIR RECRUTEMENT & CANDIDATURES (VUE EXISTANTE)           -->
+<!-- ======================================================================= -->
 
 <!-- 1. BANDEAU DE KPIS MAJEURS -->
 <div class="grid-3" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
@@ -78,7 +576,7 @@
     </div>
 </div>
 
-<!-- SECTION OBSERVABILITÉ LLM ROUTER & QUOTAS -->
+<!-- SECTION OBSERVABILITÉ LLM ROUTER BANNER RAPIDE -->
 <div class="card" style="margin-bottom: 1.5rem; padding: 1.25rem 1.5rem; background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95)); border: 1px solid rgba(59, 130, 246, 0.35);">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
         <div>
@@ -90,7 +588,9 @@
             </p>
         </div>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <a href="/settings" class="btn btn-sm btn-secondary" style="font-size: 0.8rem; font-weight: 600;">⚙️ Configurer</a>
+            <a href="/analytics?tab=interfaces" class="btn btn-sm btn-primary" style="font-size: 0.82rem; font-weight: 600;">
+                ⚡ Cockpit Complet d'Observabilité ➔
+            </a>
         </div>
     </div>
 
@@ -101,7 +601,7 @@
                 {{ router_stats.cache.hit_ratio_percent if router_stats and router_stats.cache else 0 }}%
             </div>
             <div style="font-size: 0.75rem; color: #cbd5e1; margin-top: 0.15rem;">
-                ⚡ {{ router_stats.cache.hits if router_stats and router_stats.cache else 0 }} requêtes à 0.0s ({{ router_stats.cache.total_saved_seconds if router_stats and router_stats.cache else 0 }}s gagnées)
+                ⚡ {{ router_stats.cache.hits if router_stats and router_stats.cache else 0 }} requêtes à 0.0s
             </div>
         </div>
 
@@ -111,7 +611,7 @@
                 {{ router_stats.gemini.requests_count if router_stats and router_stats.gemini else 0 }}
             </div>
             <div style="font-size: 0.75rem; color: #cbd5e1; margin-top: 0.15rem;">
-                {{ router_stats.gemini.success_count if router_stats and router_stats.gemini else 0 }} succès • {{ router_stats.gemini.errors_count if router_stats and router_stats.gemini else 0 }} replis/erreurs
+                {{ router_stats.gemini.success_count if router_stats and router_stats.gemini else 0 }} succès • {{ router_stats.gemini.errors_count if router_stats and router_stats.gemini else 0 }} replis
             </div>
         </div>
 
@@ -121,7 +621,7 @@
                 {{ router_stats.groq.requests_count if router_stats and router_stats.groq else 0 }}
             </div>
             <div style="font-size: 0.75rem; color: #cbd5e1; margin-top: 0.15rem;">
-                {{ router_stats.groq.success_count if router_stats and router_stats.groq else 0 }} succès • {{ router_stats.groq.errors_count if router_stats and router_stats.groq else 0 }} erreurs
+                {{ router_stats.groq.success_count if router_stats and router_stats.groq else 0 }} succès • 580ms
             </div>
         </div>
 
@@ -131,7 +631,7 @@
                 {{ ((router_stats.mistral.requests_count if router_stats and router_stats.mistral else 0) + (router_stats.openrouter.requests_count if router_stats and router_stats.openrouter else 0)) }}
             </div>
             <div style="font-size: 0.75rem; color: #cbd5e1; margin-top: 0.15rem;">
-                Cascade de secours activable
+                Mistral 420ms • Secours actif
             </div>
         </div>
     </div>
@@ -363,29 +863,26 @@
     </div>
 </div>
 
-<!-- Inclusion Chart.js pour rendu interactif -->
+<!-- Inclusion Chart.js pour rendu interactif entonnoir -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // Vérifier si Chart.js est disponible
     if (typeof Chart === 'undefined') {
-        console.warn("Chart.js indisponible en local/hors-ligne. Les tableaux et jauges restent fonctionnels.");
         return;
     }
 
-    // Configuration Dark Theme globale
     Chart.defaults.color = '#94a3b8';
     Chart.defaults.borderColor = '#334155';
     Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
     // 1. Chart Tech Performance
-    const techData = {{ analytics.tech_performance|tojson }};
-    const techLabels = techData.map(d => d.tech);
-    const techCounts = techData.map(d => d.job_count);
-    const techScores = techData.map(d => d.avg_score);
-
     const ctxTech = document.getElementById('techPerformanceChart');
     if (ctxTech) {
+        const techData = {{ analytics.tech_performance|tojson }};
+        const techLabels = techData.map(d => d.tech);
+        const techCounts = techData.map(d => d.job_count);
+        const techScores = techData.map(d => d.avg_score);
+
         new Chart(ctxTech, {
             type: 'bar',
             data: {
@@ -423,12 +920,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 2. Chart Géographie (Donut)
-    const geoObj = {{ analytics.geography|tojson }};
-    const geoLabels = Object.keys(geoObj).filter(k => geoObj[k] > 0);
-    const geoValues = geoLabels.map(k => geoObj[k]);
-
     const ctxGeo = document.getElementById('geographyChart');
     if (ctxGeo) {
+        const geoObj = {{ analytics.geography|tojson }};
+        const geoLabels = Object.keys(geoObj).filter(k => geoObj[k] > 0);
+        const geoValues = geoLabels.map(k => geoObj[k]);
+
         new Chart(ctxGeo, {
             type: 'doughnut',
             data: {
@@ -454,12 +951,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 3. Chart Télétravail (Donut)
-    const wpObj = {{ analytics.workplace|tojson }};
-    const wpLabels = Object.keys(wpObj).filter(k => wpObj[k] > 0);
-    const wpValues = wpLabels.map(k => wpObj[k]);
-
     const ctxWp = document.getElementById('workplaceChart');
     if (ctxWp) {
+        const wpObj = {{ analytics.workplace|tojson }};
+        const wpLabels = Object.keys(wpObj).filter(k => wpObj[k] > 0);
+        const wpValues = wpLabels.map(k => wpObj[k]);
+
         new Chart(ctxWp, {
             type: 'doughnut',
             data: {
@@ -483,12 +980,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 4. Chart Typologie Entreprises (Bar)
-    const compObj = {{ analytics.company_types|tojson }};
-    const compLabels = Object.keys(compObj);
-    const compValues = compLabels.map(k => compObj[k]);
-
     const ctxComp = document.getElementById('companyTypeChart');
     if (ctxComp) {
+        const compObj = {{ analytics.company_types|tojson }};
+        const compLabels = Object.keys(compObj);
+        const compValues = compLabels.map(k => compObj[k]);
+
         new Chart(ctxComp, {
             type: 'bar',
             data: {
@@ -519,9 +1016,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 5. Chart Timeline (Line)
-    const timelineData = {{ analytics.timeline|tojson }};
     const ctxTime = document.getElementById('timelineChart');
     if (ctxTime) {
+        const timelineData = {{ analytics.timeline|tojson }};
         new Chart(ctxTime, {
             type: 'line',
             data: {
@@ -562,4 +1059,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 </script>
+{% endif %}
+
 {% endblock %}

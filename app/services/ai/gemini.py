@@ -143,14 +143,17 @@ class GeminiService:
             )
             data = llm_result.data
             output_dump = data.model_dump() if hasattr(data, "model_dump") else (data if isinstance(data, dict) else {"output": str(data)})
+            total_tok = llm_result.tokens if isinstance(llm_result.tokens, int) else (llm_result.tokens.get("total_tokens", 0) if isinstance(llm_result.tokens, dict) else 0)
             self.log_ai_run(
                 operation=operation,
                 input_data={
-                    "prompt": prompt,
-                    "system_instruction": system_instruction,
+                    "prompt": prompt[:1000],
+                    "system_instruction": system_instruction[:300] if system_instruction else None,
                     "model": llm_result.model,
                     "provider": llm_result.provider,
-                    "fallback_used": llm_result.fallback_used
+                    "fallback_used": llm_result.fallback_used,
+                    "latency": llm_result.latency,
+                    "tokens": total_tok
                 },
                 output_data=output_dump,
                 status="SUCCESS",
@@ -161,7 +164,7 @@ class GeminiService:
             logger.error(f"[GeminiService] Échec génération structurée via LLM Router ({operation}): {e}")
             self.log_ai_run(
                 operation=operation,
-                input_data={"prompt": prompt, "system_instruction": system_instruction},
+                input_data={"prompt": prompt[:1000], "system_instruction": system_instruction[:300] if system_instruction else None},
                 output_data=None,
                 status="ERROR",
                 error_message=str(e),
