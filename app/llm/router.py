@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Type
 from pydantic import BaseModel
 
 from app.config import Config
+from app.llm.cache import llm_cache
 from app.llm.providers.base import BaseLLMProvider
 from app.llm.providers.gemini import GeminiProvider
 from app.llm.providers.groq import GroqProvider
@@ -77,14 +78,17 @@ class LLMRouter:
         """Retourne la liste des fournisseurs dont la clé API est renseignée."""
         return [name for name, p in self.providers.items() if p.is_configured()]
 
-    def get_stats(self) -> Dict[str, Dict[str, Any]]:
-        """Retourne un instantané des compteurs d'utilisation de chaque provider."""
-        return {name: stat.model_dump() for name, stat in self.stats.items()}
+    def get_stats(self) -> Dict[str, Any]:
+        """Retourne un instantané des compteurs d'utilisation de chaque provider et du cache."""
+        provider_data = {name: stat.model_dump() for name, stat in self.stats.items()}
+        provider_data["cache"] = llm_cache.get_stats()
+        return provider_data
 
     def reset_stats(self):
-        """Réinitialise l'ensemble des métriques d'utilisation."""
+        """Réinitialise l'ensemble des métriques d'utilisation et le cache."""
         for name in self.providers:
             self.stats[name] = ProviderStats(provider=name)
+        llm_cache.clear()
 
     def _record_success(self, provider_name: str, latency: float, tokens: Any):
         stat = self.stats[provider_name]
@@ -113,9 +117,11 @@ class LLMRouter:
         system_instruction: Optional[str] = None,
         temperature: float = 0.2,
         override_model: Optional[str] = None,
-        preferred_provider: Optional[str] = None
+        preferred_provider: Optional[str] = None,
+        use_cache: bool = True,
+        force_refresh: bool = False
     ) -> LLMResult:
-        """Point d'entrée unique pour la génération LLM avec failover automatique.
+        """Point d'entrée unique pour la génération LLM avec failover automatique et cache d'idempotence.
 
         Args:
             task: Nom de la tâche ('job_scoring', 'doc_content_generation', etc.)
@@ -125,6 +131,8 @@ class LLMRouter:
             temperature: Température de génération (0.0 - 1.0)
             override_model: Modèle spécifique optionnel à forcer
             preferred_provider: Provider optionnel à tenter en priorité absolue
+            use_cache: Si True, vérifie et sauvegarde dans le cache applicatif SHA-256
+            force_refresh: Si True, ignore le cache existant et force un nouvel appel
 
         Returns:
             LLMResult: Résultat contenant data, provider, model, latency, tokens, fallback_used.
@@ -133,6 +141,23 @@ class LLMRouter:
             LLMAllProvidersFailedError: Si tous les fournisseurs ont échoué.
         """
         canonical_task = self.get_canonical_task(task)
+
+        # 1. Vérification du cache SHA-256
+        cache_key = None
+        if use_cache:
+            cache_key = llm_cache.compute_key(
+                task=canonical_task,
+                prompt=prompt,
+                response_schema=response_schema,
+                system_instruction=system_instruction,
+                model=override_model
+            )
+            if not force_refresh:
+                cached_res = llm_cache.get(cache_key)
+                if cached_res is not None:
+                    logger.info(f"[LLM Router] Cache HIT pour tâche='{canonical_task}' (clé={cache_key[:8]}...)")
+                    return cached_res
+
         candidate_names = list(self.routing_config.get(canonical_task, ["gemini", "groq", "openrouter"]))
 
         if preferred_provider and preferred_provider in self.providers:
@@ -168,6 +193,11 @@ class LLMRouter:
                 result.fallback_used = fallback_flag
 
                 self._record_success(provider_name, result.latency, result.tokens)
+
+                # Sauvegarde dans le cache si actif
+                if use_cache and cache_key:
+                    llm_cache.set(cache_key, result)
+
                 logger.info(
                     f"[LLM Router] Succès provider='{provider_name}' modèle='{result.model}' "
                     f"durée={result.latency}s fallback={fallback_flag}"

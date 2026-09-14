@@ -1,3 +1,4 @@
+import os
 import time
 import logging
 from typing import Dict, Any, List, Optional
@@ -11,6 +12,7 @@ from app.services.ai.matcher import matcher_service
 from app.services.ai.cv_generator import cv_generator_service
 from app.services.ai.letter_generator import letter_generator_service
 from app.services.ai.answer_generator import answer_generator_service
+from app.services.ai.dossier_generator import dossier_generator_service
 from app.services.documents.renderer import document_renderer
 from app.services.notion.client import notion_service
 from app.schemas.candidate import CandidateProfile
@@ -429,14 +431,9 @@ class JobCollectorService:
                                         }).execute()
                                         app_id = res_app.data[0]["id"]
 
-                                    # Générer CV, Lettre, Réponses
-                                    tailored_cv = cv_generator_service.generate(
+                                    # Générer CV et Lettre de manière groupée en 1 seul appel IA (Bundle Generation)
+                                    tailored_cv, cover_letter = dossier_generator_service.generate(
                                         job_id=job_id,
-                                        profile=candidate_profile,
-                                        job_data=job_normalized,
-                                        application_id=app_id
-                                    )
-                                    cover_letter = letter_generator_service.generate(
                                         profile=candidate_profile,
                                         job_data=job_normalized,
                                         application_id=app_id
@@ -521,6 +518,11 @@ class JobCollectorService:
                 logger.error(f"Erreur traitement offre {job_url}: {job_err}")
                 job_detail_summary["error"] = str(job_err)
                 summary["jobs"].append(job_detail_summary)
+
+            # Cadencement adaptatif pour éviter de saturer les quotas RPM lors de la collecte
+            pacing = 0.0 if "PYTEST_CURRENT_TEST" in os.environ else float(os.getenv("BATCH_PACING_SECONDS", "1.0"))
+            if pacing > 0:
+                time.sleep(pacing)
 
         return summary
 
@@ -749,19 +751,27 @@ class JobCollectorService:
                     except Exception:
                         pass
 
-                if not tailored_cv:
-                    tailored_cv = cv_generator_service.generate(
+                if not tailored_cv and not cover_letter:
+                    tailored_cv, cover_letter = dossier_generator_service.generate(
                         job_id=job_id,
                         profile=candidate_profile,
                         job_data=job_normalized,
                         application_id=app_id
                     )
-                if not cover_letter:
-                    cover_letter = letter_generator_service.generate(
-                        profile=candidate_profile,
-                        job_data=job_normalized,
-                        application_id=app_id
-                    )
+                else:
+                    if not tailored_cv:
+                        tailored_cv = cv_generator_service.generate(
+                            job_id=job_id,
+                            profile=candidate_profile,
+                            job_data=job_normalized,
+                            application_id=app_id
+                        )
+                    if not cover_letter:
+                        cover_letter = letter_generator_service.generate(
+                            profile=candidate_profile,
+                            job_data=job_normalized,
+                            application_id=app_id
+                        )
                 # Économie de quota : les réponses aux questions d'entretien sont générées à la demande
                 answers = None
 

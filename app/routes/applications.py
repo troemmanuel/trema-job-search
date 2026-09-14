@@ -5,6 +5,7 @@ from app.services.storage import supabase_service
 from app.services.ai.cv_generator import cv_generator_service
 from app.services.ai.letter_generator import letter_generator_service
 from app.services.ai.answer_generator import answer_generator_service
+from app.services.ai.dossier_generator import dossier_generator_service
 from app.services.documents.renderer import document_renderer
 from app.services.documents.pdf import pdf_generator
 from app.services.notion.client import notion_service
@@ -109,20 +110,19 @@ def prepare_application(app_id: str):
             job.get("raw_data") if isinstance(job.get("raw_data"), dict) else job
         )
 
+    # Paramètre pour forcer la régénération en contournant le cache
+    force_refresh = request.args.get("force", "0") in ("1", "true", "True") or (
+        request.is_json and request.get_json(silent=True) and request.get_json(silent=True).get("force")
+    )
+
     try:
-        # 1. Génération CV JSON
-        tailored_cv = cv_generator_service.generate(
+        # 1 & 2. Génération groupée CV + Lettre en un seul appel LLM (Bundle Generation)
+        tailored_cv, cover_letter = dossier_generator_service.generate(
             job_id=job.get("id", ""),
             profile=profile,
             job_data=job_normalized,
-            application_id=app_id
-        )
-
-        # 2. Génération Lettre
-        cover_letter = letter_generator_service.generate(
-            profile=profile,
-            job_data=job_normalized,
-            application_id=app_id
+            application_id=app_id,
+            force_refresh=bool(force_refresh)
         )
 
         # 3. Réponses aux questions
