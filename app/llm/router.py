@@ -21,18 +21,23 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_ROUTING_CONFIG: Dict[str, List[str]] = {
     "job_scoring": ["gemini", "groq", "openrouter"],
-    "doc_content_generation": ["gemini", "mistral", "openrouter"],
+    "doc_content_generation": ["gemini", "mistral", "groq", "openrouter"],
 }
 
 TASK_ALIASES: Dict[str, str] = {
     "job_scoring": "job_scoring",
     "matching": "job_scoring",
     "scorer": "job_scoring",
+    "scrape_fallback": "job_scoring",
     "doc_content_generation": "doc_content_generation",
     "cv_content_generation": "doc_content_generation",
+    "cv_generation": "doc_content_generation",
     "cv_tailoring": "doc_content_generation",
     "cover_letter": "doc_content_generation",
+    "letter_generation": "doc_content_generation",
     "application_answers": "doc_content_generation",
+    "answers_generation": "doc_content_generation",
+    "cv_markdown_transcription": "doc_content_generation",
     "letter": "doc_content_generation",
     "cv": "doc_content_generation",
 }
@@ -70,9 +75,13 @@ class LLMRouter:
         }
 
     def get_canonical_task(self, task: str) -> str:
-        """Normalise le nom de la tâche selon les alias supportés."""
+        """Normalise le nom de la tâche selon les alias et mots-clés supportés."""
         task_normalized = task.lower().strip()
-        return TASK_ALIASES.get(task_normalized, task_normalized)
+        if any(kw in task_normalized for kw in ["letter", "lettre", "cv", "answer", "question", "doc", "dossier", "transcri"]):
+            return "doc_content_generation"
+        if any(kw in task_normalized for kw in ["score", "scoring", "match", "scrape", "extract", "filtr"]):
+            return "job_scoring"
+        return TASK_ALIASES.get(task_normalized, "doc_content_generation")
 
     def get_configured_providers(self) -> List[str]:
         """Retourne la liste des fournisseurs dont la clé API est renseignée."""
@@ -180,13 +189,26 @@ class LLMRouter:
 
             fallback_flag = (provider_name != primary_provider_name)
             try:
+                # N'appliquer override_model que s'il est compatible avec le provider ciblé
+                provider_model = None
+                if override_model:
+                    ov = override_model.lower()
+                    if provider.name == "gemini" and "gemini" in ov:
+                        provider_model = override_model
+                    elif provider.name == "groq" and any(k in ov for k in ["llama", "gpt-oss", "qwen", "allam", "groq"]):
+                        provider_model = override_model
+                    elif provider.name == "mistral" and "mistral" in ov:
+                        provider_model = override_model
+                    elif provider.name == "openrouter":
+                        provider_model = override_model
+
                 logger.info(f"[LLM Router] Tentative avec '{provider_name}' pour la tâche '{canonical_task}' (fallback={fallback_flag})...")
                 result = provider.generate(
                     prompt=prompt,
                     response_schema=response_schema,
                     system_instruction=system_instruction,
                     temperature=temperature,
-                    model=override_model
+                    model=provider_model
                 )
 
                 # Si le résultat a été produit par un fallback

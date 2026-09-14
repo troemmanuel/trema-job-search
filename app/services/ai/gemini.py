@@ -64,7 +64,11 @@ class GeminiService:
             from app.services.storage import supabase_service
             profile = supabase_service.get_active_candidate_profile()
             if profile and profile.get("preferences") and profile["preferences"].get("ai_model"):
-                return profile["preferences"]["ai_model"]
+                raw_model = profile["preferences"]["ai_model"]
+                # Migration transparente si un ancien identifiant non supporté / épuisé était en DB
+                if raw_model in ("gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.0-flash"):
+                    return "gemini-3.6-flash"
+                return raw_model
         except Exception:
             pass
         return self.config.GEMINI_MODEL

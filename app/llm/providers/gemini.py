@@ -40,7 +40,18 @@ class GeminiProvider(BaseLLMProvider):
         if not self.client:
             raise LLMProviderError(self.name, "Client Google GenAI indisponible", status_code=500)
 
-        target_model = model or self.default_model or "gemini-2.5-flash"
+        primary_model = model or self.default_model or "gemini-3.6-flash"
+        if primary_model in ("gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.0-flash"):
+            primary_model = "gemini-3.6-flash"
+
+        candidate_gemini_models = [
+            primary_model,
+            "gemini-3.6-flash",
+            "gemini-flash-latest",
+            "gemini-3.1-flash-lite"
+        ]
+        models_to_try = [m for i, m in enumerate(candidate_gemini_models) if m and m not in candidate_gemini_models[:i]]
+
         from google.genai import types
 
         config_kwargs: Dict[str, Any] = {
@@ -55,18 +66,27 @@ class GeminiProvider(BaseLLMProvider):
 
         call_config = types.GenerateContentConfig(**config_kwargs)
 
-        def _do_call():
-            start_t = time.time()
-            resp = self.client.models.generate_content(
-                model=target_model,
-                contents=prompt,
-                config=call_config
-            )
-            elapsed = time.time() - start_t
-            return resp, elapsed
+        last_gemini_error = None
+        for current_model in models_to_try:
+            def _do_call():
+                start_t = time.time()
+                resp = self.client.models.generate_content(
+                    model=current_model,
+                    contents=prompt,
+                    config=call_config
+                )
+                elapsed = time.time() - start_t
+                return resp, elapsed
 
-        # Exécute avec retry
-        response, latency = self.execute_with_retry(_do_call)
+            try:
+                response, latency = self.execute_with_retry(_do_call, max_retries=1)
+                target_model = current_model
+                break
+            except Exception as e:
+                last_gemini_error = e
+                logger.warning(f"[gemini] Échec avec le modèle {current_model} ({e}), essai du modèle Gemini suivant...")
+        else:
+            raise LLMProviderError(self.name, f"Tous les modèles Gemini ont échoué: {last_gemini_error}", status_code=429, is_rate_limit=True)
 
         # Extraction des tokens si disponible
         tokens_data: Dict[str, int] = {}
