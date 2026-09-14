@@ -153,13 +153,13 @@ class DailySchedulerService:
                     result = job_collector_service.run_collection(
                         duration="24h",
                         limit=10,
-                        auto_prepare=True
+                        auto_prepare=None
                     )
             else:
                 result = job_collector_service.run_collection(
                     duration="24h",
                     limit=10,
-                    auto_prepare=True
+                    auto_prepare=None
                 )
 
             # Réconciliation bidirectionnelle Notion ↔ Supabase

@@ -474,3 +474,54 @@ def test_collector_run_collection_skips_scraping_for_duplicates(monkeypatch):
     assert summary["new_imported_count"] == 0
     assert summary["jobs"][0]["status"] == "DUPLICATE_OR_EXISTING"
     assert len(scrape_called) == 0, "job_scraper.scrape ne doit pas être appelé pour une offre déjà existante"
+
+
+def test_import_and_process_url_heuristic_rejection_skips_gemini(monkeypatch):
+    """Vérifie qu'une offre incompatible (Stage pour souhait CDI) est rejetée déterministement sans appel Gemini."""
+    from app.services.ingestion.collector import JobCollectorService
+    from app.services.ingestion.scraper import job_scraper
+    from app.services.ingestion.importer import job_importer
+    from app.services.ai.matcher import matcher_service
+    from app.services.storage import supabase_service
+
+    collector = JobCollectorService()
+
+    scraped = {
+        "title": "Stage Développeur Python",
+        "company": "StartupAI",
+        "contract_type": "Stage",
+        "location": "Paris",
+        "url": "https://example.com/stage-python",
+        "description": "Stage de fin d'études en Python."
+    }
+    monkeypatch.setattr(job_scraper, "scrape", lambda url: scraped)
+    monkeypatch.setattr(job_importer, "import_job", lambda p: {"status": "CREATED", "job": scraped})
+
+    mock_profile = {
+        "id": "cand_1",
+        "profile": {
+            "name": "Test Candidate",
+            "personal": {"first_name": "Test", "last_name": "Candidate", "email": "t@c.com", "location": "Paris"},
+            "summary": "Backend engineer",
+            "experiences": [],
+            "skills": {"technical": ["Python"]}
+        },
+        "preferences": {
+            "target_titles": ["Développeur Python"],
+            "contract_types": ["CDI"],
+            "match_threshold_recommended": 75,
+            "auto_prepare_documents": False
+        }
+    }
+    monkeypatch.setattr(supabase_service, "get_active_candidate_profile", lambda: mock_profile)
+    monkeypatch.setattr(type(supabase_service), "client", property(lambda self: None))
+
+    matcher_called = []
+    monkeypatch.setattr(matcher_service, "match", lambda p, j: matcher_called.append(True))
+
+    res = collector.import_and_process_url("https://example.com/stage-python")
+
+    assert res["success"] is True
+    assert res["status"] == "REVIEW"  # ou REJECTED selon le statut de fallback
+    assert res["score"] == 20
+    assert len(matcher_called) == 0, "matcher_service.match ne doit pas être appelé pour une offre rejetée par pré-filtre"

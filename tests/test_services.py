@@ -519,3 +519,76 @@ def test_pdf_templates_multilingual_rendering():
     assert letter_fr.labels["recruiting"] == "Service Recrutement"
     assert "candidature au poste de Développeur Python" in letter_fr.subject_line()
 
+
+def test_evaluate_heuristic_mismatch_contract_rejection():
+    """Vérifie le rejet déterministe d'un stage/alternance quand le candidat veut un CDI."""
+    from app.services.ingestion.filters import evaluate_heuristic_mismatch
+    from app.schemas.candidate import CandidateProfile, CandidatePreferences
+    from app.schemas.job import JobNormalizedData
+
+    profile = CandidateProfile(
+        name="Candidate Test",
+        personal={"first_name": "C", "last_name": "T", "email": "c@t.com", "location": "Paris"},
+        skills={"technical": ["Python", "FastAPI"]},
+        preferences=CandidatePreferences(contract_types=["CDI"])
+    )
+
+    stage_job = JobNormalizedData(
+        title="Stage Développeur Python",
+        contract_type="Stage",
+        skills=["Python"]
+    )
+    result = evaluate_heuristic_mismatch(profile, stage_job)
+    assert result is not None
+    assert result["score"] == 20
+    assert result["level"] == "REJECTED"
+    assert "STAGE" in result["concerns"][0]
+
+
+def test_evaluate_heuristic_mismatch_tech_stack_rejection():
+    """Vérifie le rejet d'une offre hors domaine avec 0 compétence technique en commun."""
+    from app.services.ingestion.filters import evaluate_heuristic_mismatch
+    from app.schemas.candidate import CandidateProfile, CandidatePreferences
+    from app.schemas.job import JobNormalizedData
+
+    profile = CandidateProfile(
+        name="Candidate Test",
+        personal={"first_name": "C", "last_name": "T", "email": "c@t.com", "location": "Paris"},
+        title="Ingénieur Backend Python",
+        skills={"technical": ["Python", "FastAPI", "PostgreSQL", "Docker"]},
+        preferences=CandidatePreferences(contract_types=["CDI"], target_titles=["Ingénieur Backend"])
+    )
+
+    unrelated_job = JobNormalizedData(
+        title="Commercial B2B Grands Comptes",
+        contract_type="CDI",
+        skills=["Prospection", "Négociation", "Salesforce"]
+    )
+    result = evaluate_heuristic_mismatch(profile, unrelated_job)
+    assert result is not None
+    assert result["score"] == 25
+    assert result["level"] == "REJECTED"
+
+
+def test_evaluate_heuristic_mismatch_allows_compatible_job():
+    """Vérifie qu'une offre compatible n'est pas rejetée par le filtre heuristique (passée à Gemini)."""
+    from app.services.ingestion.filters import evaluate_heuristic_mismatch
+    from app.schemas.candidate import CandidateProfile, CandidatePreferences
+    from app.schemas.job import JobNormalizedData
+
+    profile = CandidateProfile(
+        name="Candidate Test",
+        personal={"first_name": "C", "last_name": "T", "email": "c@t.com", "location": "Paris"},
+        title="Ingénieur Backend Python",
+        skills={"technical": ["Python", "FastAPI", "PostgreSQL", "Docker"]},
+        preferences=CandidatePreferences(contract_types=["CDI"], target_titles=["Ingénieur Backend"])
+    )
+
+    compatible_job = JobNormalizedData(
+        title="Développeur Backend Python / FastAPI",
+        contract_type="CDI",
+        skills=["Python", "FastAPI"]
+    )
+    result = evaluate_heuristic_mismatch(profile, compatible_job)
+    assert result is None  # None = Doit être évalué par Gemini
+

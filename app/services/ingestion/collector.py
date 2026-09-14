@@ -238,7 +238,7 @@ class JobCollectorService:
         query: Optional[str] = None,
         limit: int = 5,
         min_match_score: int = 75,
-        auto_prepare: bool = True
+        auto_prepare: Optional[bool] = None
     ) -> Dict[str, Any]:
         """
         Exécute la collecte automatique de bout en bout en s'appuyant sur le profil maître :
@@ -306,8 +306,12 @@ class JobCollectorService:
             prefs = candidate_profile.preferences
             if min_match_score == 75 and getattr(prefs, "match_threshold_recommended", None):
                 min_match_score = prefs.match_threshold_recommended
-            if auto_prepare is True and getattr(prefs, "auto_prepare_documents", None) is False:
+            if auto_prepare is None:
+                auto_prepare = getattr(prefs, "auto_prepare_documents", False)
+            elif auto_prepare is True and getattr(prefs, "auto_prepare_documents", None) is False:
                 auto_prepare = False
+        elif auto_prepare is None:
+            auto_prepare = False
 
         for item in found_jobs:
             job_url = item["url"]
@@ -378,7 +382,15 @@ class JobCollectorService:
                             f"{job_record.get('title') or ''}\n{job_record.get('description') or ''}",
                             job_record.get("raw_data") if isinstance(job_record.get("raw_data"), dict) else job_record
                         )
-                    match_res = matcher_service.match(candidate_profile, job_normalized)
+                    # Pré-filtrage déterministe pré-LLM (contrat ou stack incompatible)
+                    from app.services.ingestion.filters import evaluate_heuristic_mismatch
+                    heuristic_rejection = evaluate_heuristic_mismatch(candidate_profile, job_normalized)
+                    if heuristic_rejection:
+                        from app.schemas.match import MatchResult
+                        match_res = MatchResult.model_validate(heuristic_rejection)
+                        logger.info(f"Offre écartée par pré-filtre algorithmique ({company} - {job_title}) : {heuristic_rejection['concerns'][0]}")
+                    else:
+                        match_res = matcher_service.match(candidate_profile, job_normalized)
                     
                     if match_res:
                         score = match_res.score
@@ -537,7 +549,7 @@ class JobCollectorService:
     def import_and_process_url(
         self,
         url: str,
-        auto_prepare: bool = True,
+        auto_prepare: Optional[bool] = None,
         min_match_score: int = 75
     ) -> Dict[str, Any]:
         """
@@ -600,8 +612,8 @@ class JobCollectorService:
             # Surcharges par défaut issues des préférences
             if min_match_score == 75 and getattr(prefs, "match_threshold_recommended", None):
                 min_match_score = prefs.match_threshold_recommended
-            if auto_prepare is True and getattr(prefs, "auto_prepare_documents", None) is False:
-                auto_prepare = False
+            if auto_prepare is None:
+                auto_prepare = getattr(prefs, "auto_prepare_documents", False)
 
             # Filtrage Blacklist entreprise
             if is_company_blacklisted(company, prefs.excluded_companies):
@@ -651,6 +663,8 @@ class JobCollectorService:
                     "score": 0,
                     "message": f"Offre enregistrée mais écartée : l'entreprise '{company}' a été identifiée comme ESN ou cabinet de conseil."
                 }
+        elif auto_prepare is None:
+            auto_prepare = False
 
         # 4. Matching IA
         match_res = None
@@ -666,7 +680,15 @@ class JobCollectorService:
             qualified = score >= min_match_score
             logger.info(f"Offre déjà évaluée précédemment (score={score}), matching Gemini ignoré.")
         else:
-            match_res = matcher_service.match(candidate_profile, job_normalized)
+            # Pré-filtrage déterministe pré-LLM (contrat ou stack incompatible)
+            from app.services.ingestion.filters import evaluate_heuristic_mismatch
+            heuristic_rejection = evaluate_heuristic_mismatch(candidate_profile, job_normalized)
+            if heuristic_rejection:
+                from app.schemas.match import MatchResult
+                match_res = MatchResult.model_validate(heuristic_rejection)
+                logger.info(f"Offre écartée par pré-filtre algorithmique ({company} - {title}) : {heuristic_rejection['concerns'][0]}")
+            else:
+                match_res = matcher_service.match(candidate_profile, job_normalized)
             score = match_res.score if match_res else 0
             level = match_res.level if match_res else "REJECTED"
             qualified = score >= min_match_score
@@ -824,7 +846,7 @@ class JobCollectorService:
     def import_and_process_urls(
         self,
         urls: List[str],
-        auto_prepare: bool = True,
+        auto_prepare: Optional[bool] = None,
         min_match_score: int = 75
     ) -> Dict[str, Any]:
         """
