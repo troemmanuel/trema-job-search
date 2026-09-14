@@ -99,6 +99,42 @@ class LLMRouter:
             self.stats[name] = ProviderStats(provider=name)
         llm_cache.clear()
 
+    def test_provider(self, name: str, model: Optional[str] = None) -> Dict[str, Any]:
+        """Teste individuellement un provider."""
+        provider = self.providers.get(name.lower())
+        if not provider:
+            return {
+                "success": False,
+                "provider": name,
+                "error": f"Provider '{name}' inconnu."
+            }
+        return provider.test_connection(model=model)
+
+    def get_router_overview(self) -> Dict[str, Any]:
+        """Retourne un état complet du routeur pour l'interface d'administration."""
+        provider_models = {
+            "gemini": ["gemini-3.6-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"],
+            "groq": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "openai/gpt-oss-120b"],
+            "mistral": ["mistral-small-latest", "mistral-large-latest", "open-mistral-nemo"],
+            "openrouter": ["meta-llama/llama-3.3-70b-instruct", "google/gemini-2.0-flash-001", "mistralai/mistral-small-24b-instruct-2501"],
+        }
+        providers_info = []
+        for name, p in self.providers.items():
+            providers_info.append({
+                "name": name,
+                "display_name": name.capitalize(),
+                "is_configured": p.is_configured(),
+                "default_model": p.default_model,
+                "models": provider_models.get(name, [p.default_model]),
+                "stats": self.stats[name].model_dump()
+            })
+
+        return {
+            "providers": providers_info,
+            "routing_config": self.routing_config,
+            "cache": llm_cache.get_stats()
+        }
+
     def _record_success(self, provider_name: str, latency: float, tokens: Any):
         stat = self.stats[provider_name]
         stat.requests_count += 1

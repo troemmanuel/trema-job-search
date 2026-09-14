@@ -35,6 +35,42 @@ class BaseLLMProvider(abc.ABC):
         """Génère une complétion structurée ou textuelle."""
         pass
 
+    def test_connection(self, model: Optional[str] = None) -> Dict[str, Any]:
+        """Teste la connectivité du provider avec un prompt minimal."""
+        if not self.is_configured():
+            return {
+                "success": False,
+                "provider": self.name,
+                "model": model or self.default_model,
+                "response_time_ms": 0,
+                "error": f"Clé API non configurée pour {self.name.upper()}."
+            }
+
+        target_model = model or self.default_model
+        start_time = time.time()
+        try:
+            result = self.generate(
+                prompt="Réponds simplement par le mot 'OK'.",
+                model=target_model
+            )
+            elapsed = round((time.time() - start_time) * 1000)
+            return {
+                "success": True,
+                "provider": self.name,
+                "model": result.model,
+                "response_time_ms": elapsed,
+                "output": str(result.data).strip()
+            }
+        except Exception as e:
+            elapsed = round((time.time() - start_time) * 1000)
+            return {
+                "success": False,
+                "provider": self.name,
+                "model": target_model,
+                "response_time_ms": elapsed,
+                "error": str(e)
+            }
+
     def clean_json_text(self, text: str) -> str:
         """Extrait et nettoie le JSON d'une réponse textuelle de LLM."""
         if not text:

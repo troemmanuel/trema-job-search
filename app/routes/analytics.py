@@ -11,7 +11,14 @@ def analytics_view():
         period = "all"
 
     data = analytics_service.get_analytics(period=period)
-    return render_template("analytics.html", analytics=data, active_period=period)
+    router_stats = None
+    try:
+        from app.llm import router
+        router_stats = router.get_stats()
+    except Exception:
+        pass
+
+    return render_template("analytics.html", analytics=data, active_period=period, router_stats=router_stats)
 
 @analytics_bp.route("/api/analytics/stats", methods=["GET"])
 def api_analytics_stats():
@@ -21,7 +28,15 @@ def api_analytics_stats():
         period = "all"
 
     data = analytics_service.get_analytics(period=period)
+    router_stats = None
+    try:
+        from app.llm import router
+        router_stats = router.get_stats()
+    except Exception:
+        pass
+
     return jsonify({
         "success": True,
-        **data
+        **data,
+        "router_stats": router_stats
     }), 200

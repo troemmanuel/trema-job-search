@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block title %}Logs Applicatifs en Direct — Trema Job Search{% endblock %}
+
+{% block content %}
+<div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+    <div>
+        <h1 style="display: flex; align-items: center; gap: 0.6rem;">
+            <span>📜</span> Console de Logs en Direct
+        </h1>
+        <p class="subtitle">Traçage en temps réel des actions de l'agent, des décisions du LLM Router, du scraper et de la génération des dossiers.</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+        <button id="togglePollingBtn" onclick="togglePolling()" class="btn btn-secondary" style="font-weight: 600; display: inline-flex; align-items: center; gap: 0.4rem;">
+            <span id="pollingIcon">⏸️</span> <span id="pollingText">Mettre en pause</span>
+        </button>
+        <button onclick="fetchLogs()" class="btn btn-secondary" style="font-weight: 600;">
+            🔄 Actualiser
+        </button>
+        <a href="/api/logs/download" class="btn btn-secondary" style="font-weight: 600; text-decoration: none;">
+            📥 Télécharger app.log
+        </a>
+        <button onclick="clearLogFile()" class="btn" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; font-weight: 600;">
+            🗑️ Vider le fichier
+        </button>
+    </div>
+</div>
+
+<!-- Barre d'outils et filtres -->
+<div class="card" style="margin-bottom: 1.25rem; padding: 1rem 1.25rem; background: #1e293b; border: 1px solid var(--card-border);">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        
+        <!-- Filtre texte / recherche -->
+        <div style="flex: 1; min-width: 260px; position: relative;">
+            <input type="text" id="logSearchInput" oninput="filterLogsLocally()" placeholder="Rechercher (ex: LLM Router, gemini, groq, dossier, 429, notion)..." class="filter-input" style="width: 100%; padding-left: 2.2rem;">
+            <span style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); font-size: 0.9rem; opacity: 0.6;">🔍</span>
+        </div>
+
+        <!-- Filtre par sévérité -->
+        <div style="display: flex; gap: 0.4rem; align-items: center;">
+            <label style="font-size: 0.85rem; color: #94a3b8; font-weight: 600;">Niveau :</label>
+            <select id="logLevelSelect" onchange="fetchLogs()" class="filter-select" style="padding: 0.4rem 0.8rem; font-size: 0.88rem;">
+                <option value="ALL">Tous les niveaux</option>
+                <option value="INFO">INFO</option>
+                <option value="WARNING">WARNING</option>
+                <option value="ERROR">ERROR</option>
+            </select>
+        </div>
+
+        <!-- Boutons filtres rapides de composants -->
+        <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+            <button type="button" onclick="setQuickFilter('[LLM Router]')" class="btn btn-sm btn-secondary" style="font-size: 0.78rem; padding: 0.3rem 0.6rem;">🤖 Router</button>
+            <button type="button" onclick="setQuickFilter('[Candidature]')" class="btn btn-sm btn-secondary" style="font-size: 0.78rem; padding: 0.3rem 0.6rem;">📄 Candidature</button>
+            <button type="button" onclick="setQuickFilter('[Collecte]')" class="btn btn-sm btn-secondary" style="font-size: 0.78rem; padding: 0.3rem 0.6rem;">📥 Collecte</button>
+            <button type="button" onclick="setQuickFilter('[Import URL]')" class="btn btn-sm btn-secondary" style="font-size: 0.78rem; padding: 0.3rem 0.6rem;">🌐 Import</button>
+            <button type="button" onclick="setQuickFilter('[app.http]')" class="btn btn-sm btn-secondary" style="font-size: 0.78rem; padding: 0.3rem 0.6rem;">⚡ HTTP</button>
+            <button type="button" onclick="setQuickFilter('')" class="btn btn-sm btn-secondary" style="font-size: 0.78rem; padding: 0.3rem 0.6rem;">✖ Tout</button>
+        </div>
+
+        <!-- Auto-scroll toggle -->
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.85rem; color: #cbd5e1; user-select: none;">
+                <input type="checkbox" id="autoScrollCheck" checked style="accent-color: #3b82f6;">
+                Auto-scroll en bas
+            </label>
+        </div>
+
+    </div>
+</div>
+
+<!-- Fenêtre Terminal de Logs -->
+<div class="card" style="padding: 0; background: #0b0f19; border: 1px solid #1e293b; border-radius: 10px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);">
+    <!-- Barre de titre de la console -->
+    <div style="background: #111827; padding: 0.6rem 1rem; border-bottom: 1px solid #1f2937; display: flex; justify-content: space-between; align-items: center; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.8rem; color: #9ca3af;">
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #ef4444;"></span>
+            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #f59e0b;"></span>
+            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #10b981;"></span>
+            <span style="margin-left: 0.5rem; color: #e5e7eb; font-weight: 600;">logs/app.log</span>
+            <span id="logLiveIndicator" style="display: inline-flex; align-items: center; gap: 0.3rem; margin-left: 0.75rem; color: #34d399; font-size: 0.75rem;">
+                <span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; box-shadow: 0 0 6px #10b981;"></span> LIVE
+            </span>
+        </div>
+        <div>
+            <span id="logCountLabel" style="color: #6b7280;">0 lignes affichées</span>
+        </div>
+    </div>
+
+    <!-- Conteneur des lignes de logs -->
+    <div id="logConsole" style="height: 620px; overflow-y: auto; padding: 1rem 1.25rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.84rem; line-height: 1.6; color: #e2e8f0; background: #070a13;">
+        <div style="color: #64748b; font-style: italic;">Chargement des logs en cours...</div>
+    </div>
+</div>
+
+<script>
+let allLogs = [];
+let isPolling = true;
+let pollTimer = null;
+
+function escapeHtml(text) {
+    if (!text) return '';
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function getLevelColor(level) {
+    switch ((level || '').toUpperCase()) {
+        case 'ERROR':
+        case 'CRITICAL':
+            return '#f87171';
+        case 'WARNING':
+        case 'WARN':
+            return '#fbbf24';
+        case 'INFO':
+            return '#38bdf8';
+        case 'DEBUG':
+            return '#94a3b8';
+        default:
+            return '#cbd5e1';
+    }
+}
+
+function formatLogLine(entry) {
+    const ts = entry.timestamp ? `<span style="color: #64748b; margin-right: 0.6rem;">${escapeHtml(entry.timestamp)}</span>` : '';
+    const lvlColor = getLevelColor(entry.level);
+    const lvl = `<span style="color: ${lvlColor}; font-weight: 700; margin-right: 0.6rem; min-width: 55px; display: inline-block;">[${escapeHtml(entry.level)}]</span>`;
+    const logger = entry.logger ? `<span style="color: #a78bfa; margin-right: 0.6rem;">[${escapeHtml(entry.logger)}]</span>` : '';
+    
+    let msg = escapeHtml(entry.message);
+    // Coloration subtile d'éléments récurrents
+    msg = msg.replace(/(✅ Succès)/g, '<span style="color: #34d399; font-weight: 700;">$1</span>')
+             .replace(/(❌ Tous les providers|❌ Erreur)/g, '<span style="color: #f87171; font-weight: 700;">$1</span>')
+             .replace(/(⚠️ Échec|⚠️)/g, '<span style="color: #fbbf24; font-weight: 700;">$1</span>')
+             .replace(/(⚡ HIT Cache)/g, '<span style="color: #fbbf24; font-weight: 700;">$1</span>')
+             .replace(/(⏳ \[\d+\/\d+\] Appel provider='[^']+')/g, '<span style="color: #60a5fa;">$1</span>')
+             .replace(/(➡️  [A-Z]+ [^\s]+)/g, '<span style="color: #93c5fd;">$1</span>')
+             .replace(/(⬅️  [A-Z]+ [^\s]+ → \d+ \([^\)]+\))/g, '<span style="color: #86efac;">$1</span>');
+
+    return `<div class="log-row" style="padding: 0.15rem 0; border-bottom: 1px solid rgba(255,255,255,0.02); word-break: break-word;">${ts}${lvl}${logger}${msg}</div>`;
+}
+
+async function fetchLogs() {
+    const level = document.getElementById('logLevelSelect').value;
+    try {
+        const resp = await fetch(`/api/logs?limit=300&level=${encodeURIComponent(level)}`);
+        const data = await resp.json();
+        if (data.success) {
+            allLogs = data.logs || [];
+            renderLogs();
+        }
+    } catch (e) {
+        console.error("Erreur récupération logs:", e);
+    }
+}
+
+function renderLogs() {
+    const consoleDiv = document.getElementById('logConsole');
+    const query = (document.getElementById('logSearchInput').value || '').toLowerCase().trim();
+    const countLabel = document.getElementById('logCountLabel');
+
+    let filtered = allLogs;
+    if (query) {
+        filtered = allLogs.filter(entry => {
+            const fullText = `${entry.timestamp} ${entry.level} ${entry.logger} ${entry.message}`.toLowerCase();
+            return fullText.includes(query);
+        });
+    }
+
+    countLabel.textContent = `${filtered.length} ligne(s) affichée(s) (sur ${allLogs.length})`;
+
+    if (filtered.length === 0) {
+        consoleDiv.innerHTML = '<div style="color: #64748b; font-style: italic; padding: 1rem 0;">Aucune ligne de log ne correspond aux critères sélectionnés.</div>';
+        return;
+    }
+
+    consoleDiv.innerHTML = filtered.map(formatLogLine).join('');
+
+    const autoScroll = document.getElementById('autoScrollCheck').checked;
+    if (autoScroll) {
+        consoleDiv.scrollTop = consoleDiv.scrollHeight;
+    }
+}
+
+function filterLogsLocally() {
+    renderLogs();
+}
+
+function setQuickFilter(term) {
+    document.getElementById('logSearchInput').value = term;
+    renderLogs();
+}
+
+function togglePolling() {
+    isPolling = !isPolling;
+    const textSpan = document.getElementById('pollingText');
+    const iconSpan = document.getElementById('pollingIcon');
+    const liveIndicator = document.getElementById('logLiveIndicator');
+
+    if (isPolling) {
+        textSpan.textContent = "Mettre en pause";
+        iconSpan.textContent = "⏸️";
+        liveIndicator.style.display = "inline-flex";
+        startPolling();
+    } else {
+        textSpan.textContent = "Reprendre";
+        iconSpan.textContent = "▶️";
+        liveIndicator.style.display = "none";
+        stopPolling();
+    }
+}
+
+function startPolling() {
+    stopPolling();
+    pollTimer = setInterval(fetchLogs, 3000);
+}
+
+function stopPolling() {
+    if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+    }
+}
+
+async function clearLogFile() {
+    if (!confirm("Voulez-vous vraiment vider l'historique complet du fichier logs/app.log ?")) {
+        return;
+    }
+    try {
+        const resp = await fetch('/api/logs/clear', { method: 'POST' });
+        const data = await resp.json();
+        if (resp.ok) {
+            allLogs = [];
+            renderLogs();
+        } else {
+            alert("Erreur: " + (data.error || "Impossible de vider les logs"));
+        }
+    } catch (e) {
+        alert("Erreur réseau: " + e.message);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    fetchLogs();
+    startPolling();
+});
+</script>
+{% endblock %}

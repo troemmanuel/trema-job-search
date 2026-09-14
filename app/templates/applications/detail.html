@@ -61,8 +61,16 @@
     <hr class="separator mt-4" />
 
     <div class="application-controls">
-        <h3>Actions de validation humaine :</h3>
-        <div class="actions-bar">
+        <h3>Actions de validation & Génération documentaire :</h3>
+        
+        <div style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+            <label style="display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-size: 0.9rem; color: #cbd5e1; user-select: none;">
+                <input type="checkbox" id="forceRefreshCheck" style="accent-color: #3b82f6; transform: scale(1.15);">
+                <strong>Forcer une nouvelle génération LLM</strong> (ignorer le cache d'idempotence SHA-256)
+            </label>
+        </div>
+
+        <div class="actions-bar" style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
             {% if application.status != 'READY' and application.status != 'APPLIED' %}
             <button onclick="markStatus('ready')" class="btn btn-warning">Valider (Passer en READY)</button>
             {% endif %}
@@ -70,8 +78,13 @@
             <button onclick="markStatus('applied')" class="btn btn-success">Je viens de postuler (APPLIED)</button>
             {% endif %}
             <button onclick="syncNotion()" class="btn btn-secondary">Synchroniser Notion</button>
-            <button onclick="prepareApp()" class="btn btn-primary">Régénérer les documents</button>
+            <button onclick="prepareApp()" id="prepBtn" class="btn btn-primary" style="font-weight: 600;">
+                ⚡ {{ 'Régénérer les documents' if application.tailored_cv else 'Générer le dossier complet' }}
+            </button>
         </div>
+
+        <!-- Indicateur de progression en direct -->
+        <div id="prepStatusBox" style="display: none; margin-top: 1rem; padding: 0.85rem 1.2rem; border-radius: 8px; font-size: 0.9rem; font-weight: 500;"></div>
     </div>
 </div>
 
@@ -110,21 +123,54 @@
 async function markStatus(action) {
     const res = await fetch(`/api/applications/{{ application.id }}/${action}`, { method: 'POST' });
     if (res.ok) {
-        alert("Statut mis à jour !");
         location.reload();
     } else {
-        alert("Erreur lors de la mise à jour");
+        alert("Erreur lors de la mise à jour du statut");
     }
 }
 
 async function prepareApp() {
-    alert("Génération des documents en cours...");
-    const res = await fetch(`/api/applications/{{ application.id }}/prepare`, { method: 'POST' });
-    if (res.ok) {
-        alert("Documents prêts !");
-        location.reload();
-    } else {
-        alert("Erreur lors de la préparation");
+    const btn = document.getElementById('prepBtn');
+    const box = document.getElementById('prepStatusBox');
+    const force = document.getElementById('forceRefreshCheck').checked;
+
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Génération en cours...';
+    box.style.display = 'block';
+    box.style.background = 'rgba(59, 130, 246, 0.12)';
+    box.style.border = '1px solid rgba(59, 130, 246, 0.35)';
+    box.style.color = '#60a5fa';
+    box.innerHTML = '🚀 <strong>Préparation en cours :</strong> Appel groupé Bundle CV + Lettre via le LLM Router, rendu PDF et synchronisation Notion...';
+
+    try {
+        const res = await fetch(`/api/applications/{{ application.id }}/prepare`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ force: force })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            box.style.background = 'rgba(16, 185, 129, 0.15)';
+            box.style.border = '1px solid rgba(16, 185, 129, 0.35)';
+            box.style.color = '#34d399';
+            box.innerHTML = '✅ <strong>Succès !</strong> Documents générés et synchronisés avec succès. Rechargement...';
+            setTimeout(() => location.reload(), 1200);
+        } else {
+            box.style.background = 'rgba(239, 68, 68, 0.15)';
+            box.style.border = '1px solid rgba(239, 68, 68, 0.35)';
+            box.style.color = '#f87171';
+            box.innerHTML = `❌ <strong>Erreur de préparation :</strong> ${data.error || 'Échec de la génération'}`;
+            btn.disabled = false;
+            btn.innerHTML = '⚡ Régénérer les documents';
+        }
+    } catch (e) {
+        box.style.background = 'rgba(239, 68, 68, 0.15)';
+        box.style.border = '1px solid rgba(239, 68, 68, 0.35)';
+        box.style.color = '#f87171';
+        box.innerHTML = `❌ <strong>Erreur réseau :</strong> ${e.message}`;
+        btn.disabled = false;
+        btn.innerHTML = '⚡ Régénérer les documents';
     }
 }
 
@@ -132,9 +178,9 @@ async function syncNotion() {
     const res = await fetch(`/api/notion/sync/{{ application.id }}`, { method: 'POST' });
     const data = await res.json();
     if (res.ok) {
-        alert("Synchronisé avec Notion !");
+        alert("✅ Synchronisé avec Notion !");
     } else {
-        alert("Erreur Notion: " + data.error);
+        alert("Erreur Notion: " + (data.error || "Échec synchronisation"));
     }
 }
 </script>

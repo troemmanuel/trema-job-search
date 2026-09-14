@@ -48,6 +48,9 @@
                 <option value="NEW" {% if filters and filters.status == 'NEW' %}selected{% endif %}>NEW</option>
                 <option value="QUALIFIED" {% if filters and filters.status == 'QUALIFIED' %}selected{% endif %}>QUALIFIED</option>
                 <option value="REVIEW" {% if filters and filters.status == 'REVIEW' %}selected{% endif %}>REVIEW</option>
+                <option value="REJECTED" {% if filters and filters.status == 'REJECTED' %}selected{% endif %}>REJECTED (Rejetées pré-filtrage)</option>
+                <option value="FILTERED_KEYWORD" {% if filters and filters.status == 'FILTERED_KEYWORD' %}selected{% endif %}>FILTERED_KEYWORD (Mots-clés)</option>
+                <option value="FILTERED_ESN" {% if filters and filters.status == 'FILTERED_ESN' %}selected{% endif %}>FILTERED_ESN (ESN)</option>
                 <option value="BLACKLISTED" {% if filters and filters.status == 'BLACKLISTED' %}selected{% endif %}>BLACKLISTED (Exclues)</option>
                 <option value="ARCHIVED" {% if filters and filters.status == 'ARCHIVED' %}selected{% endif %}>ARCHIVED</option>
             </select>

@@ -56,11 +56,19 @@ def settings_view():
     except Exception as se:
         current_app.logger.warning(f"Erreur récupération statut planificateur: {se}")
 
+    router_overview = None
+    try:
+        from app.llm import router
+        router_overview = router.get_router_overview()
+    except Exception as re:
+        current_app.logger.warning(f"Erreur récupération vue d'ensemble routeur: {re}")
+
     return render_template(
         "settings/index.html",
         preferences=preferences,
         available_models=AVAILABLE_AI_MODELS,
-        scheduler_status=scheduler_status
+        scheduler_status=scheduler_status,
+        router_overview=router_overview
     )
 
 @settings_bp.route("/api/settings", methods=["GET"])
@@ -192,3 +200,54 @@ def test_ai():
     result = gemini_service.test_connection(model_name=model_name)
     status_code = 200 if result.get("success") else 400
     return jsonify(result), status_code
+
+@settings_bp.route("/api/settings/router", methods=["GET"])
+def get_router_status():
+    """API : Retourne l'état complet du routeur multi-fournisseurs et du cache."""
+    try:
+        from app.llm import router
+        return jsonify({
+            "success": True,
+            **router.get_router_overview()
+        }), 200
+    except Exception as e:
+        logger.error(f"Erreur récupération vue d'ensemble routeur: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@settings_bp.route("/api/settings/router/test", methods=["POST"])
+def test_router_provider():
+    """API : Teste la connectivité d'un provider particulier (Gemini, Groq, Mistral, OpenRouter)."""
+    payload = request.get_json() or {}
+    provider_name = payload.get("provider", "gemini").lower()
+    model_name = payload.get("model")
+
+    try:
+        from app.llm import router
+        result = router.test_provider(provider_name, model=model_name)
+        status_code = 200 if result.get("success") else 400
+        return jsonify(result), status_code
+    except Exception as e:
+        logger.error(f"Erreur test provider '{provider_name}': {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@settings_bp.route("/api/settings/router/cache/clear", methods=["POST"])
+def clear_router_cache():
+    """API : Vide le cache d'idempotence SHA-256."""
+    try:
+        from app.llm.cache import llm_cache
+        llm_cache.clear()
+        return jsonify({"success": True, "message": "Cache LLM vidé avec succès."}), 200
+    except Exception as e:
+        logger.error(f"Erreur purge du cache LLM: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@settings_bp.route("/api/settings/router/stats/reset", methods=["POST"])
+def reset_router_stats():
+    """API : Réinitialise les statistiques d'utilisation des providers."""
+    try:
+        from app.llm import router
+        router.reset_stats()
+        return jsonify({"success": True, "message": "Statistiques du routeur réinitialisées avec succès."}), 200
+    except Exception as e:
+        logger.error(f"Erreur réinitialisation stats: {e}")
+        return jsonify({"error": str(e)}), 500

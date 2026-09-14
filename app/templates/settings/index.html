@@ -20,74 +20,153 @@
 <form id="settingsForm" onsubmit="event.preventDefault(); saveAllSettings();">
     <div class="grid-2" style="gap: 1.5rem; align-items: start;">
         
-        <!-- SECTION 1 : MODÈLE IA & GÉNÉRATION -->
-        <div class="card">
+        <!-- SECTION 1 : LLM ROUTER & MULTI-FOURNISSEURS -->
+        <div class="card" style="grid-column: 1 / -1;">
             <div class="card-header-actions" style="margin-bottom: 1rem; border-bottom: 1px solid var(--card-border); padding-bottom: 0.75rem;">
-                <h2 style="font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem;">
-                    <span>🤖</span> Modèle d'Intelligence Artificielle
+                <h2 style="font-size: 1.25rem; display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+                    <span>🤖</span> LLM Router & Fournisseurs Multi-Modèles
                 </h2>
-                <span class="badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa;">Gemini GenAI</span>
+                <span class="badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; font-weight: 600;">
+                    Failover Automatique 429 & Résilience Active
+                </span>
             </div>
 
-            <div class="form-group" style="margin-bottom: 1.25rem;">
-                <label for="ai_model" style="display: block; font-weight: 600; margin-bottom: 0.4rem;">
-                    Modèle principal :
-                </label>
-                <select id="ai_model" class="filter-select" style="font-size: 0.95rem;" onchange="toggleCustomModelInput()">
-                    {% for m in available_models %}
-                    <option value="{{ m.id }}" {% if preferences.ai_model == m.id %}selected{% endif %}>
-                        {{ m.name }} — {{ m.description }}
-                    </option>
-                    {% endfor %}
-                    <option value="custom" {% if preferences.ai_model not in ['gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite'] and preferences.ai_model %}selected{% endif %}>
-                        Autre modèle personnalisé (saisie libre)...
-                    </option>
-                </select>
-            </div>
-
-            <div class="form-group" id="customModelGroup" style="display: none; margin-bottom: 1.25rem;">
-                <label for="custom_ai_model" style="display: block; font-weight: 600; margin-bottom: 0.4rem; color: #cbd5e1;">
-                    Nom du modèle Gemini personnalisé :
-                </label>
-                <input type="text" id="custom_ai_model" class="filter-input" placeholder="ex: gemini-1.5-pro, gemini-experimental" value="{{ preferences.ai_model }}">
-            </div>
-
-            <!-- Test connexion IA -->
-            <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--card-border); border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-                    <div>
-                        <strong style="font-size: 0.9rem; color: #e2e8f0;">Vérification de l'API :</strong>
-                        <div class="text-muted" style="font-size: 0.8rem;">Envoie un ping direct pour tester la clé et le modèle.</div>
+            <!-- Grille des 4 providers -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                {% for p in (router_overview.providers if router_overview and router_overview.providers else [
+                    {'name': 'gemini', 'display_name': 'Gemini (Google)', 'is_configured': True, 'default_model': 'gemini-3.6-flash'},
+                    {'name': 'groq', 'display_name': 'Groq (Llama / OSS)', 'is_configured': False, 'default_model': 'llama-3.3-70b-versatile'},
+                    {'name': 'mistral', 'display_name': 'Mistral AI', 'is_configured': False, 'default_model': 'mistral-small-latest'},
+                    {'name': 'openrouter', 'display_name': 'OpenRouter (Multi)', 'is_configured': False, 'default_model': 'meta-llama/llama-3.3-70b-instruct'}
+                ]) %}
+                <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid var(--card-border); padding: 1rem; border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <strong style="color: #f8fafc; font-size: 0.95rem;">{{ p.display_name }}</strong>
+                        {% if p.is_configured %}
+                            <span class="badge" style="background: rgba(16, 185, 129, 0.18); color: #34d399; font-size: 0.75rem; border: 1px solid rgba(16, 185, 129, 0.4);">🟢 Configuré</span>
+                        {% else %}
+                            <span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94a3b8; font-size: 0.75rem;">⚪ Clé absente</span>
+                        {% endif %}
                     </div>
-                    <button type="button" onclick="testAIModel()" class="btn btn-secondary" id="testAIBtn" style="font-size: 0.85rem;">
-                        ⚡ Tester la connexion
+                    <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.6rem;">
+                        Modèle : <code style="color: #60a5fa;">{{ p.default_model }}</code>
+                    </div>
+                    <div style="font-size: 0.75rem; color: #64748b; margin-bottom: 0.75rem;">
+                        Requêtes : <strong style="color: #cbd5e1;">{{ p.stats.requests_count if p.stats else 0 }}</strong> • Succès : <strong style="color: #34d399;">{{ p.stats.success_count if p.stats else 0 }}</strong>
+                    </div>
+                    <button type="button" onclick="testRouterProvider('{{ p.name }}')" id="testBtn_{{ p.name }}" class="btn btn-sm btn-secondary" style="width: 100%; font-size: 0.8rem; padding: 0.35rem 0.6rem;" {% if not p.is_configured %}title="Ajoutez la clé API dans .env pour tester ce provider"{% endif %}>
+                        ⚡ Tester connexion
                     </button>
+                    <div id="testResult_{{ p.name }}" style="margin-top: 0.5rem; font-size: 0.78rem; display: none;"></div>
                 </div>
-                <div id="aiTestResult" style="margin-top: 0.6rem; font-size: 0.85rem; display: none;"></div>
+                {% endfor %}
             </div>
 
-            <!-- Température -->
-            <div class="form-group" style="margin-bottom: 1.25rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                    <label for="ai_temperature" style="font-weight: 600;">Température de génération :</label>
-                    <span id="tempValueBadge" class="badge badge-neutral" style="font-family: monospace;">{{ preferences.ai_temperature }}</span>
+            <!-- Cascades de Routage & Cache -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem;">
+                
+                <!-- Cascades de repli -->
+                <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem 1.25rem;">
+                    <div style="font-size: 0.9rem; font-weight: 700; color: #e2e8f0; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
+                        <span>🔀</span> Cascades de Repli Automatique (Failover)
+                    </div>
+                    <div style="margin-bottom: 0.75rem;">
+                        <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.25rem;">🎯 <strong>job_scoring</strong> (Matching & Extraction) :</div>
+                        <div style="font-family: ui-monospace, monospace; font-size: 0.8rem; background: #0f172a; padding: 0.4rem 0.65rem; border-radius: 6px; border: 1px solid #334155; color: #38bdf8;">
+                            gemini ➔ groq ➔ openrouter
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.25rem;">📝 <strong>doc_content_generation</strong> (Dossier CV + Lettre) :</div>
+                        <div style="font-family: ui-monospace, monospace; font-size: 0.8rem; background: #0f172a; padding: 0.4rem 0.65rem; border-radius: 6px; border: 1px solid #334155; color: #a78bfa;">
+                            gemini ➔ mistral ➔ groq ➔ openrouter
+                        </div>
+                    </div>
                 </div>
-                <input type="range" id="ai_temperature" min="0" max="1" step="0.05" value="{{ preferences.ai_temperature }}" style="width: 100%; cursor: pointer;" oninput="document.getElementById('tempValueBadge').textContent = this.value">
-                <div class="text-muted" style="font-size: 0.75rem; margin-top: 0.3rem;">
-                    0.1 - 0.2 recommandé pour éviter toute hallucination lors du scoring et des dates de CV.
+
+                <!-- Cache SHA-256 -->
+                <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--card-border); border-radius: 8px; padding: 1rem 1.25rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: #e2e8f0; display: flex; align-items: center; gap: 0.4rem;">
+                            <span>⚡</span> Cache d'Idempotence SHA-256
+                        </div>
+                        <span id="cacheHitRateBadge" class="badge" style="background: rgba(16, 185, 129, 0.18); color: #34d399; font-weight: 700;">
+                            {{ router_overview.cache.hit_ratio_percent if router_overview and router_overview.cache else 0 }}% Hit Ratio
+                        </span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.85rem; font-size: 0.82rem;">
+                        <div style="background: #0f172a; padding: 0.5rem; border-radius: 6px; border: 1px solid #334155;">
+                            <span class="text-muted">Entrées en cache :</span><br>
+                            <strong id="cacheSizeVal" style="font-size: 1.05rem; color: #f8fafc;">{{ router_overview.cache.size if router_overview and router_overview.cache else 0 }}</strong>
+                        </div>
+                        <div style="background: #0f172a; padding: 0.5rem; border-radius: 6px; border: 1px solid #334155;">
+                            <span class="text-muted">Temps économisé :</span><br>
+                            <strong id="cacheSavedVal" style="font-size: 1.05rem; color: #fbbf24;">{{ router_overview.cache.total_saved_seconds if router_overview and router_overview.cache else 0 }}s</strong>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <button type="button" onclick="clearRouterCache()" class="btn btn-sm btn-secondary" style="font-size: 0.8rem; padding: 0.35rem 0.65rem;">
+                            🧹 Vider le cache
+                        </button>
+                        <button type="button" onclick="resetRouterStats()" class="btn btn-sm btn-secondary" style="font-size: 0.8rem; padding: 0.35rem 0.65rem;">
+                            🔄 Réinitialiser compteurs
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Paramètres de Modèle Principal & Consignes -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; border-top: 1px solid var(--card-border); padding-top: 1.25rem;">
+                <div>
+                    <div class="form-group" style="margin-bottom: 1.25rem;">
+                        <label for="ai_model" style="display: block; font-weight: 600; margin-bottom: 0.4rem;">
+                            Modèle principal :
+                        </label>
+                        <select id="ai_model" class="filter-select" style="font-size: 0.95rem;" onchange="toggleCustomModelInput()">
+                            {% for m in available_models %}
+                            <option value="{{ m.id }}" {% if preferences.ai_model == m.id %}selected{% endif %}>
+                                {{ m.name }} — {{ m.description }}
+                            </option>
+                            {% endfor %}
+                            <option value="custom" {% if preferences.ai_model not in ['gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro'] and preferences.ai_model %}selected{% endif %}>
+                                Autre modèle personnalisé (saisie libre)...
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="customModelGroup" style="display: none; margin-bottom: 1.25rem;">
+                        <label for="custom_ai_model" style="display: block; font-weight: 600; margin-bottom: 0.4rem; color: #cbd5e1;">
+                            Nom du modèle personnalisé :
+                        </label>
+                        <input type="text" id="custom_ai_model" class="filter-input" placeholder="ex: gemini-3.6-flash, gemini-flash-latest" value="{{ preferences.ai_model }}">
+                    </div>
+
+                    <!-- Température -->
+                    <div class="form-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                            <label for="ai_temperature" style="font-weight: 600;">Température de génération :</label>
+                            <span id="tempValueBadge" class="badge badge-neutral" style="font-family: monospace;">{{ preferences.ai_temperature }}</span>
+                        </div>
+                        <input type="range" id="ai_temperature" min="0" max="1" step="0.05" value="{{ preferences.ai_temperature }}" style="width: 100%; cursor: pointer;" oninput="document.getElementById('tempValueBadge').textContent = this.value">
+                        <div class="text-muted" style="font-size: 0.75rem; margin-top: 0.3rem;">
+                            0.1 - 0.2 recommandé pour éviter toute hallucination lors du scoring et des dates de CV.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Directives & consignes personnalisées -->
+                <div class="form-group">
+                    <label for="ai_custom_instructions" style="display: block; font-weight: 600; margin-bottom: 0.4rem;">
+                        Consignes & directives personnalisées pour l'IA :
+                    </label>
+                    <textarea id="ai_custom_instructions" rows="6" class="filter-input" style="font-family: inherit; resize: vertical;" placeholder="Exemple : Mettre systématiquement l'accent sur mon expertise en Cloud/Kubernetes et mon diplôme MIAGE. Adopter un ton direct, orienté résultat business et chiffré dans les lettres.">{{ preferences.ai_custom_instructions or '' }}</textarea>
+                    <div class="text-muted" style="font-size: 0.75rem; margin-top: 0.3rem;">
+                        Ces consignes sont automatiquement injectées dans les prompts de matching, de génération du CV et de la lettre de motivation.
+                    </div>
                 </div>
             </div>
 
-            <!-- Directives & consignes personnalisées -->
-            <div class="form-group">
-                <label for="ai_custom_instructions" style="display: block; font-weight: 600; margin-bottom: 0.4rem;">
-                    Consignes & directives personnalisées pour l'IA :
-                </label>
-                <textarea id="ai_custom_instructions" rows="4" class="filter-input" style="font-family: inherit; resize: vertical;" placeholder="Exemple : Mettre systématiquement l'accent sur mon expertise en Cloud/Kubernetes et mon diplôme MIAGE. Adopter un ton direct, orienté résultat business et chiffré dans les lettres.">{{ preferences.ai_custom_instructions or '' }}</textarea>
-                <div class="text-muted" style="font-size: 0.75rem; margin-top: 0.3rem;">
-                    Ces consignes sont automatiquement injectées dans les prompts de matching, de génération du CV et de la lettre de motivation.
-                </div>
-            </div>
         </div>
 
         <!-- SECTION 2 : BLACKLIST & FILTRES D'EXCLUSION -->
@@ -387,43 +466,78 @@ function toggleCustomModelInput() {
 function getSelectedAIModel() {
     const select = document.getElementById('ai_model');
     if (select.value === 'custom') {
-        return document.getElementById('custom_ai_model').value.trim() || 'gemini-3.5-flash';
+        return document.getElementById('custom_ai_model').value.trim() || 'gemini-3.6-flash';
     }
     return select.value;
 }
 
-async function testAIModel() {
-    const btn = document.getElementById('testAIBtn');
-    const resDiv = document.getElementById('aiTestResult');
-    const model = getSelectedAIModel();
+async function testRouterProvider(providerName) {
+    const btn = document.getElementById(`testBtn_${providerName}`);
+    const resDiv = document.getElementById(`testResult_${providerName}`);
+    if (!btn || !resDiv) return;
 
     btn.disabled = true;
-    btn.textContent = "⏳ Test en cours...";
+    btn.textContent = "⏳ Ping...";
     resDiv.style.display = "block";
     resDiv.style.color = "#38bdf8";
-    resDiv.textContent = `Envoi d'un ping à Gemini (${model})...`;
+    resDiv.textContent = `Test de ${providerName}...`;
 
     try {
-        const resp = await fetch('/api/settings/test-ai', {
+        const resp = await fetch('/api/settings/router/test', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ model: model })
+            body: JSON.stringify({ provider: providerName })
         });
         const data = await resp.json();
 
         if (resp.ok && data.success) {
             resDiv.style.color = "#34d399";
-            resDiv.innerHTML = `✅ <strong>Succès :</strong> Modèle <code>${data.model}</code> disponible (latence : ${data.response_time_ms} ms). Réponse : <em>${escapeHtml(data.output)}</em>`;
+            resDiv.innerHTML = `✅ <strong>OK :</strong> <code>${escapeHtml(data.model)}</code> (${data.response_time_ms} ms)`;
         } else {
             resDiv.style.color = "#f87171";
-            resDiv.innerHTML = `❌ <strong>Erreur :</strong> ${escapeHtml(data.error || "Impossible de joindre le modèle")}`;
+            resDiv.innerHTML = `❌ ${escapeHtml(data.error || "Erreur de connexion")}`;
         }
     } catch (e) {
         resDiv.style.color = "#f87171";
-        resDiv.innerHTML = `❌ <strong>Erreur réseau :</strong> ${escapeHtml(e.message)}`;
+        resDiv.innerHTML = `❌ Erreur: ${escapeHtml(e.message)}`;
     } finally {
         btn.disabled = false;
-        btn.textContent = "⚡ Tester la connexion";
+        btn.textContent = "⚡ Tester connexion";
+    }
+}
+
+async function clearRouterCache() {
+    if (!confirm("Voulez-vous vraiment vider tout le cache d'idempotence LLM SHA-256 ?")) return;
+    try {
+        const resp = await fetch('/api/settings/router/cache/clear', { method: 'POST' });
+        const data = await resp.json();
+        if (resp.ok) {
+            alert("✅ Cache vidé avec succès !");
+            const sizeVal = document.getElementById('cacheSizeVal');
+            const rateBadge = document.getElementById('cacheHitRateBadge');
+            if (sizeVal) sizeVal.textContent = "0";
+            if (rateBadge) rateBadge.textContent = "0% Hit Ratio";
+        } else {
+            alert("Erreur: " + (data.error || "Impossible de vider le cache"));
+        }
+    } catch (e) {
+        alert("Erreur réseau: " + e.message);
+    }
+}
+
+async function resetRouterStats() {
+    if (!confirm("Réinitialiser les compteurs d'appels, latence et erreurs des providers ?")) return;
+    try {
+        const resp = await fetch('/api/settings/router/stats/reset', { method: 'POST' });
+        const data = await resp.json();
+        if (resp.ok) {
+            alert("✅ Compteurs réinitialisés !");
+            location.reload();
+        } else {
+            alert("Erreur: " + (data.error || "Échec réinitialisation"));
+        }
+    } catch (e) {
+        alert("Erreur réseau: " + e.message);
     }
 }
 

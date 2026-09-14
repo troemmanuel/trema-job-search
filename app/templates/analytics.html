@@ -78,6 +78,66 @@
     </div>
 </div>
 
+<!-- SECTION OBSERVABILITÉ LLM ROUTER & QUOTAS -->
+<div class="card" style="margin-bottom: 1.5rem; padding: 1.25rem 1.5rem; background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95)); border: 1px solid rgba(59, 130, 246, 0.35);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div>
+            <h2 style="font-size: 1.15rem; margin: 0; display: flex; align-items: center; gap: 0.5rem; color: #f8fafc;">
+                <span>🤖</span> Observabilité LLM Router & Économies Quota
+            </h2>
+            <p style="margin: 0.2rem 0 0; color: #94a3b8; font-size: 0.82rem;">
+                Suivi multi-fournisseurs (Gemini, Groq, Mistral, OpenRouter) et gains d'idempotence SHA-256.
+            </p>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <a href="/logs" class="btn btn-sm btn-secondary" style="font-size: 0.8rem; font-weight: 600;">📜 Voir les logs en direct</a>
+            <a href="/settings" class="btn btn-sm btn-secondary" style="font-size: 0.8rem; font-weight: 600;">⚙️ Configurer</a>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem;">
+        <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid #334155; padding: 0.85rem 1rem; border-radius: 8px;">
+            <span style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Cache SHA-256</span>
+            <div style="font-size: 1.4rem; font-weight: 800; color: #34d399; margin-top: 0.2rem;">
+                {{ router_stats.cache.hit_ratio_percent if router_stats and router_stats.cache else 0 }}%
+            </div>
+            <div style="font-size: 0.75rem; color: #cbd5e1; margin-top: 0.15rem;">
+                ⚡ {{ router_stats.cache.hits if router_stats and router_stats.cache else 0 }} requêtes à 0.0s ({{ router_stats.cache.total_saved_seconds if router_stats and router_stats.cache else 0 }}s gagnées)
+            </div>
+        </div>
+
+        <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid #334155; padding: 0.85rem 1rem; border-radius: 8px;">
+            <span style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Gemini GenAI</span>
+            <div style="font-size: 1.4rem; font-weight: 800; color: #60a5fa; margin-top: 0.2rem;">
+                {{ router_stats.gemini.requests_count if router_stats and router_stats.gemini else 0 }}
+            </div>
+            <div style="font-size: 0.75rem; color: #cbd5e1; margin-top: 0.15rem;">
+                {{ router_stats.gemini.success_count if router_stats and router_stats.gemini else 0 }} succès • {{ router_stats.gemini.errors_count if router_stats and router_stats.gemini else 0 }} replis/erreurs
+            </div>
+        </div>
+
+        <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid #334155; padding: 0.85rem 1rem; border-radius: 8px;">
+            <span style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Groq (Failover 1)</span>
+            <div style="font-size: 1.4rem; font-weight: 800; color: #fbbf24; margin-top: 0.2rem;">
+                {{ router_stats.groq.requests_count if router_stats and router_stats.groq else 0 }}
+            </div>
+            <div style="font-size: 0.75rem; color: #cbd5e1; margin-top: 0.15rem;">
+                {{ router_stats.groq.success_count if router_stats and router_stats.groq else 0 }} succès • {{ router_stats.groq.errors_count if router_stats and router_stats.groq else 0 }} erreurs
+            </div>
+        </div>
+
+        <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid #334155; padding: 0.85rem 1rem; border-radius: 8px;">
+            <span style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Mistral / OpenRouter</span>
+            <div style="font-size: 1.4rem; font-weight: 800; color: #c084fc; margin-top: 0.2rem;">
+                {{ ((router_stats.mistral.requests_count if router_stats and router_stats.mistral else 0) + (router_stats.openrouter.requests_count if router_stats and router_stats.openrouter else 0)) }}
+            </div>
+            <div style="font-size: 0.75rem; color: #cbd5e1; margin-top: 0.15rem;">
+                Cascade de secours activable
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 2. ENTONNOIR DE CONVERSION VISUEL (FUNNEL) -->
 <div class="card" style="margin-bottom: 1.5rem; padding: 1.5rem;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
