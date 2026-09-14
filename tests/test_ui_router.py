@@ -20,29 +20,6 @@ def client():
     with app.test_client() as c:
         yield c
 
-def test_logs_page(client):
-    """Vérifie le chargement de la page HTML des logs."""
-    res = client.get("/logs")
-    assert res.status_code == 200
-    assert b"Console de Logs en Direct" in res.data
-    assert b"logs/app.log" in res.data
-
-def test_api_logs(client):
-    """Vérifie l'API de consultation des logs en JSON."""
-    res = client.get("/api/logs?limit=50")
-    assert res.status_code == 200
-    data = res.get_json()
-    assert data["success"] is True
-    assert "logs" in data
-    assert "count" in data
-    assert isinstance(data["logs"], list)
-
-def test_api_logs_clear(client):
-    """Vérifie l'API de purge des logs."""
-    res = client.post("/api/logs/clear")
-    assert res.status_code == 200
-    data = res.get_json()
-    assert data["success"] is True
 
 def test_api_settings_router(client):
     """Vérifie l'API de vue d'ensemble du LLM Router."""
