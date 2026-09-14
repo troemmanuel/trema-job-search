@@ -114,8 +114,8 @@ class LLMRouter:
         """Retourne un état complet du routeur pour l'interface d'administration."""
         provider_models = {
             "gemini": ["gemini-3.6-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"],
-            "groq": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "openai/gpt-oss-120b"],
-            "mistral": ["mistral-small-latest", "mistral-large-latest", "open-mistral-nemo"],
+            "groq": ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"],
+            "mistral": ["ministral-8b-latest", "ministral-14b-latest", "codestral-latest", "mistral-small-latest"],
             "openrouter": ["meta-llama/llama-3.3-70b-instruct", "google/gemini-2.0-flash-001", "mistralai/mistral-small-24b-instruct-2501"],
         }
         providers_info = []

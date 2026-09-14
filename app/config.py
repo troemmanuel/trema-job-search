@@ -24,7 +24,7 @@ class Config:
 
     # Mistral
     MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
-    MISTRAL_MODEL = os.getenv("MISTRAL_MODEL", "mistral-small-latest")
+    MISTRAL_MODEL = os.getenv("MISTRAL_MODEL", "ministral-8b-latest")
 
     # OpenRouter
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")

@@ -15,9 +15,21 @@ class GroqProvider(BaseLLMProvider):
 
     name: str = "groq"
     API_URL: str = "https://api.groq.com/openai/v1/chat/completions"
+    DEFAULT_MODEL: str = "openai/gpt-oss-120b"
+    CANDIDATE_MODELS: list = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
 
-    def __init__(self, api_key: Optional[str] = None, default_model: Optional[str] = "llama-3.3-70b-versatile"):
-        super().__init__(api_key=api_key, default_model=default_model or "llama-3.3-70b-versatile")
+    MODEL_ALIASES: dict = {
+        "llama-3.3-70b-versatile": "openai/gpt-oss-120b",
+        "llama-3.1-8b-instant": "openai/gpt-oss-20b",
+        "llama-3.1-70b-versatile": "openai/gpt-oss-120b",
+        "llama3-70b-8192": "openai/gpt-oss-120b",
+        "llama3-8b-8192": "openai/gpt-oss-20b",
+    }
+
+    def __init__(self, api_key: Optional[str] = None, default_model: Optional[str] = None):
+        model = default_model or self.DEFAULT_MODEL
+        model = self.MODEL_ALIASES.get(model, model)
+        super().__init__(api_key=api_key, default_model=model)
 
     def generate(
         self,
@@ -30,7 +42,8 @@ class GroqProvider(BaseLLMProvider):
         if not self.is_configured():
             raise LLMProviderError(self.name, "GROQ_API_KEY non configurée", status_code=401)
 
-        target_model = model or self.default_model or "llama-3.3-70b-versatile"
+        raw_target = model or self.default_model or self.DEFAULT_MODEL
+        target_model = self.MODEL_ALIASES.get(raw_target, raw_target)
 
         # Construction des messages
         messages = []
@@ -44,33 +57,56 @@ class GroqProvider(BaseLLMProvider):
             messages.append({"role": "system", "content": sys_content})
         messages.append({"role": "user", "content": prompt})
 
-        payload: Dict[str, Any] = {
-            "model": target_model,
-            "messages": messages,
-            "temperature": temperature,
-        }
-        if response_schema:
-            payload["response_format"] = {"type": "json_object"}
-
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
 
-        def _do_call():
-            start_t = time.time()
-            with httpx.Client(timeout=35.0) as client:
-                res = client.post(self.API_URL, headers=headers, json=payload)
-                elapsed = time.time() - start_t
+        # Modèles à essayer (modèle cible puis candidats de secours)
+        models_to_try = [target_model] + [m for m in self.CANDIDATE_MODELS if m != target_model]
+        last_error = None
+        data = None
+        latency = 0.0
+        effective_model = target_model
 
-                if res.status_code == 429:
-                    raise LLMProviderError(self.name, f"Rate limit / Quota dépassé (429): {res.text}", status_code=429, is_rate_limit=True)
-                if res.status_code >= 400:
-                    raise LLMProviderError(self.name, f"Erreur API ({res.status_code}): {res.text}", status_code=res.status_code)
+        for current_model in models_to_try:
+            effective_model = current_model
+            payload: Dict[str, Any] = {
+                "model": current_model,
+                "messages": messages,
+                "temperature": temperature,
+            }
+            if response_schema:
+                payload["response_format"] = {"type": "json_object"}
 
-                return res.json(), elapsed
+            def _do_call():
+                start_t = time.time()
+                with httpx.Client(timeout=35.0) as client:
+                    res = client.post(self.API_URL, headers=headers, json=payload)
+                    elapsed = time.time() - start_t
 
-        data, latency = self.execute_with_retry(_do_call)
+                    if res.status_code == 429:
+                        raise LLMProviderError(self.name, f"Rate limit / Quota dépassé (429): {res.text}", status_code=429, is_rate_limit=True)
+                    if res.status_code == 404:
+                        # Modèle non trouvé : on lèvera pour tenter le candidat suivant
+                        raise LLMProviderError(self.name, f"Modèle indisponible ({res.status_code}): {res.text}", status_code=404)
+                    if res.status_code >= 400:
+                        raise LLMProviderError(self.name, f"Erreur API ({res.status_code}): {res.text}", status_code=res.status_code)
+
+                    return res.json(), elapsed
+
+            try:
+                data, latency = self.execute_with_retry(_do_call)
+                break
+            except LLMProviderError as pe:
+                last_error = pe
+                if pe.status_code == 404 and current_model != models_to_try[-1]:
+                    logger.warning(f"[GroqProvider] Modèle '{current_model}' non trouvé (404). Essai du modèle alternatif...")
+                    continue
+                raise
+
+        if not data and last_error:
+            raise last_error
 
         try:
             raw_text = data["choices"][0]["message"]["content"]
@@ -89,7 +125,7 @@ class GroqProvider(BaseLLMProvider):
         return LLMResult(
             data=parsed_data,
             provider=self.name,
-            model=target_model,
+            model=effective_model,
             latency=round(latency, 3),
             tokens=tokens,
             fallback_used=False

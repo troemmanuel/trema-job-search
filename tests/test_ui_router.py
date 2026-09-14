@@ -43,7 +43,7 @@ def test_api_settings_router_test_provider(client):
         mock_gen.return_value = LLMResult(
             data={"status": "OK"},
             provider="groq",
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-120b",
             latency=0.15,
             tokens=5
         )
@@ -53,7 +53,7 @@ def test_api_settings_router_test_provider(client):
             data = res.get_json()
             assert data["success"] is True
             assert data["provider"] == "groq"
-            assert data["model"] == "llama-3.3-70b-versatile"
+            assert data["model"] == "openai/gpt-oss-120b"
 
 def test_api_settings_router_cache_clear(client):
     """Vérifie l'API de vidage du cache LLM."""
