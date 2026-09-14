@@ -15,8 +15,8 @@ class AnswerGeneratorService:
     def generate(self, profile: CandidateProfile, job_data: JobNormalizedData, application_id: Optional[str] = None) -> Optional[ApplicationAnswers]:
         system_instruction, user_prompt = prompt_loader.load_and_render(
             "answer_generation",
-            candidate_profile=profile.model_dump_json(indent=2),
-            job_data=job_data.model_dump_json(indent=2)
+            candidate_profile=profile.model_dump_json(),
+            job_data=job_data.model_dump_json()
         )
         return self.ai_service.generate_structured(
             prompt=user_prompt,

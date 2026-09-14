@@ -362,3 +362,115 @@ def test_collector_enriches_incomplete_existing_job(monkeypatch):
     updated.clear()
     full = {"id": "job_2", "title": "Lead Dev", "company": "Beta"}
     assert JobCollectorService._enrich_incomplete_job(full, scraped) is full and not updated
+
+
+def test_collector_skips_matching_and_reuses_existing_score(monkeypatch):
+    """Vérifie qu'un doublon déjà évalué ne rappelle pas le service Gemini de matching."""
+    from app.services.ingestion.collector import JobCollectorService
+    from app.services.ingestion.scraper import job_scraper
+    from app.services.ingestion.importer import job_importer
+    from app.services.ai.matcher import matcher_service
+    from app.services.storage import supabase_service
+
+    collector = JobCollectorService()
+
+    # Mock scraping & import retournant un doublon déjà scoré
+    scraped = {
+        "title": "Ingénieur Backend Python",
+        "company": "FastTech",
+        "location": "Paris",
+        "url": "https://example.com/job-duplicate",
+        "description": "Python, FastAPI"
+    }
+    monkeypatch.setattr(job_scraper, "scrape", lambda url: scraped)
+    monkeypatch.setattr(job_importer, "import_job", lambda p: {
+        "status": "DUPLICATE",
+        "job": {
+            "id": "job_duplicate_1",
+            "title": "Ingénieur Backend Python",
+            "company": "FastTech",
+            "match_score": 85,
+            "match_level": "RECOMMENDED",
+            "match_analysis": {"score": 85, "level": "RECOMMENDED", "strengths": ["Python"]},
+            "url": "https://example.com/job-duplicate"
+        }
+    })
+
+    # Mock profil candidat
+    mock_profile = {
+        "id": "cand_1",
+        "profile": {
+            "name": "Test Candidate",
+            "personal": {
+                "first_name": "Test",
+                "last_name": "Candidate",
+                "email": "test@example.com",
+                "location": "Paris"
+            },
+            "summary": "Backend engineer",
+            "experiences": [],
+            "skills": {"technical": ["Python"]}
+        },
+        "preferences": {"match_threshold_recommended": 75, "auto_prepare_documents": False}
+    }
+    monkeypatch.setattr(supabase_service, "get_active_candidate_profile", lambda: mock_profile)
+    monkeypatch.setattr(type(supabase_service), "client", property(lambda self: None))
+
+    # Vérifier que matcher_service.match n'est PAS appelé
+    matcher_called = []
+    monkeypatch.setattr(matcher_service, "match", lambda p, j: matcher_called.append(True))
+
+    res = collector.import_and_process_url("https://example.com/job-duplicate", auto_prepare=False)
+
+    assert res["success"] is True
+    assert res["score"] == 85
+    assert len(matcher_called) == 0, "matcher_service.match ne doit pas être appelé pour un doublon déjà scoré"
+
+
+def test_collector_run_collection_skips_scraping_for_duplicates(monkeypatch):
+    """Vérifie que run_collection ignore le scraping pour les offres déjà présentes en base."""
+    from app.services.ingestion.collector import JobCollectorService
+    from app.services.ingestion.scraper import job_scraper
+    from app.services.ingestion.deduplicator import deduplicator
+    from app.services.storage import supabase_service
+
+    collector = JobCollectorService()
+
+    fake_hits = [
+        {"url": "https://wttj.com/already-imported", "title": "Dev Python", "company": "GoodCorp", "published_at": "2026-09-12T10:00:00Z", "source": "WTTJ", "source_job_id": "job_1"}
+    ]
+    monkeypatch.setattr(collector, "search_wttj_recent_jobs", lambda **k: fake_hits)
+
+    # Profil candidat
+    mock_profile = {
+        "id": "cand_1",
+        "profile": {
+            "name": "Test Candidate",
+            "personal": {"first_name": "Test", "last_name": "Candidate", "email": "test@example.com", "location": "Paris"},
+            "summary": "Backend",
+            "experiences": [],
+            "skills": {"technical": ["Python"]}
+        },
+        "preferences": {
+            "target_titles": ["Dev Python"],
+            "contract_types": ["CDI"],
+            "match_threshold_recommended": 75,
+            "auto_prepare_documents": False
+        }
+    }
+    monkeypatch.setattr(supabase_service, "get_active_candidate_profile", lambda: mock_profile)
+    monkeypatch.setattr(type(supabase_service), "client", property(lambda self: None))
+
+    # Simuler que l'offre est un doublon
+    monkeypatch.setattr(deduplicator, "is_duplicate", lambda source, source_job_id, url: True)
+
+    # Vérifier que scrape n'est JAMAIS appelé
+    scrape_called = []
+    monkeypatch.setattr(job_scraper, "scrape", lambda url: scrape_called.append(url))
+
+    summary = collector.run_collection(duration="24h", limit=5)
+
+    assert summary["processed_count"] == 1
+    assert summary["new_imported_count"] == 0
+    assert summary["jobs"][0]["status"] == "DUPLICATE_OR_EXISTING"
+    assert len(scrape_called) == 0, "job_scraper.scrape ne doit pas être appelé pour une offre déjà existante"

@@ -21,8 +21,8 @@ class CVGeneratorService:
         system_instruction, user_prompt = prompt_loader.load_and_render(
             "cv_generation",
             job_id=job_id,
-            candidate_profile=profile.model_dump_json(indent=2),
-            job_data=job_data.model_dump_json(indent=2)
+            candidate_profile=profile.model_dump_json(),
+            job_data=job_data.model_dump_json()
         )
 
         lang_label = "anglais (English)" if job_lang == "en" else "français"

@@ -12,27 +12,27 @@ settings_bp = Blueprint("settings", __name__)
 
 AVAILABLE_AI_MODELS = [
     {
-        "id": "gemini-3.5-flash",
-        "name": "Gemini 3.5 Flash",
-        "description": "Modèle ultra-rapide par défaut, idéal pour le tri et le matching intensif",
+        "id": "gemini-2.5-flash",
+        "name": "Gemini 2.5 Flash",
+        "description": "Modèle rapide et équilibré par défaut, idéal pour le tri, matching et rédaction",
         "recommended": True
     },
     {
-        "id": "gemini-2.5-flash",
-        "name": "Gemini 2.5 Flash",
-        "description": "Très rapide, équilibré pour l'extraction et l'analyse de CV",
-        "recommended": False
-    },
-    {
-        "id": "gemini-2.5-pro",
-        "name": "Gemini 2.5 Pro",
-        "description": "Raisonnement avancé, excellent pour les lettres de motivation orales de haut niveau",
+        "id": "gemini-2.0-flash",
+        "name": "Gemini 2.0 Flash",
+        "description": "Très rapide avec excellente compréhension structurée",
         "recommended": False
     },
     {
         "id": "gemini-2.5-flash-lite",
         "name": "Gemini 2.5 Flash Lite",
-        "description": "Ultra léger et très économe en quota",
+        "description": "Ultra léger, rapide et très économe en quota",
+        "recommended": False
+    },
+    {
+        "id": "gemini-2.5-pro",
+        "name": "Gemini 2.5 Pro",
+        "description": "Raisonnement avancé, excellent pour les lettres de motivation ciblées",
         "recommended": False
     }
 ]

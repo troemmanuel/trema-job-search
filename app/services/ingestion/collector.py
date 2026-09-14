@@ -347,6 +347,14 @@ class JobCollectorService:
                     summary["jobs"].append(job_detail_summary)
                     continue
 
+            # Étape A0 bis: Déduplication en amont avant scraping (économie de requêtes et de scraping)
+            from app.services.ingestion.deduplicator import deduplicator
+            if deduplicator.is_duplicate(item.get("source", "WTTJ"), item.get("source_job_id"), job_url):
+                logger.info(f"Offre déjà présente en base (ignorée avant scrape) : {company} - {job_title}")
+                job_detail_summary["status"] = "DUPLICATE_OR_EXISTING"
+                summary["jobs"].append(job_detail_summary)
+                continue
+
             try:
                 # Étape A: Scrape complet de l'offre
                 scraped = job_scraper.scrape(job_url)
@@ -421,11 +429,8 @@ class JobCollectorService:
                                         job_data=job_normalized,
                                         application_id=app_id
                                     )
-                                    answers = answer_generator_service.generate(
-                                        profile=candidate_profile,
-                                        job_data=job_normalized,
-                                        application_id=app_id
-                                    )
+                                    # Économie de quota : les réponses aux questions d'entretien sont générées à la demande dans l'interface
+                                    answers = None
 
                                     # Render & Save PDFs
                                     cv_url = None
@@ -648,10 +653,23 @@ class JobCollectorService:
                 }
 
         # 4. Matching IA
-        match_res = matcher_service.match(candidate_profile, job_normalized)
-        score = match_res.score if match_res else 0
-        level = match_res.level if match_res else "REJECTED"
-        qualified = score >= min_match_score
+        match_res = None
+        if import_result.get("status") == "DUPLICATE" and job.get("match_score") is not None:
+            score = job.get("match_score")
+            level = job.get("match_level") or "REVIEW"
+            if job.get("match_analysis"):
+                try:
+                    from app.schemas.match import MatchResult
+                    match_res = MatchResult.model_validate(job.get("match_analysis"))
+                except Exception:
+                    pass
+            qualified = score >= min_match_score
+            logger.info(f"Offre déjà évaluée précédemment (score={score}), matching Gemini ignoré.")
+        else:
+            match_res = matcher_service.match(candidate_profile, job_normalized)
+            score = match_res.score if match_res else 0
+            level = match_res.level if match_res else "REJECTED"
+            qualified = score >= min_match_score
 
         if supabase_service.client and job.get("id"):
             try:
@@ -682,10 +700,12 @@ class JobCollectorService:
             try:
                 # Créer ou récupérer l'application
                 app_id = f"simulated_app_{job_id}"
+                existing_app_data = None
                 if supabase_service.client and job.get("id"):
                     existing_app = supabase_service.client.table("applications").select("*").eq("job_id", job["id"]).execute()
                     if existing_app.data:
-                        app_id = existing_app.data[0]["id"]
+                        existing_app_data = existing_app.data[0]
+                        app_id = existing_app_data["id"]
                     else:
                         res_app = supabase_service.client.table("applications").insert({
                             "job_id": job["id"],
@@ -695,23 +715,33 @@ class JobCollectorService:
                         }).execute()
                         app_id = res_app.data[0]["id"]
 
-                # Génération des livrables IA
-                tailored_cv = cv_generator_service.generate(
-                    job_id=job_id,
-                    profile=candidate_profile,
-                    job_data=job_normalized,
-                    application_id=app_id
-                )
-                cover_letter = letter_generator_service.generate(
-                    profile=candidate_profile,
-                    job_data=job_normalized,
-                    application_id=app_id
-                )
-                answers = answer_generator_service.generate(
-                    profile=candidate_profile,
-                    job_data=job_normalized,
-                    application_id=app_id
-                )
+                # Récupération ou génération des livrables IA
+                tailored_cv = None
+                cover_letter = None
+                if existing_app_data and existing_app_data.get("tailored_cv") and existing_app_data.get("cover_letter"):
+                    try:
+                        from app.schemas.application import TailoredCV, CoverLetter
+                        tailored_cv = TailoredCV.model_validate(existing_app_data["tailored_cv"])
+                        cover_letter = CoverLetter(content=existing_app_data["cover_letter"])
+                        logger.info(f"Candidature {app_id} déjà préparée précédemment, réutilisation sans rappel Gemini.")
+                    except Exception:
+                        pass
+
+                if not tailored_cv:
+                    tailored_cv = cv_generator_service.generate(
+                        job_id=job_id,
+                        profile=candidate_profile,
+                        job_data=job_normalized,
+                        application_id=app_id
+                    )
+                if not cover_letter:
+                    cover_letter = letter_generator_service.generate(
+                        profile=candidate_profile,
+                        job_data=job_normalized,
+                        application_id=app_id
+                    )
+                # Économie de quota : les réponses aux questions d'entretien sont générées à la demande
+                answers = None
 
                 # Rendu et stockage PDF avec nommage standardisé
                 cv_url = None

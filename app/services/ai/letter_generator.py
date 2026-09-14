@@ -21,8 +21,8 @@ class LetterGeneratorService:
         system_instruction, user_prompt = prompt_loader.load_and_render(
             "letter_generation",
             letter_type=letter_type,
-            candidate_profile=profile.model_dump_json(indent=2),
-            job_data=job_data.model_dump_json(indent=2)
+            candidate_profile=profile.model_dump_json(),
+            job_data=job_data.model_dump_json()
         )
         if profile.preferences and getattr(profile.preferences, "ai_custom_instructions", None):
             system_instruction += f"\n\nDirectives spécifiques et ton souhaité par le candidat :\n{profile.preferences.ai_custom_instructions}"

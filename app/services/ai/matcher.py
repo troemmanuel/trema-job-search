@@ -15,8 +15,8 @@ class MatcherService:
     def match(self, profile: CandidateProfile, job_data: JobNormalizedData) -> Optional[MatchResult]:
         system_instruction, user_prompt = prompt_loader.load_and_render(
             "matching",
-            candidate_profile=profile.model_dump_json(indent=2),
-            job_data=job_data.model_dump_json(indent=2)
+            candidate_profile=profile.model_dump_json(),
+            job_data=job_data.model_dump_json()
         )
         if profile.preferences and getattr(profile.preferences, "ai_custom_instructions", None):
             system_instruction += f"\n\nDirectives spécifiques et priorités du candidat :\n{profile.preferences.ai_custom_instructions}"

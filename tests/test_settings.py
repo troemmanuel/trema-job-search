@@ -102,8 +102,8 @@ def test_filters_is_esn():
 
 def test_test_ai_endpoint(client):
     """Vérifie l'endpoint POST /api/settings/test-ai."""
-    with patch.object(gemini_service, "test_connection", return_value={"success": True, "model": "gemini-3.5-flash", "response_time_ms": 120, "output": "OK"}):
-        res = client.post("/api/settings/test-ai", json={"model": "gemini-3.5-flash"})
+    with patch.object(gemini_service, "test_connection", return_value={"success": True, "model": "gemini-2.5-flash", "response_time_ms": 120, "output": "OK"}):
+        res = client.post("/api/settings/test-ai", json={"model": "gemini-2.5-flash"})
         assert res.status_code == 200
         data = res.get_json()
         assert data["success"] is True
