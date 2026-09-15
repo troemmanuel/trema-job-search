@@ -4284,9 +4284,26 @@
       },
       "UpdateStatusResponse": {
         "properties": {
+          "applied_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applied At"
+          },
           "message": {
             "title": "Message",
             "type": "string"
+          },
+          "notion_synced": {
+            "default": false,
+            "description": "Vrai si la fiche Notion liée a été mise à jour dans la foulée",
+            "title": "Notion Synced",
+            "type": "boolean"
           },
           "status": {
             "enum": [

@@ -33,7 +33,6 @@ class DailySchedulerService:
         self._stop_event = threading.Event()
         self._reschedule_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
-        self._app = None
         self._lock = threading.Lock()
         
         # Charger ou initialiser l'état
@@ -99,11 +98,8 @@ class DailySchedulerService:
             self._reschedule_event.set()
             return dict(self.state)
 
-    def start(self, app=None) -> None:
+    def start(self) -> None:
         """Démarre le thread d'arrière-plan du planificateur."""
-        if app:
-            self._app = app
-
         if self._thread and self._thread.is_alive():
             logger.info("Le DailySchedulerService est déjà en cours d'exécution.")
             return
@@ -122,9 +118,8 @@ class DailySchedulerService:
             self._thread.join(timeout=3.0)
         logger.info("DailySchedulerService arrêté.")
 
-    def trigger_now(self, app=None) -> bool:
+    def trigger_now(self) -> bool:
         """Déclenche immédiatement une exécution de la collecte en arrière-plan."""
-        active_app = app or self._app
         with self._lock:
             if self.state.get("is_running_job"):
                 logger.warning("Une collecte est déjà en cours d'exécution.")
@@ -135,32 +130,23 @@ class DailySchedulerService:
         # Lancement dans un thread séparé pour ne pas bloquer
         run_thread = threading.Thread(
             target=self._execute_job_wrapper,
-            args=(active_app,),
             daemon=True,
             name="ManualTriggerJobThread"
         )
         run_thread.start()
         return True
 
-    def _execute_job_wrapper(self, app) -> None:
-        """Exécute la collecte avec contexte applicatif Flask et met à jour le statut."""
+    def _execute_job_wrapper(self) -> None:
+        """Exécute la collecte quotidienne et met à jour le statut."""
         logger.info("Début de l'exécution automatique de la collecte quotidienne...")
         start_iso = datetime.now().isoformat()
         try:
             from app.services.ingestion.collector import job_collector_service
-            if app:
-                with app.app_context():
-                    result = job_collector_service.run_collection(
-                        duration="24h",
-                        limit=10,
-                        auto_prepare=None
-                    )
-            else:
-                result = job_collector_service.run_collection(
-                    duration="24h",
-                    limit=10,
-                    auto_prepare=None
-                )
+            result = job_collector_service.run_collection(
+                duration="24h",
+                limit=10,
+                auto_prepare=None
+            )
 
             # Réconciliation bidirectionnelle Notion ↔ Supabase
             reconcile_report = None
@@ -248,6 +234,6 @@ class DailySchedulerService:
 
             # Heure atteinte : lancer le job automatique
             logger.info("Heure planifiée atteinte ! Lancement de la collecte automatique des dernières 24h...")
-            self._execute_job_wrapper(self._app)
+            self._execute_job_wrapper()
 
 daily_scheduler_service = DailySchedulerService()

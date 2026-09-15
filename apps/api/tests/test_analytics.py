@@ -1,20 +1,4 @@
-import pytest
-from unittest.mock import MagicMock
-from app import create_app
-from app.config import Config
 from app.services.analytics import AnalyticsService
-
-class TestConfig(Config):
-    TESTING = True
-    DEBUG = False
-    SUPABASE_URL = ""
-    SUPABASE_KEY = ""
-
-@pytest.fixture
-def client():
-    app = create_app(TestConfig)
-    with app.test_client() as client:
-        yield client
 
 def test_analytics_service_empty_data(monkeypatch):
     service = AnalyticsService()
@@ -119,55 +103,34 @@ def test_analytics_service_geography_and_workplace(monkeypatch):
     assert wp["Présentiel"] == 1
 
 def test_api_analytics_stats_endpoint(client, monkeypatch):
+    """L'endpoint sérialise la sortie réelle du service à travers le response_model (contrat OpenAPI)."""
     from app.services.analytics import analytics_service
 
-    mock_analytics = {
-        "period": "all",
-        "total_jobs": 5,
-        "total_applications": 2,
-        "kpis": {"total_jobs": 5, "avg_match_score": 82.5},
-        "funnel": {
-            "counts": {"detected": 5, "qualified": 4, "prepared": 2, "applied": 2, "interview": 1, "offer": 0, "rejected": 0},
-            "rates": {"qualification_rate": 80.0, "interview_rate": 50.0, "global_conversion_rate": 20.0}
-        },
-        "tech_performance": [],
-        "geography": {},
-        "workplace": {},
-        "company_types": {},
-        "timeline": {"labels": [], "jobs_series": [], "applications_series": []}
-    }
-    monkeypatch.setattr(analytics_service, "get_analytics", lambda period="all": mock_analytics)
+    mock_jobs = [
+        {"id": f"job_{i}", "match_score": 85 if i < 8 else 60, "status": "QUALIFIED" if i < 8 else "REVIEW",
+         "location": "Paris", "normalized_data": {"skills": ["Python"], "remote": False}, "created_at": "2026-09-10T10:00:00+00:00",
+         "match_analysis": {"recommendation": "APPLY" if i < 8 else "REVIEW", "company_type": "Grand groupe"}}
+        for i in range(10)
+    ]
+    mock_apps = [
+        {"id": "app_1", "job_id": "job_0", "status": "PREPARED", "created_at": "2026-09-11T10:00:00+00:00"},
+        {"id": "app_2", "job_id": "job_1", "status": "APPLIED", "created_at": "2026-09-11T10:00:00+00:00"},
+    ]
+    monkeypatch.setattr(analytics_service, "_fetch_raw_data", lambda: (mock_jobs, mock_apps))
 
-    res = client.get("/api/analytics/stats")
+    res = client.get("/api/v1/analytics/stats")
     assert res.status_code == 200
-    data = res.get_json()
+    data = res.json()
     assert data["success"] is True
-    assert data["total_jobs"] == 5
-    assert data["funnel"]["counts"]["qualified"] == 4
+    assert data["period"] == "all"
+    assert data["total_jobs"] == 10
+    assert data["funnel"]["counts"]["qualified"] == 8
+    assert data["funnel"]["rates"]["qualification_rate"] == 80.0
+    assert data["kpis"]["recommendations"]["APPLY"] == 8
+    assert isinstance(data["timeline"]["labels"], list)
+    assert "router_stats" in data
 
-def test_analytics_html_view(client, monkeypatch):
-    from app.services.analytics import analytics_service
 
-    mock_analytics = {
-        "period": "all",
-        "total_jobs": 2,
-        "total_applications": 1,
-        "kpis": {"total_jobs": 2, "total_applications": 1, "avg_match_score": 85.0},
-        "funnel": {
-            "counts": {"detected": 2, "qualified": 2, "prepared": 1, "applied": 1, "interview": 0, "offer": 0, "rejected": 0},
-            "rates": {"qualification_rate": 100.0, "preparation_rate": 50.0, "application_rate": 100.0, "interview_rate": 0.0, "offer_rate": 0.0, "global_conversion_rate": 0.0}
-        },
-        "tech_performance": [{"tech": "Go / Golang", "job_count": 1, "avg_score": 90.0, "applied_count": 1, "interview_count": 0}],
-        "geography": {"Paris & Île-de-France": 1},
-        "workplace": {"Hybride / Partiel": 1},
-        "company_types": {"Grand groupe": 1},
-        "timeline": {"labels": ["11/09"], "jobs_series": [1], "applications_series": [1]}
-    }
-    monkeypatch.setattr(analytics_service, "get_analytics", lambda period="all": mock_analytics)
-
-    res = client.get("/analytics")
-    assert res.status_code == 200
-    html = res.get_data(as_text=True)
-    assert "Entonnoir de Conversion" in html
-    assert "Performance par Technologie" in html
-    assert "Go / Golang" in html
+def test_api_analytics_stats_period_validation(client):
+    assert client.get("/api/v1/analytics/stats?period=7d").status_code == 200
+    assert client.get("/api/v1/analytics/stats?period=90d").status_code == 422

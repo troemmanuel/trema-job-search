@@ -1,162 +1,183 @@
-import pytest
-from app import create_app
-from app.config import Config
+"""Routes v1 : offres, candidatures et profil candidat (avec base en mémoire pour les écritures)."""
+import uuid
 
-class TestConfig(Config):
-    TESTING = True
-    DEBUG = False
-    SUPABASE_URL = ""
-    SUPABASE_KEY = ""
+JOB_ID = "11111111-1111-1111-1111-111111111111"
+APP_ID = "22222222-2222-2222-2222-222222222222"
 
-@pytest.fixture
-def client():
-    app = create_app(TestConfig)
-    with app.test_client() as client:
-        yield client
 
-def test_jobs_api_and_pages(client):
-    # Test GET /api/jobs
-    res = client.get("/api/jobs")
+def _job(**overrides):
+    job = {"id": JOB_ID, "source": "WTTJ", "title": "Product Owner", "company": "Company A", "url": "https://example.com/jobs/1", "status": "QUALIFIED", "match_score": 82}
+    job.update(overrides)
+    return job
+
+
+# ---------------------------------------------------------------------------
+# Offres
+# ---------------------------------------------------------------------------
+
+def test_jobs_list_and_import_without_supabase(client):
+    res = client.get("/api/v1/jobs")
     assert res.status_code == 200
-    assert "jobs" in res.get_json()
+    assert res.json()["jobs"] == [] and res.json()["total"] == 0
 
-    # Test GET /jobs HTML page
-    res_page = client.get("/jobs")
-    assert res_page.status_code == 200
-    assert b"Offres" in res_page.data
-
-    # Test POST /api/jobs/import
     payload = {
         "source": "WTTJ",
         "source_job_id": "test-123",
         "title": "Product Owner",
         "company": "Company A",
         "url": "https://example.com/jobs/test-123?utm_campaign=tracker",
-        "description": "Poste en CDI à Bordeaux, compétences Python et SQL requises."
+        "description": "Poste en CDI à Bordeaux, compétences Python et SQL requises.",
     }
-    res_import = client.post("/api/jobs/import", json=payload)
-    assert res_import.status_code in [200, 201]
-    data = res_import.get_json()
-    assert data["status"] in ["CREATED", "SIMULATED", "DUPLICATE"]
+    res_import = client.post("/api/v1/jobs/import", json=payload)
+    assert res_import.status_code == 200
+    data = res_import.json()
+    assert data["status"] == "SIMULATED"  # pas de base : l'offre est normalisée mais non persistée
+    assert data["job"]["title"] == "Product Owner"
+    assert data["job"]["normalized_data"]["contract_type"] == "CDI"
 
-def test_jobs_scrape_endpoint(client, monkeypatch):
-    # Test sans URL
-    res = client.post("/api/jobs/scrape", json={})
-    assert res.status_code == 400
+    # Corps invalide : 422 (source/title/url requis)
+    assert client.post("/api/v1/jobs/import", json={"title": "Sans source"}).status_code == 422
 
-    # Test avec mock scraper
-    mock_job_data = {
-        "source": "WTTJ",
-        "source_job_id": "scrape-123",
-        "title": "Ingénieur Backend Cloud",
-        "company": "Tech Corp",
-        "location": "Paris",
-        "contract_type": "CDI",
-        "url": "https://example.com/jobs/scrape-123",
-        "description": "Recherche dev backend python"
-    }
-    monkeypatch.setattr(
-        "app.services.ingestion.scraper.job_scraper.scrape",
-        lambda url: mock_job_data
-    )
-    res_scrape = client.post("/api/jobs/scrape", json={"url": "https://example.com/jobs/scrape-123", "auto_match": False})
-    assert res_scrape.status_code in [200, 201]
-    data = res_scrape.get_json()
-    assert data["job"]["title"] == "Ingénieur Backend Cloud"
 
-def test_jobs_collect_endpoint(client, monkeypatch):
-    mock_summary = {
-        "duration": "24h",
-        "query": "Backend",
-        "total_found": 3,
-        "processed_count": 3,
-        "new_imported_count": 2,
-        "qualified_count": 1,
-        "prepared_count": 1,
-        "notion_synced_count": 1,
-        "jobs": [
-            {
-                "title": "Backend Go Developer",
-                "company": "Acme",
-                "status": "PREPARED",
-                "match_score": 82,
-                "notion_page_id": "fake-page-id",
-                "notion_url": "https://app.notion.com/p/fake-page-id"
-            }
-        ]
-    }
-    monkeypatch.setattr(
-        "app.services.ingestion.collector.job_collector_service.run_collection",
-        lambda duration, query, limit, auto_prepare: mock_summary
-    )
+def test_job_detail_with_linked_application(client, fake_db):
+    fake_db["jobs"].append(_job())
+    fake_db["applications"].append({"id": APP_ID, "job_id": JOB_ID, "status": "PREPARED"})
 
-    res = client.post("/api/jobs/collect", json={"duration": "24h", "query": "Backend", "limit": 5})
+    res = client.get(f"/api/v1/jobs/{JOB_ID}")
     assert res.status_code == 200
-    data = res.get_json()
-    assert data["total_found"] == 3
-    assert data["qualified_count"] == 1
-    assert data["jobs"][0]["company"] == "Acme"
+    data = res.json()
+    assert data["title"] == "Product Owner"
+    assert data["application"]["id"] == APP_ID
+    assert data["application"]["status"] == "PREPARED"
+
+    assert client.get(f"/api/v1/jobs/{uuid.uuid4()}").status_code == 404
+    assert client.get("/api/v1/jobs/pas-un-uuid").status_code == 422
 
 
-def test_applications_api_and_pages(client):
-    # Test GET /api/applications
-    res = client.get("/api/applications")
+def test_job_match_requires_profile_and_ai(client, fake_db, monkeypatch):
+    from app.services.ai.matcher import matcher_service
+    from app.schemas.match import MatchDimensions, MatchResult
+
+    fake_db["jobs"].append(_job(normalized_data={"title": "Product Owner", "skills": ["Python"]}))
+    dims = MatchDimensions(title_match=90, skills_match=80, experience_match=85, seniority_match=80, location_match=70, salary_match=60)
+    monkeypatch.setattr(
+        matcher_service, "match", lambda profile, job: MatchResult(score=84, level="HIGH", dimensions=dims, recommendation="APPLY", matched_skills=["Python"])
+    )
+    res = client.post(f"/api/v1/jobs/{JOB_ID}/match")
     assert res.status_code == 200
-    assert "applications" in res.get_json()
+    assert res.json()["match"]["score"] == 84
+    assert fake_db["jobs"][0]["status"] == "QUALIFIED"
+    assert fake_db["jobs"][0]["match_score"] == 84
 
-    # Test GET /applications HTML page
-    res_page = client.get("/applications")
-    assert res_page.status_code == 200
-    assert b"Candidatures" in res_page.data
+    # Échec du LLM : 500 explicite
+    monkeypatch.setattr(matcher_service, "match", lambda profile, job: None)
+    assert client.post(f"/api/v1/jobs/{JOB_ID}/match").status_code == 500
 
-    # Test GET download with invalid type
-    res_down = client.get("/api/applications/non-existent-id/download/invalid")
-    assert res_down.status_code in [404, 503]
 
-def test_candidate_api_and_pages(client):
-    # Test GET /candidate HTML page
-    res_page = client.get("/candidate")
-    assert res_page.status_code == 200
-    assert b"Profil Ma" in res_page.data
+# ---------------------------------------------------------------------------
+# Candidatures
+# ---------------------------------------------------------------------------
 
-    # Test POST /api/candidate
-    candidate_data = {
-        "name": "Jean Dupont",
-        "personal": {
-            "first_name": "Jean",
-            "last_name": "Dupont",
-            "email": "jean.dupont@example.com"
-        },
-        "preferences": {
-            "target_titles": ["Product Manager"],
-            "locations": ["Bordeaux", "Paris"],
-            "remote": True
-        }
-    }
-    res_post = client.post("/api/candidate", json=candidate_data)
-    assert res_post.status_code == 200
-    assert "profile" in res_post.get_json()
+def test_applications_list_without_supabase(client):
+    res = client.get("/api/v1/applications")
+    assert res.status_code == 200
+    assert res.json()["applications"] == []
 
-def test_upload_markdown_cv_empty(client):
-    # Test avec contenu vide
-    res = client.post("/api/candidate/upload-md", data={})
-    assert res.status_code == 400
-    assert "error" in res.get_json()
 
-def test_upload_markdown_cv_with_mock(client, monkeypatch):
-    from app.schemas.candidate import CandidateProfile, PersonalInfo, CandidatePreferences
+def test_create_application_from_job_is_idempotent(client, fake_db):
+    fake_db["jobs"].append(_job())
+
+    res = client.post(f"/api/v1/applications/create-from-job/{JOB_ID}")
+    assert res.status_code == 200
+    assert res.json()["message"] == "Candidature créée"
+    created_id = res.json()["application_id"]
+    assert fake_db["applications"][0]["status"] == "QUALIFIED"
+    assert fake_db["applications"][0]["match_score"] == 82
+
+    res_again = client.post(f"/api/v1/applications/create-from-job/{JOB_ID}")
+    assert res_again.json()["message"] == "Candidature existante"
+    assert res_again.json()["application_id"] == created_id
+    assert len(fake_db["applications"]) == 1
+
+
+def test_application_detail_and_documents(client, fake_db):
+    fake_db["jobs"].append(_job())
+    fake_db["applications"].append({"id": APP_ID, "job_id": JOB_ID, "status": "QUALIFIED", "tailored_cv": None, "cover_letter": None})
+
+    res = client.get(f"/api/v1/applications/{APP_ID}")
+    assert res.status_code == 200
+    assert res.json()["jobs"]["company"] == "Company A"
+
+    # Documents non générés : 404 explicites ; type inconnu : 422
+    assert client.get(f"/api/v1/applications/{APP_ID}/documents/CV").status_code == 404
+    assert client.get(f"/api/v1/applications/{APP_ID}/documents/COVER_LETTER").status_code == 404
+    assert client.get(f"/api/v1/applications/{APP_ID}/documents/invalid").status_code == 422
+    assert client.get(f"/api/v1/applications/{uuid.uuid4()}/documents/CV").status_code == 404
+
+
+def test_application_pdf_generation(client, fake_db):
+    """La lettre est rendue en PDF (ReportLab) à partir du profil et du texte généré."""
+    fake_db["jobs"].append(_job())
+    fake_db["applications"].append({"id": APP_ID, "job_id": JOB_ID, "status": "PREPARED", "cover_letter": "Madame, Monsieur,\n\nJe candidate.\n\nCordialement", "prepared_at": "2026-09-15T10:00:00+00:00"})
+
+    res = client.get(f"/api/v1/applications/{APP_ID}/documents/COVER_LETTER")
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "application/pdf"
+    assert res.headers["content-disposition"].startswith("inline;")
+    assert res.content.startswith(b"%PDF")
+
+    res_dl = client.get(f"/api/v1/applications/{APP_ID}/documents/COVER_LETTER?download=true")
+    assert res_dl.headers["content-disposition"].startswith("attachment;")
+
+
+# ---------------------------------------------------------------------------
+# Profil candidat
+# ---------------------------------------------------------------------------
+
+def test_candidate_profile_roundtrip(client, fake_db):
+    res = client.get("/api/v1/candidate/profile")
+    assert res.status_code == 200
+    assert res.json()["profile"]["name"] == "John Doe"
+    assert res.json()["version"] == 1
+
+    profile = res.json()["profile"]
+    profile["title"] = "Lead Backend"
+    profile["experiences"] = [{"id": "exp_001", "company": "Acme", "role": "Dev", "start_date": "2024-01", "achievements": ["Livré X"], "skills": ["Python"]}]
+    res_put = client.put("/api/v1/candidate/profile", json={"profile": profile})
+    assert res_put.status_code == 200
+    saved = fake_db["candidate_profiles"][0]
+    assert saved["profile"]["title"] == "Lead Backend"
+    assert saved["profile"]["experiences"][0]["company"] == "Acme"
+    # Les préférences ne sont pas touchées quand elles ne sont pas envoyées
+    assert saved["preferences"]["excluded_companies"] == ["Thales"]
+
+    # Profil invalide (personal requis) : 422
+    assert client.put("/api/v1/candidate/profile", json={"profile": {"name": "X"}}).status_code == 422
+
+
+def test_candidate_profile_without_supabase(client):
+    assert client.get("/api/v1/candidate/profile").status_code == 503
+
+
+def test_transcribe_markdown_cv(client, fake_db, monkeypatch):
+    from app.schemas.candidate import CandidatePreferences, CandidateProfile, PersonalInfo
+
     mock_profile = CandidateProfile(
         name="Jean Dupont",
         personal=PersonalInfo(first_name="Jean", last_name="Dupont", email="jean@example.com"),
-        preferences=CandidatePreferences(target_titles=["Product Manager"])
+        preferences=CandidatePreferences(target_titles=["Product Manager"]),
     )
-    # Mock transcriber
-    monkeypatch.setattr(
-        "app.services.ai.cv_transcriber.cv_transcriber_service.transcribe_markdown",
-        lambda md: mock_profile
-    )
-    res = client.post("/api/candidate/upload-md", json={"markdown": "# Jean Dupont\nProduct Manager"})
+    monkeypatch.setattr("app.services.ai.cv_transcriber.cv_transcriber_service.transcribe_markdown", lambda md: mock_profile)
+
+    assert client.post("/api/v1/candidate/transcribe", json={"markdown": ""}).status_code == 422
+
+    res = client.post("/api/v1/candidate/transcribe", json={"markdown": "# Jean Dupont\nProduct Manager"})
     assert res.status_code == 200
-    data = res.get_json()
-    assert "profile" in data
+    data = res.json()
     assert data["profile"]["name"] == "Jean Dupont"
+    assert data["profile"]["version"] == 2
+    # Les préférences existantes sont conservées, pas celles du CV transcrit
+    assert data["profile"]["preferences"]["excluded_companies"] == ["Thales"]
+
+    monkeypatch.setattr("app.services.ai.cv_transcriber.cv_transcriber_service.transcribe_markdown", lambda md: None)
+    assert client.post("/api/v1/candidate/transcribe", json={"markdown": "# Vide"}).status_code == 502

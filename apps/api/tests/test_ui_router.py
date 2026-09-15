@@ -1,87 +1,50 @@
-import pytest
-import os
-import json
-from unittest.mock import patch, MagicMock
-from app import create_app
-from app.config import Config
+"""Routeur LLM multi-fournisseurs : vue d'ensemble, test de provider, cache et statistiques."""
+from unittest.mock import patch
+
 from app.llm.schemas.router import LLMResult
 
-class TestConfig(Config):
-    TESTING = True
-    ENABLE_SCHEDULER = False
-    SUPABASE_URL = "https://mock.supabase.co"
-    SUPABASE_KEY = "mock-key"
-    GEMINI_API_KEY = "mock-gemini-key"
 
-@pytest.fixture
-def client():
-    app = create_app(TestConfig)
-    app.config["TESTING"] = True
-    with app.test_client() as c:
-        yield c
-
-
-def test_api_settings_router(client):
-    """Vérifie l'API de vue d'ensemble du LLM Router."""
-    res = client.get("/api/settings/router")
+def test_settings_exposes_router_overview(client):
+    """GET /settings embarque l'état complet du routeur (providers, cascade de repli, cache)."""
+    res = client.get("/api/v1/settings")
     assert res.status_code == 200
-    data = res.get_json()
+    overview = res.json()["router_overview"]
+    assert overview is not None
+    provider_names = [p["name"] for p in overview["providers"]]
+    for name in ("gemini", "groq", "mistral", "openrouter"):
+        assert name in provider_names
+    assert "job_scoring" in overview["routing_config"]
+    assert "hit_ratio_percent" in overview["cache"]
+
+
+def test_router_test_provider(client):
+    """POST /settings/router/test teste un provider avec son modèle par défaut."""
+    with patch("app.llm.providers.groq.GroqProvider.generate") as mock_gen, patch(
+        "app.llm.providers.groq.GroqProvider.is_configured", return_value=True
+    ):
+        mock_gen.return_value = LLMResult(data={"status": "OK"}, provider="groq", model="openai/gpt-oss-120b", latency=0.15, tokens=5)
+        res = client.post("/api/v1/settings/router/test", json={"provider": "groq"})
+    assert res.status_code == 200
+    data = res.json()
     assert data["success"] is True
-    assert "providers" in data
-    assert "routing_config" in data
-    assert "cache" in data
+    assert data["provider"] == "groq"
+    assert data["model"] == "openai/gpt-oss-120b"
 
-    provider_names = [p["name"] for p in data["providers"]]
-    assert "gemini" in provider_names
-    assert "groq" in provider_names
-    assert "mistral" in provider_names
-    assert "openrouter" in provider_names
 
-def test_api_settings_router_test_provider(client):
-    """Vérifie le test individuel d'un provider via l'API."""
-    with patch("app.llm.providers.groq.GroqProvider.generate") as mock_gen:
-        mock_gen.return_value = LLMResult(
-            data={"status": "OK"},
-            provider="groq",
-            model="openai/gpt-oss-120b",
-            latency=0.15,
-            tokens=5
-        )
-        with patch("app.llm.providers.groq.GroqProvider.is_configured", return_value=True):
-            res = client.post("/api/settings/router/test", json={"provider": "groq"})
-            assert res.status_code == 200
-            data = res.get_json()
-            assert data["success"] is True
-            assert data["provider"] == "groq"
-            assert data["model"] == "openai/gpt-oss-120b"
+def test_router_test_unknown_provider(client):
+    data = client.post("/api/v1/settings/router/test", json={"provider": "inconnu"}).json()
+    assert data["success"] is False
+    assert "inconnu" in data["error"]
 
-def test_api_settings_router_cache_clear(client):
-    """Vérifie l'API de vidage du cache LLM."""
-    res = client.post("/api/settings/router/cache/clear")
+
+def test_router_cache_clear(client):
+    res = client.post("/api/v1/settings/router/cache/clear")
     assert res.status_code == 200
-    data = res.get_json()
-    assert data["success"] is True
-    assert "vidé" in data["message"]
+    assert res.json()["success"] is True
+    assert "vidé" in res.json()["message"]
 
-def test_api_settings_router_stats_reset(client):
-    """Vérifie la réinitialisation des statistiques du routeur."""
-    res = client.post("/api/settings/router/stats/reset")
-    assert res.status_code == 200
-    data = res.get_json()
-    assert data["success"] is True
 
-def test_settings_page_with_router_overview(client):
-    """Vérifie que la page /settings charge les nouveaux composants du routeur."""
-    res = client.get("/settings")
+def test_router_stats_reset(client):
+    res = client.post("/api/v1/settings/router/stats/reset")
     assert res.status_code == 200
-    assert b"LLM Router" in res.data
-    assert b"Failover Automatique 429" in res.data
-    assert b"Cache d'Idempotence SHA-256" in res.data
-    assert b"testRouterProvider" in res.data
-
-def test_analytics_page_with_observability(client):
-    """Vérifie que la page /analytics charge la section Observabilité LLM Router."""
-    res = client.get("/analytics")
-    assert res.status_code == 200
-    assert b"Observabilit" in res.data
-    assert b"LLM Router" in res.data
+    assert res.json()["success"] is True

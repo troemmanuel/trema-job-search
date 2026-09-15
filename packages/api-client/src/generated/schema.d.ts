@@ -2135,8 +2135,16 @@ export interface components {
         };
         /** UpdateStatusResponse */
         UpdateStatusResponse: {
+            /** Applied At */
+            applied_at?: string | null;
             /** Message */
             message: string;
+            /**
+             * Notion Synced
+             * @description Vrai si la fiche Notion liée a été mise à jour dans la foulée
+             * @default false
+             */
+            notion_synced?: boolean;
             /**
              * Status
              * @enum {string}

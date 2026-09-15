@@ -1,20 +1,10 @@
-import pytest
-from unittest.mock import MagicMock
-from app import create_app
 from app.config import Config
 from app.services.analytics.interfaces_analytics import InterfacesAnalyticsService
 
+
 class TestConfig(Config):
-    TESTING = True
-    DEBUG = False
     SUPABASE_URL = ""
     SUPABASE_KEY = ""
-
-@pytest.fixture
-def client():
-    app = create_app(TestConfig)
-    with app.test_client() as client:
-        yield client
 
 def test_interfaces_analytics_service_empty(monkeypatch):
     service = InterfacesAnalyticsService(TestConfig())
@@ -178,74 +168,22 @@ def test_api_analytics_interfaces_endpoint(client, monkeypatch):
 
     monkeypatch.setattr(interfaces_analytics_service, "get_interfaces_analytics", lambda: mock_data)
 
-    res = client.get("/api/analytics/interfaces")
+    res = client.get("/api/v1/analytics/interfaces")
     assert res.status_code == 200
-    data = res.get_json()
+    data = res.json()
     assert data["success"] is True
     assert data["kpis"]["total_calls"] == 12
     assert data["kpis"]["failover_count"] == 2
     assert len(data["providers"]) == 2
     assert data["external_connectors"]["notion"]["synced_count"] == 6
+    assert data["task_distribution"]["total"] == 12
 
-def test_analytics_html_view_interfaces_tab(client, monkeypatch):
-    from app.services.analytics import analytics_service, interfaces_analytics_service
 
-    mock_funnel = {
-        "period": "all",
-        "total_jobs": 1,
-        "total_applications": 1,
-        "kpis": {"total_jobs": 1, "total_applications": 1, "avg_match_score": 85.0},
-        "funnel": {
-            "counts": {"detected": 1, "qualified": 1, "prepared": 1, "applied": 1, "interview": 0, "offer": 0, "rejected": 0},
-            "rates": {"qualification_rate": 100.0, "preparation_rate": 100.0, "application_rate": 100.0, "interview_rate": 0.0, "offer_rate": 0.0, "global_conversion_rate": 0.0}
-        },
-        "tech_performance": [],
-        "geography": {},
-        "workplace": {},
-        "company_types": {},
-        "timeline": {"labels": [], "jobs_series": [], "applications_series": []}
-    }
-
-    mock_interfaces = {
-        "timestamp": "2026-09-14T22:30:00Z",
-        "kpis": {
-            "total_calls": 5,
-            "global_success_rate": 100.0,
-            "avg_latency_ms": 620,
-            "total_tokens": 4200,
-            "cache_hit_rate": 20.0,
-            "cache_hits": 1,
-            "cache_saved_seconds": 1.5,
-            "failover_count": 1,
-            "heuristic_shield_count": 3,
-            "notion_sync_count": 1
-        },
-        "providers": [
-            {"id": "gemini", "name": "Google Gemini", "status": "OPÉRATIONNEL", "requests_count": 2, "success_count": 2, "errors_count": 0, "success_rate": 100.0, "avg_latency_ms": 1950, "total_tokens": 1800, "default_model": "gemini-3.6-flash", "is_configured": True, "icon": "✨", "color": "#3b82f6", "description": "Multi-modal", "last_used_at": None, "last_error": None, "benchmark_latency_ms": 1950},
-            {"id": "groq", "name": "Groq Cloud (LPU)", "status": "OPÉRATIONNEL", "requests_count": 2, "success_count": 2, "errors_count": 0, "success_rate": 100.0, "avg_latency_ms": 580, "total_tokens": 2400, "default_model": "openai/gpt-oss-120b", "is_configured": True, "icon": "⚡", "color": "#f59e0b", "description": "LPU ultra-fast", "last_used_at": None, "last_error": None, "benchmark_latency_ms": 580},
-        ],
-        "task_distribution": {"counts": {"job_scoring": 3, "doc_content_generation": 2, "other": 0}, "total": 5, "percentages": {"job_scoring": 60.0, "doc_content_generation": 40.0, "other": 0.0}},
-        "external_connectors": {
-            "notion": {"configured": True, "synced_count": 1, "total_applications": 1, "sync_rate_percent": 100.0, "status": "Opérationnel"},
-            "supabase_storage": {"connected": True, "total_documents": 2, "cv_count": 1, "letter_count": 1, "answers_count": 0, "buckets": ["resumes", "letters"]},
-            "scraper_shield": {"total_jobs": 4, "heuristic_filtered": 3, "llm_scored": 1, "quota_saved_percent": 75.0, "estimated_tokens_saved": 3600}
-        },
-        "cache": {"hits": 1, "misses": 4, "hit_ratio_percent": 20.0, "size": 5, "total_saved_seconds": 1.5},
-        "recent_runs": [
-            {"id": "run-xyz", "timestamp": "14/09 22:20:00", "operation": "JOB_SCORING", "provider": "gemini", "model": "gemini-3.6-flash", "status": "SUCCESS", "latency_ms": 1920, "tokens": 920, "fallback_used": False, "error_message": None}
-        ]
-    }
-
-    monkeypatch.setattr(analytics_service, "get_analytics", lambda period="all": mock_funnel)
-    monkeypatch.setattr(interfaces_analytics_service, "get_interfaces_analytics", lambda: mock_interfaces)
-
-    res = client.get("/analytics?tab=interfaces")
+def test_api_analytics_interfaces_endpoint_without_telemetry(client):
+    """Sans base : structure complète, compteurs à zéro."""
+    res = client.get("/api/v1/analytics/interfaces")
     assert res.status_code == 200
-    html = res.get_data(as_text=True)
-    assert "Observabilité des Interfaces & APIs" in html
-    assert "Benchmark Comparatif des Fournisseurs LLM" in html
-    assert "Google Gemini" in html
-    assert "Groq Cloud" in html
-    assert "Journal d'Exécution Structuré des Interfaces" in html
-    assert "Notion CRM API" in html
-    assert "Bouclier Heuristique" in html
+    data = res.json()
+    assert data["task_distribution"]["total"] >= 0
+    assert "scraper_shield" in data["external_connectors"]
+    assert isinstance(data["recent_runs"], list)

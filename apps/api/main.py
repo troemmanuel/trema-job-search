@@ -7,6 +7,7 @@ from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.config import Config
+from app.logging_config import http_logging_middleware, setup_logging
 from app.api.router import api_v1_router
 from app.schemas.api import HealthResponse, RootInfoResponse, ScrapeStreamEvent
 from app.services.storage import supabase_service
@@ -14,6 +15,7 @@ from app.services.ai.gemini import gemini_service
 from app.services.notion.client import notion_service
 from app.services.scheduler.daily_scheduler import daily_scheduler_service
 
+setup_logging()
 logger = logging.getLogger("trema_api")
 
 @asynccontextmanager
@@ -39,6 +41,10 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json",
 )
+
+# Traçage HTTP (méthode, chemin, statut, durée) dans logs/app.log
+app.middleware("http")(http_logging_middleware)
+
 
 # Les exceptions non gérées deviennent un 500 JSON *à l'intérieur* du middleware CORS :
 # sinon la réponse d'erreur part sans en-têtes CORS et le navigateur ne voit qu'un "Failed to fetch".

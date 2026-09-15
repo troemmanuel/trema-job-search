@@ -2,15 +2,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 import pytest
-from app import create_app
 from app.services.scheduler.daily_scheduler import DailySchedulerService, compute_next_run
-
-@pytest.fixture
-def test_client(tmp_path):
-    app = create_app()
-    app.config["TESTING"] = True
-    app.config["ENABLE_SCHEDULER"] = False
-    return app.test_client()
 
 def test_compute_next_run():
     # Heure future ou passée
@@ -45,26 +37,35 @@ def test_scheduler_state_save_and_load(tmp_path):
     assert status_reloaded["schedule_time"] == "09:30"
     assert status_reloaded["is_active"] is False
 
-def test_scheduler_api_routes(test_client, monkeypatch, tmp_path):
-    # Test GET /api/scheduler/status
-    res = test_client.get("/api/scheduler/status")
-    assert res.status_code == 200
-    data = res.get_json()
-    assert "is_active" in data
-    assert "schedule_time" in data
-    assert "next_run" in data
-
-    # Test POST /api/scheduler/config
-    res_config = test_client.post("/api/scheduler/config", json={"schedule_time": "07:45", "is_active": True})
-    assert res_config.status_code == 200
-    data_config = res_config.get_json()
-    assert data_config["scheduler"]["schedule_time"] == "07:45"
-    assert data_config["scheduler"]["is_active"] is True
-
-    # Test POST /api/scheduler/run-now (mocking trigger_now to avoid heavy execution in test)
+def test_scheduler_api_routes(client, monkeypatch):
     from app.services.scheduler.daily_scheduler import daily_scheduler_service
-    monkeypatch.setattr(daily_scheduler_service, "trigger_now", lambda app=None: True)
 
-    res_run = test_client.post("/api/scheduler/run-now")
-    assert res_run.status_code == 202
-    assert "Collecte quotidienne lancée" in res_run.get_json()["message"]
+    # Ne pas écrire l'état réel du planificateur pendant les tests
+    monkeypatch.setattr(daily_scheduler_service, "_save_state", lambda state: None)
+    original_time = daily_scheduler_service.get_status()["schedule_time"]
+
+    res = client.get("/api/v1/scheduler/status")
+    assert res.status_code == 200
+    data = res.json()
+    assert "is_active" in data and "schedule_time" in data and "next_run" in data
+
+    res_config = client.post("/api/v1/scheduler/update", json={"time": "07:45", "enabled": True})
+    assert res_config.status_code == 200
+    assert res_config.json()["status"]["schedule_time"] == "07:45"
+    assert res_config.json()["status"]["is_active"] is True
+
+    # Heure invalide : 400 (hors plage) ou 422 (format)
+    assert client.post("/api/v1/scheduler/update", json={"time": "25:00"}).status_code == 400
+    assert client.post("/api/v1/scheduler/update", json={"time": "bad"}).status_code == 422
+
+    # Déclenchement manuel, sans exécuter la collecte
+    monkeypatch.setattr(daily_scheduler_service, "trigger_now", lambda: True)
+    res_run = client.post("/api/v1/scheduler/trigger")
+    assert res_run.status_code == 200
+    assert res_run.json()["started"] is True
+    assert "lancée" in res_run.json()["message"]
+
+    monkeypatch.setattr(daily_scheduler_service, "trigger_now", lambda: False)
+    assert client.post("/api/v1/scheduler/trigger").json()["started"] is False
+
+    daily_scheduler_service.update_config(schedule_time=original_time, is_active=True)

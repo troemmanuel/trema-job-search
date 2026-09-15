@@ -143,50 +143,43 @@ def test_import_and_process_url_orchestration(monkeypatch):
     assert res["notion_page_id"] == "page_notion_123"
     assert "https://app.notion.com/p/page_notion_123" in res["notion_url"]
 
-def test_api_jobs_scrape_endpoint(monkeypatch):
-    from app import create_app
-    from app.config import Config
+def test_api_jobs_scrape_endpoint(client, monkeypatch):
+    # Sans URL : 400
+    res_empty = client.post("/api/v1/jobs/scrape", json={})
+    assert res_empty.status_code == 400
+    assert "requise" in res_empty.json()["detail"]
 
-    class TestConfig(Config):
-        TESTING = True
-        DEBUG = False
-        SUPABASE_URL = ""
-        SUPABASE_KEY = ""
+    from app.services.ingestion.collector import job_collector_service
 
-    flask_app = create_app(TestConfig)
-    with flask_app.test_client() as test_client:
-        # Test sans URL
-        res_empty = test_client.post("/api/jobs/scrape", json={})
-        assert res_empty.status_code == 400
-        assert "requise" in res_empty.get_json()["error"]
+    monkeypatch.setattr(
+        job_collector_service,
+        "import_and_process_url",
+        lambda url, auto_prepare, min_match_score: {
+            "success": True,
+            "status": "PREPARED",
+            "job": {"title": "Tech Lead Java", "company": "Airbus"},
+            "score": 92,
+            "prepared": True,
+            "notion_url": "https://app.notion.com/p/test123",
+        },
+    )
+    res_valid = client.post(
+        "/api/v1/jobs/scrape",
+        json={"url": "https://www.welcometothejungle.com/fr/companies/airbus/jobs/lead-java", "auto_prepare": True, "min_match_score": 75},
+    )
+    assert res_valid.status_code == 200
+    data = res_valid.json()
+    assert data["success"] is True
+    assert data["score"] == 92
+    assert data["status"] == "PREPARED"
+    assert data["notion_url"] == "https://app.notion.com/p/test123"
 
-        # Test avec URL valide mockée
-        from app.services.ingestion.collector import job_collector_service
-        monkeypatch.setattr(
-            job_collector_service,
-            "import_and_process_url",
-            lambda url, auto_prepare, min_match_score: {
-                "success": True,
-                "status": "PREPARED",
-                "job": {"title": "Tech Lead Java", "company": "Airbus"},
-                "score": 92,
-                "prepared": True,
-                "notion_url": "https://app.notion.com/p/test123"
-            }
-        )
+    # Échec d'extraction : 400 avec le message du collecteur
+    monkeypatch.setattr(job_collector_service, "import_and_process_url", lambda **kw: {"success": False, "error": "Page introuvable"})
+    res_fail = client.post("/api/v1/jobs/scrape", json={"url": "https://example.com/404"})
+    assert res_fail.status_code == 400
+    assert res_fail.json()["detail"] == "Page introuvable"
 
-        res_valid = test_client.post("/api/jobs/scrape", json={
-            "url": "https://www.welcometothejungle.com/fr/companies/airbus/jobs/lead-java",
-            "auto_prepare": True,
-            "min_match_score": 75
-        })
-
-        assert res_valid.status_code == 200
-        data = res_valid.get_json()
-        assert data["success"] is True
-        assert data["score"] == 92
-        assert data["status"] == "PREPARED"
-        assert data["notion_url"] == "https://app.notion.com/p/test123"
 
 def test_import_and_process_urls_batch(monkeypatch):
     collector = JobCollectorService()
@@ -231,66 +224,70 @@ def test_import_and_process_urls_batch(monkeypatch):
     assert summary["error_count"] == 1
     assert len(summary["results"]) == 2
 
-def test_api_jobs_scrape_batch_endpoint(monkeypatch):
-    from app import create_app
-    from app.config import Config
+def _fake_batch(urls, auto_prepare, min_match_score):
+    return {
+        "success": True,
+        "is_batch": True,
+        "total_requested": len(urls),
+        "total_unique": len(urls),
+        "processed_count": len(urls),
+        "qualified_count": len(urls),
+        "prepared_count": len(urls),
+        "notion_synced_count": len(urls),
+        "error_count": 0,
+        "results": [{"url": u, "success": True, "status": "PREPARED", "score": 90, "prepared": True} for u in urls],
+    }
 
-    class TestConfig(Config):
-        TESTING = True
-        DEBUG = False
-        SUPABASE_URL = ""
-        SUPABASE_KEY = ""
 
-    flask_app = create_app(TestConfig)
-    with flask_app.test_client() as test_client:
-        from app.services.ingestion.collector import job_collector_service
+def test_api_jobs_scrape_batch_endpoint(client, monkeypatch):
+    from app.services.ingestion.collector import job_collector_service
 
-        monkeypatch.setattr(
-            job_collector_service,
-            "import_and_process_urls",
-            lambda urls, auto_prepare, min_match_score: {
-                "success": True,
-                "is_batch": True,
-                "total_requested": len(urls),
-                "total_unique": len(urls),
-                "processed_count": len(urls),
-                "qualified_count": len(urls),
-                "prepared_count": len(urls),
-                "notion_synced_count": len(urls),
-                "error_count": 0,
-                "results": [
-                    {"url": u, "success": True, "status": "PREPARED", "score": 90, "prepared": True}
-                    for u in urls
-                ]
-            }
-        )
+    monkeypatch.setattr(job_collector_service, "import_and_process_urls", _fake_batch)
 
-        # 1. Test avec payload `urls: [...]`
-        res_batch = test_client.post("/api/jobs/scrape", json={
-            "urls": [
-                "https://www.welcometothejungle.com/fr/companies/a/jobs/1",
-                "https://www.linkedin.com/jobs/view/2/"
-            ],
-            "auto_prepare": True
-        })
+    # 1. Payload `urls: [...]`
+    res_batch = client.post(
+        "/api/v1/jobs/scrape",
+        json={"urls": ["https://www.welcometothejungle.com/fr/companies/a/jobs/1", "https://www.linkedin.com/jobs/view/2/"], "auto_prepare": True},
+    )
+    assert res_batch.status_code == 200
+    data_batch = res_batch.json()
+    assert data_batch["is_batch"] is True
+    assert data_batch["processed_count"] == 2
+    assert len(data_batch["results"]) == 2
 
-        assert res_batch.status_code == 200
-        data_batch = res_batch.get_json()
-        assert data_batch["is_batch"] is True
-        assert data_batch["processed_count"] == 2
-        assert len(data_batch["results"]) == 2
+    # 2. Payload multi-lignes dans `url`
+    res_multiline = client.post(
+        "/api/v1/jobs/scrape",
+        json={"url": "https://www.welcometothejungle.com/fr/companies/a/jobs/1\nhttps://www.linkedin.com/jobs/view/2/", "auto_prepare": True},
+    )
+    assert res_multiline.status_code == 200
+    assert res_multiline.json()["is_batch"] is True
+    assert res_multiline.json()["processed_count"] == 2
 
-        # 2. Test avec payload multi-lignes dans `url: "url1\nurl2"`
-        res_multiline = test_client.post("/api/jobs/scrape", json={
-            "url": "https://www.welcometothejungle.com/fr/companies/a/jobs/1\nhttps://www.linkedin.com/jobs/view/2/",
-            "auto_prepare": True
-        })
 
-        assert res_multiline.status_code == 200
-        data_multiline = res_multiline.get_json()
-        assert data_multiline["is_batch"] is True
-        assert data_multiline["processed_count"] == 2
+def test_api_jobs_scrape_stream_endpoint(client, monkeypatch):
+    """Le flux SSE émet start → processing/item_done par URL → complete, chaque `data:` étant un JSON."""
+    import json
 
+    from app.services.ingestion.collector import job_collector_service
+
+    def fake_single(url, auto_prepare, min_match_score):
+        if "fail" in url:
+            raise RuntimeError("Scraper KO")
+        return {"success": True, "status": "QUALIFIED", "job": {"title": "Offre", "url": url}, "score": 80, "prepared": False}
+
+    monkeypatch.setattr(job_collector_service, "import_and_process_url", fake_single)
+
+    res = client.post("/api/v1/jobs/scrape/stream", json={"urls": ["https://a.example/1", "https://b.example/fail"]})
+    assert res.status_code == 200
+    assert res.headers["content-type"].startswith("text/event-stream")
+
+    events = [json.loads(line[len("data: "):]) for line in res.text.split("\n") if line.startswith("data: ")]
+    types = [e["type"] for e in events]
+    assert types == ["start", "processing", "item_done", "processing", "item_error", "complete"]
+    assert events[0]["total"] == 2
+    assert events[2]["result"]["job"]["title"] == "Offre"
+    assert "Scraper KO" in events[4]["error"]
 
 
 def test_wttj_api_extraction_builds_headers(monkeypatch):

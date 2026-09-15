@@ -1,20 +1,6 @@
-import pytest
 from unittest.mock import MagicMock
-from app import create_app
-from app.config import Config
+
 from app.services.storage.supabase_service import SupabaseService
-
-class TestConfig(Config):
-    TESTING = True
-    DEBUG = False
-    SUPABASE_URL = ""
-    SUPABASE_KEY = ""
-
-@pytest.fixture
-def client():
-    app = create_app(TestConfig)
-    with app.test_client() as client:
-        yield client
 
 def test_get_jobs_paginated_unit(monkeypatch):
     service = SupabaseService()
@@ -124,96 +110,54 @@ def test_get_applications_paginated_unit(monkeypatch):
     mock_query.order.assert_called_with("created_at", desc=True)
 
 def test_jobs_routes_pagination_and_filters(client, monkeypatch):
-    mock_paginated = {
-        "items": [
-            {"id": "j1", "title": "Lead Python", "company": "Acme", "location": "Paris", "contract_type": "CDI", "match_score": 88, "status": "QUALIFIED"}
-        ],
-        "total": 21,
-        "page": 2,
-        "per_page": 10,
-        "total_pages": 3,
-        "has_prev": True,
-        "has_next": True,
-        "prev_page": 1,
-        "next_page": 3
-    }
+    captured = {}
 
-    monkeypatch.setattr(
-        "app.services.storage.supabase_service.get_jobs_paginated",
-        lambda **kwargs: mock_paginated
-    )
+    def fake_paginated(**kwargs):
+        captured.update(kwargs)
+        return {
+            "items": [{"id": "11111111-1111-1111-1111-111111111111", "title": "Lead Python", "company": "Acme", "location": "Paris", "contract_type": "CDI", "match_score": 88, "status": "QUALIFIED"}],
+            "total": 21, "page": 2, "per_page": 10, "total_pages": 3, "has_prev": True, "has_next": True, "prev_page": 1, "next_page": 3,
+        }
 
-    # 1. API endpoint /api/jobs
-    res = client.get("/api/jobs?page=2&per_page=10&status=QUALIFIED&q=python&min_score=80")
+    monkeypatch.setattr("app.services.storage.supabase_service.get_jobs_paginated", fake_paginated)
+
+    res = client.get("/api/v1/jobs?page=2&per_page=10&status=QUALIFIED&q=python&min_score=80&contract_type=CDI")
     assert res.status_code == 200
-    json_data = res.get_json()
-    assert json_data["page"] == 2
-    assert json_data["total"] == 21
-    assert json_data["total_pages"] == 3
-    assert json_data["has_prev"] is True
-    assert json_data["has_next"] is True
-    assert len(json_data["jobs"]) == 1
-    assert json_data["jobs"][0]["title"] == "Lead Python"
+    data = res.json()
+    assert data["page"] == 2 and data["total"] == 21 and data["total_pages"] == 3
+    assert data["has_prev"] is True and data["has_next"] is True
+    assert len(data["jobs"]) == 1
+    assert data["jobs"][0]["title"] == "Lead Python"
+    # Les filtres de la query string sont bien transmis au service (`q` → `search`)
+    assert captured["page"] == 2 and captured["per_page"] == 10
+    assert captured["status"] == "QUALIFIED" and captured["contract_type"] == "CDI"
+    assert captured["min_score"] == 80 and captured["search"] == "python"
 
-    # 2. HTML page /jobs
-    res_html = client.get("/jobs?page=2&q=python&status=QUALIFIED&contract_type=CDI&min_score=80")
-    assert res_html.status_code == 200
-    html_text = res_html.data.decode("utf-8")
-    # Vérifier que le formulaire contient les valeurs de filtre
-    assert 'value="python"' in html_text
-    assert 'selected' in html_text
-    # Vérifier que la table et le composant pagination sont bien rendus
-    assert "Lead Python" in html_text
-    assert "Affichage de" in html_text
-    assert "sur <strong>21</strong> résultats" in html_text
-    assert "pagination-btn" in html_text
-    # Vérifier la présence des liens vers page 1 et page 3 avec conservation des filtres
-    assert "page=1" in html_text
-    assert "page=3" in html_text
-    assert "q=python" in html_text
+
+def test_jobs_routes_pagination_bounds(client):
+    assert client.get("/api/v1/jobs?page=0").status_code == 422
+    assert client.get("/api/v1/jobs?per_page=500").status_code == 422
+
 
 def test_applications_routes_pagination_and_filters(client, monkeypatch):
-    mock_paginated = {
-        "items": [
-            {
-                "id": "app-42",
-                "status": "PREPARED",
-                "match_score": 92,
-                "prepared_at": "2026-09-11 12:00",
-                "jobs": {"title": "Staff Engineer", "company": "MetaTech"}
-            }
-        ],
-        "total": 15,
-        "page": 1,
-        "per_page": 10,
-        "total_pages": 2,
-        "has_prev": False,
-        "has_next": True,
-        "prev_page": None,
-        "next_page": 2
-    }
+    captured = {}
 
-    monkeypatch.setattr(
-        "app.services.storage.supabase_service.get_applications_paginated",
-        lambda **kwargs: mock_paginated
-    )
+    def fake_paginated(**kwargs):
+        captured.update(kwargs)
+        return {
+            "items": [{"id": "22222222-2222-2222-2222-222222222222", "job_id": "11111111-1111-1111-1111-111111111111", "status": "PREPARED", "match_score": 92,
+                       "prepared_at": "2026-09-11T12:00:00+00:00", "jobs": {"id": "11111111-1111-1111-1111-111111111111", "title": "Staff Engineer", "company": "MetaTech"}}],
+            "total": 15, "page": 1, "per_page": 10, "total_pages": 2, "has_prev": False, "has_next": True, "prev_page": None, "next_page": 2,
+        }
 
-    # 1. API endpoint /api/applications
-    res = client.get("/api/applications?page=1&per_page=10&status=PREPARED&min_score=80")
+    monkeypatch.setattr("app.services.storage.supabase_service.get_applications_paginated", fake_paginated)
+
+    res = client.get("/api/v1/applications?page=1&per_page=10&status=PREPARED&min_score=80&q=staff")
     assert res.status_code == 200
-    json_data = res.get_json()
-    assert json_data["page"] == 1
-    assert json_data["total"] == 15
-    assert json_data["total_pages"] == 2
-    assert len(json_data["applications"]) == 1
-    assert json_data["applications"][0]["id"] == "app-42"
-
-    # 2. HTML page /applications
-    res_html = client.get("/applications?page=1&status=PREPARED&min_score=80")
-    assert res_html.status_code == 200
-    html_text = res_html.data.decode("utf-8")
-    assert "Staff Engineer" in html_text
-    assert "MetaTech" in html_text
-    assert "Affichage de" in html_text
-    assert "sur <strong>15</strong> résultats" in html_text
-    assert "page=2" in html_text
+    data = res.json()
+    assert data["page"] == 1 and data["total"] == 15 and data["total_pages"] == 2
+    assert len(data["applications"]) == 1
+    assert data["applications"][0]["id"] == "22222222-2222-2222-2222-222222222222"
+    # L'offre jointe est typée et conservée
+    assert data["applications"][0]["jobs"]["title"] == "Staff Engineer"
+    assert captured["status"] == "PREPARED" and captured["min_score"] == 80 and captured["search"] == "staff"

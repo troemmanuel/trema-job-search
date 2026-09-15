@@ -1,35 +1,34 @@
-import pytest
-from app import create_app
-from app.config import Config
 from app.schemas.candidate import CandidateProfile
 from app.schemas.job import JobImport
 
-class TestConfig(Config):
-    TESTING = True
-    DEBUG = False
-
-@pytest.fixture
-def client():
-    app = create_app(TestConfig)
-    with app.test_client() as client:
-        yield client
 
 def test_health_endpoint(client):
-    """Vérifie que l'endpoint /health répond avec 200 et status: ok."""
-    response = client.get("/health")
-    assert response.status_code == 200
-    data = response.get_json()
-    assert data["status"] == "ok"
-    assert "version" in data
-    assert "services" in data
+    """Vérifie que /health et /api/v1/health répondent 200 avec status: ok et l'état des services."""
+    for path in ("/health", "/api/v1/health"):
+        response = client.get(path)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert "version" in data
+        assert data["services"]["supabase"] == "unconfigured"  # isolé par conftest
 
-def test_dashboard_index(client):
-    """Vérifie que le dashboard d'accueil se charge correctement en HTML avec la carte du planificateur."""
-    response = client.get("/")
+
+def test_root_info(client):
+    """La racine expose les liens vers la documentation et le schéma OpenAPI."""
+    data = client.get("/").json()
+    assert data["docs"] == "/docs"
+    assert data["openapi"] == "/openapi.json"
+
+
+def test_dashboard_stats_without_supabase(client):
+    """Sans base configurée, le dashboard renvoie des compteurs à zéro et des listes vides (pas d'erreur)."""
+    response = client.get("/api/v1/dashboard/stats")
     assert response.status_code == 200
-    assert "Tableau de bord".encode("utf-8") in response.data
-    assert "Planificateur Quotidien (Cron 24h)".encode("utf-8") in response.data
-    assert "schedulerCard".encode("utf-8") in response.data
+    data = response.json()
+    assert data["stats"]["priority_count"] == 0
+    assert data["recent_jobs"] == []
+    assert data["recent_applications"] == []
+    assert "scheduler_status" in data
 
 def test_candidate_schema_validation():
     """Valide la désérialisation d'un profil candidat maître via Pydantic."""

@@ -3,7 +3,6 @@ import sys
 import time
 import logging
 from logging.handlers import RotatingFileHandler
-from flask import request, g
 
 class ColoredFormatter(logging.Formatter):
     """Formateur de logs avec coloration ANSI pour la console."""
@@ -35,7 +34,7 @@ class ColoredFormatter(logging.Formatter):
         )
         return formatter.format(record)
 
-def setup_logging(app=None, log_level: str = None):
+def setup_logging(log_level: str = None):
     """Configure le système de logging pour toute l'application (Console + Fichier logs/app.log)."""
     level_name = log_level or os.getenv("LOG_LEVEL", "INFO").upper()
     numeric_level = getattr(logging, level_name, logging.INFO)
@@ -78,28 +77,19 @@ def setup_logging(app=None, log_level: str = None):
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
-    logging.getLogger("werkzeug").setLevel(logging.INFO)
-
-    # Si Flask app est fourni, enregistrer le traçage des requêtes HTTP
-    if app:
-        @app.before_request
-        def log_request_start():
-            g.request_start_time = time.time()
-            # Ignorer les assets statiques pour ne pas polluer les logs
-            if not request.path.startswith("/static"):
-                logging.getLogger("app.http").info(f"➡️  {request.method} {request.path}")
-
-        @app.after_request
-        def log_request_end(response):
-            if not request.path.startswith("/static"):
-                start_time = getattr(g, "request_start_time", None)
-                duration_ms = round((time.time() - start_time) * 1000, 1) if start_time else 0.0
-                status_code = response.status_code
-                level = logging.INFO if status_code < 400 else (logging.WARNING if status_code < 500 else logging.ERROR)
-                logging.getLogger("app.http").log(
-                    level,
-                    f"⬅️  {request.method} {request.path} → {status_code} ({duration_ms}ms)"
-                )
-            return response
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
     return root_logger
+
+
+async def http_logging_middleware(request, call_next):
+    """Middleware ASGI : trace chaque requête HTTP avec sa durée et son statut (équivalent des hooks Flask)."""
+    http_logger = logging.getLogger("app.http")
+    start_time = time.time()
+    http_logger.info(f"➡️  {request.method} {request.url.path}")
+    response = await call_next(request)
+    duration_ms = round((time.time() - start_time) * 1000, 1)
+    status_code = response.status_code
+    level = logging.INFO if status_code < 400 else (logging.WARNING if status_code < 500 else logging.ERROR)
+    http_logger.log(level, f"⬅️  {request.method} {request.url.path} → {status_code} ({duration_ms}ms)")
+    return response

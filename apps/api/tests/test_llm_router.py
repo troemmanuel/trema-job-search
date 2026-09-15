@@ -203,8 +203,3 @@ def test_stats_counters_and_reset():
     stats_after = router.get_stats()
     assert stats_after["gemini"]["requests_count"] == 0
     assert stats_after["groq"]["requests_count"] == 0
-
-def test_root_llm_import_alias():
-    """Scénario 8: Vérifie que `from llm import router` fonctionne identiquement."""
-    from llm import router as direct_router
-    assert direct_router is router

@@ -1,7 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
 from datetime import datetime, timezone
-from app import create_app
 from app.config import Config
 from app.services.notion.client import (
     SUPABASE_TO_NOTION_STATUS,
@@ -15,18 +14,10 @@ from app.services.notion.sync import (
 from app.services.storage.supabase_service import SupabaseService
 
 class TestConfig(Config):
-    TESTING = True
-    DEBUG = False
     SUPABASE_URL = ""
     SUPABASE_KEY = ""
     NOTION_TOKEN = "fake-token"
     NOTION_DATABASE_ID = "fake-db-id"
-
-@pytest.fixture
-def client():
-    app = create_app(TestConfig)
-    with app.test_client() as client:
-        yield client
 
 def test_parse_iso_datetime():
     dt1 = parse_iso_datetime("2026-09-11T12:00:00Z")
@@ -240,53 +231,54 @@ def test_reconcile_secondary_matching_by_company_and_title(monkeypatch):
 def test_api_notion_reconcile_route(client, monkeypatch):
     mock_report = {
         "success": True,
+        "timestamp": "2026-09-15T10:00:00+00:00",
         "total_notion_pages": 5,
         "total_supabase_apps": 4,
         "matched_count": 4,
         "updated_supabase_count": 1,
         "updated_notion_count": 1,
-        "details": []
+        "details": [],
     }
     from app.services.notion.sync import notion_sync_service
     monkeypatch.setattr(notion_sync_service, "reconcile", lambda: mock_report)
 
-    res = client.post("/api/notion/reconcile")
+    res = client.post("/api/v1/settings/sync-notion")
     assert res.status_code == 200
-    data = res.get_json()
+    data = res.json()
     assert data["success"] is True
     assert data["total_notion_pages"] == 5
     assert data["updated_supabase_count"] == 1
 
-def test_api_mark_as_applied_propagates_to_notion(client, monkeypatch):
-    from app.services.storage.supabase_service import supabase_service
+
+def test_api_status_change_propagates_to_notion(client, fake_db, monkeypatch):
+    """Passer une candidature en APPLIED renseigne applied_at et pousse le statut Notion avec la date."""
     from app.services.notion.client import notion_service
 
-    mock_client = MagicMock()
-    monkeypatch.setattr(SupabaseService, "client", property(lambda self: mock_client))
-
-    # Mock select notion_page_id
-    mock_query = MagicMock()
-    mock_client.table.return_value = mock_query
-    mock_query.select.return_value = mock_query
-    mock_query.update.return_value = mock_query
-    mock_query.eq.return_value = mock_query
-    mock_res = MagicMock()
-    mock_res.data = [{"notion_page_id": "page-notion-xyz"}]
-    mock_query.execute.return_value = mock_res
+    app_id = "33333333-3333-3333-3333-333333333333"
+    fake_db["applications"].append({"id": app_id, "job_id": "j1", "status": "PREPARED", "notion_page_id": "page-notion-xyz"})
 
     notion_updates = []
     monkeypatch.setattr(
         notion_service,
         "update_page_status",
-        lambda page_id, status_name, applied_date=None: notion_updates.append((page_id, status_name, applied_date)) or True
+        lambda page_id, status_name, applied_date=None: notion_updates.append((page_id, status_name, applied_date)) or True,
     )
 
-    res = client.post("/api/applications/test-app-id/applied")
+    res = client.patch(f"/api/v1/applications/{app_id}/status", json={"status": "APPLIED"})
     assert res.status_code == 200
-    assert len(notion_updates) == 1
-    assert notion_updates[0][0] == "page-notion-xyz"
-    assert notion_updates[0][1] == "Candidature envoyée"
-    assert notion_updates[0][2] is not None
+    data = res.json()
+    assert data["status"] == "APPLIED"
+    assert data["applied_at"] is not None
+    assert data["notion_synced"] is True
+    assert fake_db["applications"][0]["status"] == "APPLIED"
+    assert notion_updates == [("page-notion-xyz", "Candidature envoyée", datetime.now(timezone.utc).strftime("%Y-%m-%d"))]
+
+    # Statut sans date : pas de applied_date ; statut invalide : 422 ; inconnue : 404
+    res_ready = client.patch(f"/api/v1/applications/{app_id}/status", json={"status": "READY"})
+    assert res_ready.json()["applied_at"] is None
+    assert notion_updates[-1] == ("page-notion-xyz", "Candidature prête - en attente de validation", None)
+    assert client.patch(f"/api/v1/applications/{app_id}/status", json={"status": "NOPE"}).status_code == 422
+    assert client.patch("/api/v1/applications/44444444-4444-4444-4444-444444444444/status", json={"status": "APPLIED"}).status_code == 404
 
 
 def test_classify_company_known_companies():

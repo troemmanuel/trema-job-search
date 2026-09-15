@@ -97,7 +97,7 @@ def update_settings(payload: UpdateSettingsRequest):
 @router.post("/sync-notion", response_model=NotionReconcileResponse)
 def trigger_notion_bidirectional_sync():
     """Déclenche la synchronisation bidirectionnelle Notion ↔ Supabase."""
-    from app.services.notion.sync_service import notion_sync_service
+    from app.services.notion.sync import notion_sync_service
     try:
         result = notion_sync_service.reconcile()
         return result

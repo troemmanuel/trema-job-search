@@ -11,7 +11,7 @@ from app.services.ai.answer_generator import answer_generator_service
 from app.services.ai.dossier_generator import dossier_generator_service
 from app.services.documents.renderer import document_renderer
 from app.services.documents.pdf import pdf_generator
-from app.services.notion.client import notion_service
+from app.services.notion.client import SUPABASE_TO_NOTION_STATUS, notion_service
 from app.schemas.candidate import CandidateProfile
 from app.schemas.job import JobNormalizedData
 from app.schemas.api import (
@@ -152,12 +152,37 @@ def update_application_status(app_id: UUID, payload: UpdateStatusRequest):
     if not supabase_service.client:
         raise HTTPException(status_code=503, detail="Supabase non configuré")
 
+    now = datetime.now(timezone.utc)
     update_data = {"status": payload.status}
     if payload.status == "APPLIED":
-        update_data["applied_at"] = datetime.now(timezone.utc).isoformat()
+        update_data["applied_at"] = now.isoformat()
 
-    supabase_service.client.table("applications").update(update_data).eq("id", str(app_id)).execute()
-    return {"message": "Statut mis à jour", "status": payload.status}
+    res = supabase_service.client.table("applications").update(update_data).eq("id", str(app_id)).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Candidature introuvable")
+
+    # Propagation immédiate vers la fiche Notion liée (comme l'ancienne UI) ; un échec Notion ne bloque pas la mise à jour.
+    notion_synced = False
+    notion_page_id = res.data[0].get("notion_page_id")
+    notion_status = SUPABASE_TO_NOTION_STATUS.get(payload.status)
+    if notion_page_id and notion_status:
+        try:
+            notion_synced = bool(
+                notion_service.update_page_status(
+                    page_id=notion_page_id,
+                    status_name=notion_status,
+                    applied_date=now.strftime("%Y-%m-%d") if payload.status == "APPLIED" else None,
+                )
+            )
+        except Exception as ne:
+            logger.warning(f"Propagation du statut vers Notion échouée pour {app_id}: {ne}")
+
+    return {
+        "message": "Statut mis à jour" + (" et synchronisé dans Notion" if notion_synced else ""),
+        "status": payload.status,
+        "applied_at": update_data.get("applied_at"),
+        "notion_synced": notion_synced,
+    }
 
 @router.get(
     "/{app_id}/documents/{doc_type}",

@@ -264,6 +264,8 @@ class UpdateStatusRequest(BaseModel):
 
 class UpdateStatusResponse(MessageResponse):
     status: ApplicationStatusValue
+    applied_at: Optional[str] = None
+    notion_synced: bool = Field(default=False, description="Vrai si la fiche Notion liée a été mise à jour dans la foulée")
 
 
 class NotionSyncResponse(MessageResponse):
