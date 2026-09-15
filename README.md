@@ -55,7 +55,9 @@ flowchart TD
     Intelligence --> Deliverables
 ```
 
-- **Backend** : Python 3.11+, Flask (Architecture Factory, Blueprints).
+- **Monorepo** : pnpm workspaces + Turborepo — `apps/api` (Python), `apps/web` (Next.js), `packages/api-client` (SDK TypeScript généré).
+- **Backend** : Python 3.11+, FastAPI + Uvicorn, Pydantic v2, schéma OpenAPI natif (`/docs`, `/openapi.json`).
+- **Frontend** : Next.js 15 (App Router), TypeScript strict, Tailwind CSS, TanStack Query, Recharts ; types générés depuis l'OpenAPI (`openapi-typescript` + `openapi-fetch`).
 - **Modèles d'IA** : Google Gemini 3.5 Flash / Flash Lite avec cascade automatique multi-modèles anti-quota.
 - **Base de données & Storage** : Supabase (PostgreSQL & Storage S3).
 - **CRM Candidatures** : Notion API (Official Client).
@@ -87,13 +89,23 @@ GEMINI_API_KEY=votre-cle-gemini
 # Notion
 NOTION_TOKEN=ntn_votre-token-notion
 NOTION_DATABASE_ID=votre-database-id-32-caracteres
+
+# Sur un VPS : URL publique de l'API (vue depuis le navigateur) et origine du frontend
+NEXT_PUBLIC_API_URL=https://api.mon-domaine.fr
+CORS_ORIGINS=https://jobs.mon-domaine.fr
 ```
 
 ### 3. Lancer l'application
 ```bash
 docker compose up -d --build
 ```
-L'application est immédiatement accessible sur : **[http://localhost:5001](http://localhost:5001)**.
+Deux services démarrent :
+- **Frontend Next.js** : [http://localhost:3000](http://localhost:3000)
+- **API FastAPI** : [http://localhost:8000](http://localhost:8000) — documentation interactive sur [http://localhost:8000/docs](http://localhost:8000/docs)
+
+Le navigateur appelle l'API directement à l'adresse `NEXT_PUBLIC_API_URL` (figée au build de l'image web) : changez-la puis reconstruisez (`docker compose build web`) pour un autre domaine.
+
+Volumes persistants : `./candidatures` (PDFs générés), `./apps/api/prompts` (prompts modifiables à chaud, lecture seule), `./apps/api/instance` (état du planificateur) et `./apps/api/logs`.
 
 ### 4. Commandes utiles Docker
 ```bash
@@ -103,29 +115,36 @@ docker compose logs -f
 # Arrêter les conteneurs
 docker compose down
 
-# Lancer la collecte quotidienne manuellement dans Docker
-docker compose run --rm web python run.py --cron-job
+# Lancer la collecte quotidienne manuellement dans le conteneur API
+docker compose run --rm api python run.py cron-job
 
-# Importer un lot d'URLs via la CLI Docker
-docker compose run --rm web python run.py --urls "https://www.linkedin.com/jobs/view/123456/" "https://www.welcometothejungle.com/fr/companies/corp/jobs/dev"
+# Importer un lot d'URLs via la CLI
+docker compose run --rm api python run.py urls "https://www.linkedin.com/jobs/view/123456/" "https://www.welcometothejungle.com/fr/companies/corp/jobs/dev"
 ```
 
 ---
 
 ## 💻 Démarrage Local (Sans Docker)
 
+Prérequis : [uv](https://docs.astral.sh/uv/) (Python) et [pnpm](https://pnpm.io/) (Node 22).
+
 ```bash
-# 1. Créer l'environnement virtuel
-python3 -m venv .venv
-source .venv/bin/activate
+# 1. Dépendances JS/TS du monorepo
+pnpm install
 
-# 2. Installer les dépendances
-pip install -r requirements.txt
+# 2. Dépendances Python de l'API
+uv sync --directory apps/api
 
-# 3. Lancer le serveur web
-python run.py
+# 3. Lancer l'API (http://localhost:8000) et le frontend (http://localhost:3000)
+uv run --directory apps/api python run.py serve --reload
+pnpm --filter web dev
 ```
-Le serveur démarrera sur `http://127.0.0.1:5001`.
+
+Après tout changement des schémas ou routes de l'API, régénérez le SDK TypeScript :
+```bash
+pnpm generate:api-client
+```
+Un test de contrat (`apps/api/tests/test_openapi_contract.py`) échoue si `packages/api-client/openapi.json` n'est plus à jour.
 
 ---
 
@@ -136,7 +155,7 @@ Le serveur démarrera sur `http://127.0.0.1:5001`.
 - Détecte toutes les offres CDI publiées dans les dernières 24h correspondant à votre profil maître.
 - Évalue chaque offre, génère les dossiers pour les scores $\ge 75/100$, et synchronise Notion avant votre réveil.
 - **Double mécanisme** :
-  - *In-App* : Thread non-bloquant intégré au serveur Flask.
+  - *In-App* : Thread non-bloquant intégré à l'API FastAPI (pilotable depuis le dashboard et la page Paramètres).
   - *Système macOS* : Déclenchement automatique via LaunchAgent (`launchd`) même si le navigateur est fermé (`./scripts/setup_cron.sh`).
 
 ### 2. 📥 Import d'Offres Externes (Unitaire & Lot d'URLs)
@@ -167,40 +186,43 @@ Chaque candidature préparée crée une page enrichie dans Notion :
 
 ## ⌨️ Commandes en Ligne de Commande (CLI)
 
-Le fichier `run.py` offre une interface CLI puissante :
+`apps/api/run.py` pilote l'API et les tâches batch (à lancer depuis `apps/api`, ou via `uv run --directory apps/api`) :
 
 ```bash
+# Démarrer l'API (uvicorn), avec rechargement à chaud en développement
+uv run python run.py serve --reload
+
 # 1. Collecte des offres des dernières 24h (ou 3j, 7j)
-python run.py --collect 24h --limit 5
+uv run python run.py collect 24h --limit 5
 
-# 2. Exécution pour tâche planifiée / cron (durée=24h, auto-prep=True)
-python run.py --cron-job
+# 2. Exécution pour tâche planifiée / cron (durée=24h, limite=10, auto-prep=True, puis réconciliation Notion)
+uv run python run.py cron-job
 
-# 3. Importer une offre spécifique par URL
-python run.py --url "https://www.linkedin.com/jobs/view/4165261775/"
+# 3. Importer une ou plusieurs offres par URL
+uv run python run.py urls "https://www.linkedin.com/jobs/view/4165261775/" "https://..."
 
-# 4. Importer plusieurs offres d'un coup
-python run.py --urls "url1" "url2" "url3"
+# 4. Importer depuis un fichier texte d'URLs (une par ligne)
+uv run python run.py urls --file liens_offres.txt
 
-# 5. Importer depuis un fichier texte d'URLs (une par ligne)
-python run.py --urls-file liens_offres.txt
+# 5. Analyser sans générer automatiquement les documents PDF ni Notion
+uv run python run.py urls "https://..." --no-prepare
 
-# 6. Analyser sans générer automatiquement les documents PDF ni Notion
-python run.py --url "https://..." --no-prepare
+# 6. Réconciliation bidirectionnelle Notion ↔ Supabase
+uv run python run.py sync-notion
 ```
+
+Le planificateur macOS (`apps/api/scripts/setup_cron.sh`) installe un LaunchAgent qui exécute `run.py cron-job` chaque matin.
 
 ---
 
 ## 🧪 Tests Automatisés
 
-Le projet inclut une suite complète de **27 tests automatisés** testant chaque composant (routes HTTP, scraping, parsing, matching, génération ReportLab, synchronisation Notion, planificateur, import par lot).
-
 ```bash
-# Exécuter l'ensemble des tests
-pytest
+# API : 122 tests pytest (routes v1 avec base en mémoire, scraping, matching, PDF, Notion, planificateur, contrat OpenAPI)
+pnpm test:api
 
-# Exécuter avec rapport détaillé
-pytest -v
+# Frontend & SDK : typage strict de bout en bout (dont des tests de types compilés dans packages/api-client)
+pnpm typecheck
 ```
 
 ---
@@ -209,29 +231,33 @@ pytest -v
 
 ```text
 trema-job-search/
-├── app/
-│   ├── routes/              # Contrôleurs HTTP Flask (dashboard, jobs, applications, scheduler)
-│   ├── schemas/             # Modèles de données Pydantic (candidate, job, match, application)
-│   ├── services/
-│   │   ├── ai/              # Connecteur Gemini, cascade anti-quota, générateurs CV/LM/Réponses
-│   │   ├── documents/       # Moteur PDF ReportLab & renderer de stockage dual
-│   │   ├── ingestion/       # Collecteur Algolia, scraper multi-sources, importeur, déduplicateur
-│   │   ├── notion/          # Client Notion API (création fiches, N° suivi, blocs riches)
-│   │   ├── scheduler/       # Planificateur automatique quotidien (in-app threading)
-│   │   └── storage/         # Connecteur Supabase (PostgreSQL & Storage S3)
-│   ├── static/              # Fichiers CSS et assets
-│   └── templates/           # Vues Jinja2 (Dashboard, Offres, Candidatures, Modales interactives)
-├── instance/                # Données persistantes locales (scheduler_status.json)
-├── migrations/              # Scripts de migration SQL
-├── prompts/                 # Templates de prompts Markdown modifiables à chaud
-├── scripts/                 # Scripts d'automatisation (LaunchAgent macOS, setup_cron.sh)
-├── tests/                   # Suite de tests automatisés pytest (27 tests)
-├── Dockerfile               # Image Docker multi-plateforme
-├── docker-compose.yml       # Déploiement conteneurisé
-├── pyproject.toml           # Métadonnées et dépendances du projet
-├── requirements.txt         # Dépendances Python pip
-├── run.py                   # Point d'entrée Web et CLI
-└── README.md                # Documentation du projet
+├── apps/
+│   ├── api/                       # Backend Python (FastAPI)
+│   │   ├── app/
+│   │   │   ├── api/v1/            # Routers FastAPI (jobs, applications, candidate, scheduler, analytics, settings)
+│   │   │   ├── schemas/           # Modèles Pydantic v2 (api.py = contrats HTTP, source de l'OpenAPI)
+│   │   │   ├── llm/               # Routeur LLM multi-fournisseurs (Gemini, Groq, Mistral, OpenRouter) et cache
+│   │   │   └── services/          # Métier : ai/, documents/ (ReportLab), ingestion/, notion/, scheduler/, storage/
+│   │   ├── prompts/               # Prompts système Markdown modifiables à chaud
+│   │   ├── scripts/               # export_openapi.py, LaunchAgent macOS, utilitaires de prévisualisation
+│   │   ├── tests/                 # Suite pytest (TestClient FastAPI + faux Supabase en mémoire)
+│   │   ├── main.py                # Application ASGI (CORS, logging, gestion d'erreurs, OpenAPI enrichi)
+│   │   ├── run.py                 # CLI : serve / collect / urls / sync-notion / cron-job
+│   │   ├── Dockerfile
+│   │   └── pyproject.toml         # Dépendances gérées par uv
+│   └── web/                       # Frontend Next.js 15 (App Router)
+│       ├── src/app/               # Pages : dashboard, jobs, jobs/[id], jobs/import, applications, applications/[id], candidate, settings, analytics
+│       ├── src/components/        # UI (style shadcn), composants par domaine
+│       ├── src/hooks/             # TanStack Query : requêtes, mutations, flux SSE
+│       ├── src/lib/               # Client API, formatage, statuts, palette de visualisation
+│       └── Dockerfile
+├── packages/
+│   └── api-client/                # SDK TypeScript généré depuis l'OpenAPI (types + client openapi-fetch + helper SSE)
+├── candidatures/                  # Miroir local persistant des PDFs générés
+├── migrations/                    # Scripts de migration SQL Supabase
+├── docker-compose.yml             # Orchestration api (:8000) + web (:3000)
+├── turbo.json                     # Pipeline Turborepo (build, dev, lint, typecheck, generate:api-client)
+└── package.json                   # Workspaces pnpm et scripts racine
 ```
 
 ---

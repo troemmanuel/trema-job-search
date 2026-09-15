@@ -2,6 +2,8 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Serveur Node autonome pour l'image Docker (apps/web/Dockerfile)
+  output: 'standalone',
   transpilePackages: ['@trema/api-client'],
   async rewrites() {
     return [

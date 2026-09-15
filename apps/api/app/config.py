@@ -8,7 +8,9 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-fallback-secret-key-change-in-production")
     FLASK_ENV = os.getenv("FLASK_ENV", "development")
     DEBUG = os.getenv("FLASK_DEBUG", "1") == "1"
-    PORT = int(os.getenv("PORT", "5001"))
+    PORT = int(os.getenv("PORT", "8000"))
+    # Origines autorisées (CORS) pour le frontend Next.js, séparées par des virgules
+    CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",") if o.strip()]
 
     # Supabase
     SUPABASE_URL = os.getenv("SUPABASE_URL", "")

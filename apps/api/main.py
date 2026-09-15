@@ -58,15 +58,10 @@ async def unhandled_errors_to_json(request: Request, call_next):
         return JSONResponse(status_code=500, content={"detail": f"Erreur interne : {exc}"})
 
 
-# Configuration CORS pour Next.js (port 3000 par défaut)
+# CORS : le frontend Next.js appelle l'API directement depuis le navigateur (origines via CORS_ORIGINS)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
-    ],
+    allow_origins=Config.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

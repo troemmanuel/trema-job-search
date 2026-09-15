@@ -1,31 +1,46 @@
+# Trema Job Search — orchestration locale / VPS : API FastAPI (:8000) + frontend Next.js (:3000)
 services:
-  web:
+  api:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: trema-job-search
+      dockerfile: apps/api/Dockerfile
+    container_name: trema-job-search-api
     restart: unless-stopped
     ports:
-      - "${PORT:-5001}:5001"
+      - "${API_PORT:-8000}:8000"
     env_file:
       - .env
     environment:
-      - PORT=5001
-      - FLASK_ENV=${FLASK_ENV:-production}
-      - FLASK_DEBUG=${FLASK_DEBUG:-0}
+      - PORT=8000
       - LOCAL_STORAGE_DIR=/app/candidatures
+      # Origines autorisées à appeler l'API depuis un navigateur (frontend)
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
     volumes:
-      # Persistance de l'état du planificateur
-      - ./instance:/app/instance
-      # Sauvegarde locale des dossiers de candidature (PDFs CV & Lettres)
+      # Miroir local persistant des PDFs générés (CV, lettres)
       - ./candidatures:/app/candidatures
-      # Montage en lecture seule des prompts pour modifications à chaud
-      - ./prompts:/app/prompts:ro
-      # Fichiers de logs rotatifs persistants
-      - ./logs:/app/logs
+      # Prompts système montés à chaud, en lecture seule
+      - ./apps/api/prompts:/app/prompts:ro
+      # État du planificateur quotidien et journaux
+      - ./apps/api/instance:/app/instance
+      - ./apps/api/logs:/app/logs
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
-      interval: 30s
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 15s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # URL de l'API telle que vue par le navigateur (figée au build) : adaptez-la à votre domaine sur un VPS
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    container_name: trema-job-search-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
