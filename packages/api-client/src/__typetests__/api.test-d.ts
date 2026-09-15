@@ -16,7 +16,19 @@ type _Health = Expect<Equal<Awaited<ReturnType<typeof api.system.health>>['statu
 
 // --- Enums / littéraux propagés depuis Pydantic -----------------------------
 type _Status = Expect<
-  Equal<UpdateStatusRequest['status'], 'QUALIFIED' | 'PREPARING' | 'READY' | 'APPLIED' | 'INTERVIEW' | 'OFFER' | 'REJECTED'>
+  Equal<
+    UpdateStatusRequest['status'],
+    | 'QUALIFIED'
+    | 'PREPARING'
+    | 'PREPARED'
+    | 'READY'
+    | 'APPLIED'
+    | 'INTERVIEW'
+    | 'INTERVIEW_HR'
+    | 'INTERVIEW_TECH'
+    | 'OFFER'
+    | 'REJECTED'
+  >
 >;
 type _SseType = Expect<Equal<ScrapeStreamEvent['type'], 'start' | 'processing' | 'item_done' | 'item_error' | 'complete'>>;
 type _Period = Expect<Equal<Parameters<typeof api.analytics.stats>[0], 'all' | '30d' | '7d' | undefined>>;

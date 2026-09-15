@@ -16,7 +16,9 @@ from app.schemas.job import JobNormalizedData
 from app.schemas.match import MatchResult
 
 JobStatus = Literal["NEW", "QUALIFIED", "REVIEW", "PREPARING", "READY", "APPLIED", "IGNORED"]
-ApplicationStatusValue = Literal["QUALIFIED", "PREPARING", "READY", "APPLIED", "INTERVIEW", "OFFER", "REJECTED"]
+ApplicationStatusValue = Literal[
+    "QUALIFIED", "PREPARING", "PREPARED", "READY", "APPLIED", "INTERVIEW", "INTERVIEW_HR", "INTERVIEW_TECH", "OFFER", "REJECTED"
+]
 AnalyticsPeriod = Literal["all", "30d", "7d"]
 DocumentType = Literal["CV", "COVER_LETTER"]
 
@@ -277,12 +279,31 @@ class UpdateCandidateProfileResponse(MessageResponse):
 # Dashboard & Scheduler
 # ---------------------------------------------------------------------------
 
+class SchedulerReconcileSummary(BaseModel):
+    matched_count: int = 0
+    updated_supabase: int = 0
+    updated_notion: int = 0
+
+
+class SchedulerLastResult(LenientModel):
+    """Bilan du dernier passage du planificateur ; `error` seul si le run a échoué."""
+    error: Optional[str] = None
+    total_found: int = 0
+    processed_count: int = 0
+    new_imported_count: int = 0
+    qualified_count: int = 0
+    prepared_count: int = 0
+    notion_synced_count: int = 0
+    notion_reconcile: Optional[SchedulerReconcileSummary] = None
+    jobs: List[CollectedJobSummary] = Field(default_factory=list)
+
+
 class SchedulerStatus(LenientModel):
     is_active: bool
     schedule_time: str
     next_run: Optional[str] = None
     last_run: Optional[str] = None
-    last_result: Optional[Dict[str, Any]] = None
+    last_result: Optional[SchedulerLastResult] = None
     is_running_job: bool = False
 
 
@@ -300,7 +321,7 @@ class DashboardCounters(BaseModel):
 class DashboardStatsResponse(BaseModel):
     stats: DashboardCounters
     recent_jobs: List[JobRecord]
-    recent_applications: List[ApplicationRecord]
+    recent_applications: List[ApplicationDetail]
     scheduler_status: Optional[SchedulerStatus] = None
 
 

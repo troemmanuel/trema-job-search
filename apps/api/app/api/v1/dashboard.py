@@ -43,11 +43,11 @@ def get_dashboard_stats():
                 status = app.get("status")
                 if status in ["QUALIFIED", "PREPARING"]:
                     stats["to_prepare_count"] += 1
-                elif status == "READY":
+                elif status in ["PREPARED", "READY"]:
                     stats["ready_count"] += 1
                 elif status == "APPLIED":
                     stats["applied_count"] += 1
-                elif status == "INTERVIEW":
+                elif status in ["INTERVIEW", "INTERVIEW_HR", "INTERVIEW_TECH"]:
                     stats["interview_count"] += 1
         except Exception:
             pass

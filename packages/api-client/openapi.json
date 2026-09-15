@@ -1092,7 +1092,7 @@
         "properties": {
           "recent_applications": {
             "items": {
-              "$ref": "#/components/schemas/ApplicationRecord"
+              "$ref": "#/components/schemas/ApplicationDetail"
             },
             "title": "Recent Applications",
             "type": "array"
@@ -2529,6 +2529,93 @@
         "title": "RootInfoResponse",
         "type": "object"
       },
+      "SchedulerLastResult": {
+        "additionalProperties": true,
+        "description": "Bilan du dernier passage du planificateur ; `error` seul si le run a échoué.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/CollectedJobSummary"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "new_imported_count": {
+            "default": 0,
+            "title": "New Imported Count",
+            "type": "integer"
+          },
+          "notion_reconcile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SchedulerReconcileSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notion_synced_count": {
+            "default": 0,
+            "title": "Notion Synced Count",
+            "type": "integer"
+          },
+          "prepared_count": {
+            "default": 0,
+            "title": "Prepared Count",
+            "type": "integer"
+          },
+          "processed_count": {
+            "default": 0,
+            "title": "Processed Count",
+            "type": "integer"
+          },
+          "qualified_count": {
+            "default": 0,
+            "title": "Qualified Count",
+            "type": "integer"
+          },
+          "total_found": {
+            "default": 0,
+            "title": "Total Found",
+            "type": "integer"
+          }
+        },
+        "title": "SchedulerLastResult",
+        "type": "object"
+      },
+      "SchedulerReconcileSummary": {
+        "properties": {
+          "matched_count": {
+            "default": 0,
+            "title": "Matched Count",
+            "type": "integer"
+          },
+          "updated_notion": {
+            "default": 0,
+            "title": "Updated Notion",
+            "type": "integer"
+          },
+          "updated_supabase": {
+            "default": 0,
+            "title": "Updated Supabase",
+            "type": "integer"
+          }
+        },
+        "title": "SchedulerReconcileSummary",
+        "type": "object"
+      },
       "SchedulerStatus": {
         "additionalProperties": true,
         "properties": {
@@ -2544,14 +2631,12 @@
           "last_result": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/SchedulerLastResult"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Last Result"
+            ]
           },
           "last_run": {
             "anyOf": [
@@ -3470,9 +3555,12 @@
             "enum": [
               "QUALIFIED",
               "PREPARING",
+              "PREPARED",
               "READY",
               "APPLIED",
               "INTERVIEW",
+              "INTERVIEW_HR",
+              "INTERVIEW_TECH",
               "OFFER",
               "REJECTED"
             ],
@@ -3496,9 +3584,12 @@
             "enum": [
               "QUALIFIED",
               "PREPARING",
+              "PREPARED",
               "READY",
               "APPLIED",
               "INTERVIEW",
+              "INTERVIEW_HR",
+              "INTERVIEW_TECH",
               "OFFER",
               "REJECTED"
             ],

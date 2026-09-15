@@ -934,7 +934,7 @@ export interface components {
         /** DashboardStatsResponse */
         DashboardStatsResponse: {
             /** Recent Applications */
-            recent_applications: components["schemas"]["ApplicationRecord"][];
+            recent_applications: components["schemas"]["ApplicationDetail"][];
             /** Recent Jobs */
             recent_jobs: components["schemas"]["JobRecord"][];
             scheduler_status?: components["schemas"]["SchedulerStatus"] | null;
@@ -1401,6 +1401,67 @@ export interface components {
             /** Version */
             version: string;
         };
+        /**
+         * SchedulerLastResult
+         * @description Bilan du dernier passage du planificateur ; `error` seul si le run a échoué.
+         */
+        SchedulerLastResult: {
+            /** Error */
+            error?: string | null;
+            /** Jobs */
+            jobs?: components["schemas"]["CollectedJobSummary"][];
+            /**
+             * New Imported Count
+             * @default 0
+             */
+            new_imported_count: number;
+            notion_reconcile?: components["schemas"]["SchedulerReconcileSummary"] | null;
+            /**
+             * Notion Synced Count
+             * @default 0
+             */
+            notion_synced_count: number;
+            /**
+             * Prepared Count
+             * @default 0
+             */
+            prepared_count: number;
+            /**
+             * Processed Count
+             * @default 0
+             */
+            processed_count: number;
+            /**
+             * Qualified Count
+             * @default 0
+             */
+            qualified_count: number;
+            /**
+             * Total Found
+             * @default 0
+             */
+            total_found: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /** SchedulerReconcileSummary */
+        SchedulerReconcileSummary: {
+            /**
+             * Matched Count
+             * @default 0
+             */
+            matched_count: number;
+            /**
+             * Updated Notion
+             * @default 0
+             */
+            updated_notion: number;
+            /**
+             * Updated Supabase
+             * @default 0
+             */
+            updated_supabase: number;
+        };
         /** SchedulerStatus */
         SchedulerStatus: {
             /** Is Active */
@@ -1410,10 +1471,7 @@ export interface components {
              * @default false
              */
             is_running_job: boolean;
-            /** Last Result */
-            last_result?: {
-                [key: string]: unknown;
-            } | null;
+            last_result?: components["schemas"]["SchedulerLastResult"] | null;
             /** Last Run */
             last_run?: string | null;
             /** Next Run */
@@ -1729,7 +1787,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "QUALIFIED" | "PREPARING" | "READY" | "APPLIED" | "INTERVIEW" | "OFFER" | "REJECTED";
+            status: "QUALIFIED" | "PREPARING" | "PREPARED" | "READY" | "APPLIED" | "INTERVIEW" | "INTERVIEW_HR" | "INTERVIEW_TECH" | "OFFER" | "REJECTED";
         };
         /** UpdateStatusResponse */
         UpdateStatusResponse: {
@@ -1739,7 +1797,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "QUALIFIED" | "PREPARING" | "READY" | "APPLIED" | "INTERVIEW" | "OFFER" | "REJECTED";
+            status: "QUALIFIED" | "PREPARING" | "PREPARED" | "READY" | "APPLIED" | "INTERVIEW" | "INTERVIEW_HR" | "INTERVIEW_TECH" | "OFFER" | "REJECTED";
         };
         /** ValidationError */
         ValidationError: {
@@ -1800,6 +1858,8 @@ export type PersonalInfo = components['schemas']['PersonalInfo'];
 export type Project = components['schemas']['Project'];
 export type QuestionAnswer = components['schemas']['QuestionAnswer'];
 export type RootInfoResponse = components['schemas']['RootInfoResponse'];
+export type SchedulerLastResult = components['schemas']['SchedulerLastResult'];
+export type SchedulerReconcileSummary = components['schemas']['SchedulerReconcileSummary'];
 export type SchedulerStatus = components['schemas']['SchedulerStatus'];
 export type SchedulerTriggerResponse = components['schemas']['SchedulerTriggerResponse'];
 export type SchedulerUpdateRequest = components['schemas']['SchedulerUpdateRequest'];
