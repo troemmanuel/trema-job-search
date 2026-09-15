@@ -552,6 +552,48 @@
         "title": "ApplicationRecord",
         "type": "object"
       },
+      "BlacklistRequest": {
+        "properties": {
+          "company": {
+            "description": "Nom de l'entreprise à exclure",
+            "minLength": 1,
+            "title": "Company",
+            "type": "string"
+          }
+        },
+        "required": [
+          "company"
+        ],
+        "title": "BlacklistRequest",
+        "type": "object"
+      },
+      "BlacklistResponse": {
+        "properties": {
+          "excluded_companies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Excluded Companies",
+            "type": "array"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "retro_updated_jobs": {
+            "description": "Offres existantes de cette entreprise passées en BLACKLISTED",
+            "title": "Retro Updated Jobs",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "message",
+          "excluded_companies",
+          "retro_updated_jobs"
+        ],
+        "title": "BlacklistResponse",
+        "type": "object"
+      },
       "CandidatePreferences": {
         "properties": {
           "ai_custom_instructions": {
@@ -1497,6 +1539,255 @@
         "title": "InterfacesAnalyticsResponse",
         "type": "object"
       },
+      "JobDetail": {
+        "additionalProperties": true,
+        "properties": {
+          "application": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ApplicationRecord"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Candidature déjà créée pour cette offre, le cas échéant"
+          },
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "contract_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Type"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Absent uniquement pour une offre simulée (Supabase non configuré)",
+            "title": "Id"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "match_analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobMatchAnalysis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "match_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Level"
+          },
+          "match_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Score"
+          },
+          "normalized_data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobNormalizedData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "raw_data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Data"
+          },
+          "salary_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Salary Currency"
+          },
+          "salary_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Salary Max"
+          },
+          "salary_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Salary Min"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "source_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Job Id"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "title": "JobDetail",
+        "type": "object"
+      },
       "JobImportRequest": {
         "additionalProperties": true,
         "description": "Charge utile d'import manuel : mêmes champs que `JobImport`, tolérant aux extras des scrapers.",
@@ -1728,6 +2019,107 @@
         "title": "JobListResponse",
         "type": "object"
       },
+      "JobMatchAnalysis": {
+        "additionalProperties": true,
+        "description": "`MatchResult` persisté en base, tolérant : les anciennes analyses peuvent être partielles.",
+        "properties": {
+          "company_domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Domain"
+          },
+          "company_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Type"
+          },
+          "concerns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Concerns",
+            "type": "array"
+          },
+          "dimensions": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MatchDimensions"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
+          },
+          "matched_skills": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Matched Skills",
+            "type": "array"
+          },
+          "missing_skills": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Skills",
+            "type": "array"
+          },
+          "recommendation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommendation"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "strengths": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Strengths",
+            "type": "array"
+          }
+        },
+        "title": "JobMatchAnalysis",
+        "type": "object"
+      },
       "JobNormalizedData": {
         "properties": {
           "company": {
@@ -1918,14 +2310,12 @@
           "match_analysis": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/JobMatchAnalysis"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Match Analysis"
+            ]
           },
           "match_level": {
             "anyOf": [
@@ -3861,6 +4251,7 @@
             "name": "job_id",
             "required": true,
             "schema": {
+              "format": "uuid",
               "title": "Job Id",
               "type": "string"
             }
@@ -3904,6 +4295,7 @@
             "name": "app_id",
             "required": true,
             "schema": {
+              "format": "uuid",
               "title": "App Id",
               "type": "string"
             }
@@ -3947,6 +4339,7 @@
             "name": "app_id",
             "required": true,
             "schema": {
+              "format": "uuid",
               "title": "App Id",
               "type": "string"
             }
@@ -3999,6 +4392,7 @@
             "name": "app_id",
             "required": true,
             "schema": {
+              "format": "uuid",
               "title": "App Id",
               "type": "string"
             }
@@ -4042,6 +4436,7 @@
             "name": "app_id",
             "required": true,
             "schema": {
+              "format": "uuid",
               "title": "App Id",
               "type": "string"
             }
@@ -4095,6 +4490,7 @@
             "name": "app_id",
             "required": true,
             "schema": {
+              "format": "uuid",
               "title": "App Id",
               "type": "string"
             }
@@ -4536,7 +4932,7 @@
     },
     "/api/v1/jobs/{job_id}": {
       "get": {
-        "description": "Détail complet d'une offre.",
+        "description": "Détail complet d'une offre, avec la candidature associée si elle existe.",
         "operationId": "get_job_api_v1_jobs__job_id__get",
         "parameters": [
           {
@@ -4544,6 +4940,7 @@
             "name": "job_id",
             "required": true,
             "schema": {
+              "format": "uuid",
               "title": "Job Id",
               "type": "string"
             }
@@ -4554,7 +4951,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JobRecord"
+                  "$ref": "#/components/schemas/JobDetail"
                 }
               }
             },
@@ -4587,6 +4984,7 @@
             "name": "job_id",
             "required": true,
             "schema": {
+              "format": "uuid",
               "title": "Job Id",
               "type": "string"
             }
@@ -4763,6 +5161,48 @@
           }
         },
         "summary": "Update Settings",
+        "tags": [
+          "Settings"
+        ]
+      }
+    },
+    "/api/v1/settings/blacklist": {
+      "post": {
+        "description": "Ajoute une entreprise à la liste noire et passe ses offres existantes en BLACKLISTED.",
+        "operationId": "add_to_blacklist_api_v1_settings_blacklist_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BlacklistRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlacklistResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add To Blacklist",
         "tags": [
           "Settings"
         ]

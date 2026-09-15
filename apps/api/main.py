@@ -3,7 +3,9 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
+from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from app.config import Config
 from app.api.router import api_v1_router
 from app.schemas.api import HealthResponse, RootInfoResponse, ScrapeStreamEvent
@@ -37,6 +39,18 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json",
 )
+
+# Les exceptions non gérées deviennent un 500 JSON *à l'intérieur* du middleware CORS :
+# sinon la réponse d'erreur part sans en-têtes CORS et le navigateur ne voit qu'un "Failed to fetch".
+# (Déclaré avant CORS : le dernier middleware ajouté est le plus externe.)
+@app.middleware("http")
+async def unhandled_errors_to_json(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as exc:  # noqa: BLE001 - filet de sécurité global
+        logger.exception(f"Erreur non gérée sur {request.method} {request.url.path}: {exc}")
+        return JSONResponse(status_code=500, content={"detail": f"Erreur interne : {exc}"})
+
 
 # Configuration CORS pour Next.js (port 3000 par défaut)
 app.add_middleware(

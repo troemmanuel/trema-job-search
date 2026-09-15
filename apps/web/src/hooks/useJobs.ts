@@ -42,3 +42,62 @@ export function useCollectJobs() {
     onError: (err: Error) => toast.error(`Collecte échouée : ${err.message}`),
   });
 }
+
+/** Calcule (ou recalcule) le score de matching IA d'une offre. */
+export function useMatchJob(jobId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.jobs.match(jobId),
+    onSuccess: (res) => {
+      void queryClient.invalidateQueries({ queryKey: jobKeys.all });
+      void queryClient.invalidateQueries({ queryKey: dashboardKeys.stats });
+      toast.success(`Matching calculé : ${res.match.score} % (${res.match.recommendation})`);
+    },
+    onError: (err: Error) => toast.error(`Matching échoué : ${err.message}`),
+  });
+}
+
+/** Crée la candidature associée à une offre (sans générer les documents). */
+export function useCreateApplication(jobId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.applications.createFromJob(jobId),
+    onSuccess: (res) => {
+      void queryClient.invalidateQueries({ queryKey: jobKeys.detail(jobId) });
+      void queryClient.invalidateQueries({ queryKey: ['applications'] });
+      void queryClient.invalidateQueries({ queryKey: dashboardKeys.stats });
+      toast.success(res.message);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+/** Génère CV, lettre et réponses pour une candidature, puis synchronise Notion (long : appels LLM). */
+export function usePrepareApplication(jobId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (applicationId: string) => api.applications.prepare(applicationId),
+    onSuccess: (res) => {
+      void queryClient.invalidateQueries({ queryKey: jobKeys.detail(jobId) });
+      void queryClient.invalidateQueries({ queryKey: ['applications'] });
+      void queryClient.invalidateQueries({ queryKey: dashboardKeys.stats });
+      toast.success(res.message);
+    },
+    onError: (err: Error) => toast.error(`Préparation échouée : ${err.message}`),
+  });
+}
+
+/** Exclut une entreprise : ses offres passent en BLACKLISTED et elle est ignorée par les prochaines collectes. */
+export function useBlacklistCompany() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (company: string) => api.settings.addToBlacklist({ company }),
+    onSuccess: (res) => {
+      void queryClient.invalidateQueries({ queryKey: jobKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['settings'] });
+      void queryClient.invalidateQueries({ queryKey: dashboardKeys.stats });
+      toast.success(`${res.message} ${res.retro_updated_jobs} offre(s) marquée(s) comme exclue(s).`);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}

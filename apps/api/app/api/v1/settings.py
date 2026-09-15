@@ -4,7 +4,14 @@ from typing import Dict, Any, List
 from fastapi import APIRouter, HTTPException
 from app.services.storage import supabase_service
 from app.schemas.candidate import CandidatePreferences
-from app.schemas.api import NotionReconcileResponse, SettingsResponse, UpdateSettingsRequest, UpdateSettingsResponse
+from app.schemas.api import (
+    BlacklistRequest,
+    BlacklistResponse,
+    NotionReconcileResponse,
+    SettingsResponse,
+    UpdateSettingsRequest,
+    UpdateSettingsResponse,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/settings", tags=["Settings"])
@@ -94,3 +101,45 @@ def trigger_notion_bidirectional_sync():
     except Exception as e:
         logger.error(f"Erreur sync bidirectionnelle Notion: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/blacklist", response_model=BlacklistResponse)
+def add_to_blacklist(payload: BlacklistRequest):
+    """Ajoute une entreprise à la liste noire et passe ses offres existantes en BLACKLISTED."""
+    if not supabase_service.client:
+        raise HTTPException(status_code=503, detail="Supabase non configuré")
+    company = payload.company.strip()
+    profile = supabase_service.get_active_candidate_profile()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profil candidat introuvable")
+
+    current_prefs = dict(profile.get("preferences") or {})
+    excluded = list(current_prefs.get("excluded_companies") or [])
+    if not any(c.lower() == company.lower() for c in excluded):
+        excluded.append(company)
+        current_prefs["excluded_companies"] = excluded
+        supabase_service.client.table("candidate_profiles").update({
+            "preferences": current_prefs,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("id", profile["id"]).execute()
+
+    # Rétro-mise à jour des offres existantes de cette entreprise (correspondance souple, comme l'ancienne route Flask)
+    updated_jobs_count = 0
+    try:
+        res = supabase_service.client.table("jobs").select("id, company").execute()
+        needle = company.lower()
+        for j in res.data or []:
+            j_comp = (j.get("company") or "").strip().lower()
+            if not j_comp:
+                continue
+            if needle == j_comp or (len(company) >= 3 and (needle in j_comp or j_comp in needle)):
+                supabase_service.client.table("jobs").update({"status": "BLACKLISTED"}).eq("id", j["id"]).execute()
+                updated_jobs_count += 1
+    except Exception as je:
+        logger.warning(f"Erreur mise à jour offres existantes pour blacklist: {je}")
+
+    return {
+        "message": f"« {company} » a été ajoutée à la liste noire.",
+        "excluded_companies": excluded,
+        "retro_updated_jobs": updated_jobs_count,
+    }

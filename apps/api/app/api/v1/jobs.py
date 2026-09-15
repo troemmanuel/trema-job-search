@@ -1,5 +1,6 @@
 import json
 import logging
+from uuid import UUID
 from typing import Optional, List, Union
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -14,6 +15,7 @@ from app.schemas.api import (
     CollectRequest,
     CollectResponse,
     JobImportRequest,
+    JobDetail,
     JobImportResponse,
     JobListResponse,
     JobRecord,
@@ -64,15 +66,22 @@ def list_jobs(
         "has_next": paginated["has_next"],
     }
 
-@router.get("/{job_id}", response_model=JobRecord)
-def get_job(job_id: str):
-    """Détail complet d'une offre."""
+@router.get("/{job_id}", response_model=JobDetail)
+def get_job(job_id: UUID):
+    """Détail complet d'une offre, avec la candidature associée si elle existe."""
     if not supabase_service.client:
         raise HTTPException(status_code=503, detail="Supabase non configuré")
-    res = supabase_service.client.table("jobs").select("*").eq("id", job_id).execute()
+    res = supabase_service.client.table("jobs").select("*").eq("id", str(job_id)).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Offre introuvable")
-    return res.data[0]
+    job = res.data[0]
+    try:
+        res_app = supabase_service.client.table("applications").select("*").eq("job_id", str(job_id)).limit(1).execute()
+        job["application"] = res_app.data[0] if res_app.data else None
+    except Exception as e:
+        logger.warning(f"Impossible de charger la candidature liée à l'offre {job_id}: {e}")
+        job["application"] = None
+    return job
 
 @router.post("/import", response_model=JobImportResponse)
 def import_job(payload: JobImportRequest):
@@ -159,12 +168,12 @@ def scrape_job_stream(payload: ScrapeRequest):
     return StreamingResponse(sse_event_stream(), media_type="text/event-stream")
 
 @router.post("/{job_id}/match", response_model=MatchJobResponse)
-def match_job(job_id: str):
+def match_job(job_id: UUID):
     """Calcule le score de matching IA pour l'offre spécifiée."""
     if not supabase_service.client:
         raise HTTPException(status_code=503, detail="Supabase non configuré")
 
-    res_job = supabase_service.client.table("jobs").select("*").eq("id", job_id).execute()
+    res_job = supabase_service.client.table("jobs").select("*").eq("id", str(job_id)).execute()
     if not res_job.data:
         raise HTTPException(status_code=404, detail="Offre introuvable")
     job = res_job.data[0]
@@ -187,7 +196,7 @@ def match_job(job_id: str):
         "match_analysis": match_result.model_dump(),
         "status": "QUALIFIED" if match_result.score >= Config.MATCH_THRESHOLD_RECOMMENDED else "REVIEW",
     }
-    supabase_service.client.table("jobs").update(update_data).eq("id", job_id).execute()
+    supabase_service.client.table("jobs").update(update_data).eq("id", str(job_id)).execute()
 
     return {"message": "Matching effectué", "match": match_result.model_dump()}
 

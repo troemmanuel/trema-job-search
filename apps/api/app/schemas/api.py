@@ -13,7 +13,7 @@ from app.config import Config
 from app.schemas.application import ApplicationAnswers, TailoredCV
 from app.schemas.candidate import CandidatePreferences, CandidateProfile
 from app.schemas.job import JobNormalizedData
-from app.schemas.match import MatchResult
+from app.schemas.match import MatchDimensions, MatchResult
 
 JobStatus = Literal["NEW", "QUALIFIED", "REVIEW", "PREPARING", "READY", "APPLIED", "IGNORED"]
 ApplicationStatusValue = Literal[
@@ -68,6 +68,20 @@ class PaginationMeta(BaseModel):
 # Jobs
 # ---------------------------------------------------------------------------
 
+class JobMatchAnalysis(LenientModel):
+    """`MatchResult` persisté en base, tolérant : les anciennes analyses peuvent être partielles."""
+    score: Optional[int] = None
+    level: Optional[str] = None
+    dimensions: Optional[MatchDimensions] = None
+    matched_skills: List[str] = Field(default_factory=list)
+    missing_skills: List[str] = Field(default_factory=list)
+    strengths: List[str] = Field(default_factory=list)
+    concerns: List[str] = Field(default_factory=list)
+    recommendation: Optional[str] = None
+    company_type: Optional[str] = None
+    company_domain: Optional[str] = None
+
+
 class JobRecord(LenientModel):
     id: Optional[str] = Field(default=None, description="Absent uniquement pour une offre simulée (Supabase non configuré)")
     source: Optional[str] = None
@@ -86,7 +100,7 @@ class JobRecord(LenientModel):
     normalized_data: Optional[JobNormalizedData] = None
     match_score: Optional[int] = None
     match_level: Optional[str] = None
-    match_analysis: Optional[Dict[str, Any]] = None
+    match_analysis: Optional[JobMatchAnalysis] = None
     status: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
@@ -226,6 +240,10 @@ class ApplicationRecord(LenientModel):
     applied_at: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+
+
+class JobDetail(JobRecord):
+    application: Optional[ApplicationRecord] = Field(default=None, description="Candidature déjà créée pour cette offre, le cas échéant")
 
 
 class ApplicationDetail(ApplicationRecord):
@@ -440,6 +458,15 @@ class UpdateSettingsRequest(BaseModel):
 
 class UpdateSettingsResponse(MessageResponse):
     preferences: CandidatePreferences
+
+
+class BlacklistRequest(BaseModel):
+    company: str = Field(min_length=1, description="Nom de l'entreprise à exclure")
+
+
+class BlacklistResponse(MessageResponse):
+    excluded_companies: List[str]
+    retro_updated_jobs: int = Field(description="Offres existantes de cette entreprise passées en BLACKLISTED")
 
 
 class NotionReconcileResponse(LenientModel):

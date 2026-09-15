@@ -4,6 +4,8 @@ import type {
   ApplicationDetail,
   ApplicationIdResponse,
   ApplicationListResponse,
+  BlacklistRequest,
+  BlacklistResponse,
   CandidateProfileRecord,
   CollectRequest,
   CollectResponse,
@@ -11,9 +13,9 @@ import type {
   HealthResponse,
   InterfacesAnalyticsResponse,
   JobImportRequest,
+  JobDetail,
   JobImportResponse,
   JobListResponse,
-  JobRecord,
   MatchJobResponse,
   NotionReconcileResponse,
   NotionSyncResponse,
@@ -70,7 +72,7 @@ export function createTremaApi(options: { baseUrl?: string; fetch?: typeof fetch
     jobs: {
       list: (query: JobListQuery = {}): Promise<JobListResponse> =>
         client.GET('/api/v1/jobs', { params: { query } }).then(unwrap),
-      get: (jobId: string): Promise<JobRecord> =>
+      get: (jobId: string): Promise<JobDetail> =>
         client.GET('/api/v1/jobs/{job_id}', { params: { path: { job_id: jobId } } }).then(unwrap),
       import: (body: JobImportRequest): Promise<JobImportResponse> =>
         client.POST('/api/v1/jobs/import', { body }).then(unwrap),
@@ -141,6 +143,8 @@ export function createTremaApi(options: { baseUrl?: string; fetch?: typeof fetch
       update: (body: UpdateSettingsRequest): Promise<UpdateSettingsResponse> =>
         client.PUT('/api/v1/settings', { body }).then(unwrap),
       syncNotion: (): Promise<NotionReconcileResponse> => client.POST('/api/v1/settings/sync-notion').then(unwrap),
+      addToBlacklist: (body: BlacklistRequest): Promise<BlacklistResponse> =>
+        client.POST('/api/v1/settings/blacklist', { body }).then(unwrap),
     },
   };
 }

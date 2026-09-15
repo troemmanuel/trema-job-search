@@ -1,4 +1,5 @@
 import logging
+from uuid import UUID
 from typing import Optional
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Query, Response
@@ -55,17 +56,17 @@ def list_applications(
     }
 
 @router.get("/{app_id}", response_model=ApplicationDetail)
-def get_application(app_id: str):
+def get_application(app_id: UUID):
     """Détail complet d'une candidature avec son offre associée."""
     if not supabase_service.client:
         raise HTTPException(status_code=503, detail="Supabase non configuré")
-    res = supabase_service.client.table("applications").select("*, jobs(*)").eq("id", app_id).execute()
+    res = supabase_service.client.table("applications").select("*, jobs(*)").eq("id", str(app_id)).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Candidature introuvable")
     return res.data[0]
 
 @router.post("/create-from-job/{job_id}", response_model=ApplicationIdResponse)
-def create_application_from_job(job_id: str):
+def create_application_from_job(job_id: UUID):
     """Crée une candidature à partir d'une offre d'emploi."""
     if not supabase_service.client:
         raise HTTPException(status_code=503, detail="Supabase non configuré")
@@ -74,15 +75,15 @@ def create_application_from_job(job_id: str):
     if not profile_data:
         raise HTTPException(status_code=400, detail="Aucun profil candidat actif trouvé")
 
-    existing = supabase_service.client.table("applications").select("*").eq("job_id", job_id).execute()
+    existing = supabase_service.client.table("applications").select("*").eq("job_id", str(job_id)).execute()
     if existing.data:
         return {"message": "Candidature existante", "application_id": existing.data[0]["id"]}
 
-    res_job = supabase_service.client.table("jobs").select("*").eq("id", job_id).execute()
+    res_job = supabase_service.client.table("jobs").select("*").eq("id", str(job_id)).execute()
     match_score = res_job.data[0].get("match_score") if res_job.data else None
 
     new_app = {
-        "job_id": job_id,
+        "job_id": str(job_id),
         "candidate_profile_id": profile_data["id"],
         "status": "QUALIFIED",
         "match_score": match_score,
@@ -91,18 +92,18 @@ def create_application_from_job(job_id: str):
     return {"message": "Candidature créée", "application_id": res_create.data[0]["id"]}
 
 @router.post("/{app_id}/prepare", response_model=ApplicationIdResponse)
-def prepare_application(app_id: str):
+def prepare_application(app_id: UUID):
     """Génère le CV personnalisé, la lettre et les réponses, puis synchronise Notion."""
     if not supabase_service.client:
         raise HTTPException(status_code=503, detail="Supabase non configuré")
 
-    res_app = supabase_service.client.table("applications").select("*, jobs(*)").eq("id", app_id).execute()
+    res_app = supabase_service.client.table("applications").select("*, jobs(*)").eq("id", str(app_id)).execute()
     if not res_app.data:
         raise HTTPException(status_code=404, detail="Candidature introuvable")
     application = res_app.data[0]
     job = application.get("jobs", {})
 
-    supabase_service.client.table("applications").update({"status": "PREPARING"}).eq("id", app_id).execute()
+    supabase_service.client.table("applications").update({"status": "PREPARING"}).eq("id", str(app_id)).execute()
 
     try:
         profile_data = supabase_service.get_active_candidate_profile()
@@ -114,7 +115,7 @@ def prepare_application(app_id: str):
             job_id=job["id"],
             profile=candidate_profile,
             job=job_normalized,
-            application_id=app_id,
+            application_id=str(app_id),
         )
 
         update_fields = {
@@ -137,16 +138,16 @@ def prepare_application(app_id: str):
         except Exception as ne:
             logger.warning(f"Erreur sync Notion : {ne}")
 
-        supabase_service.client.table("applications").update(update_fields).eq("id", app_id).execute()
-        return {"message": "Dossier préparé avec succès", "application_id": app_id}
+        supabase_service.client.table("applications").update(update_fields).eq("id", str(app_id)).execute()
+        return {"message": "Dossier préparé avec succès", "application_id": str(app_id)}
 
     except Exception as e:
         logger.error(f"Erreur préparation candidature : {e}")
-        supabase_service.client.table("applications").update({"status": "QUALIFIED"}).eq("id", app_id).execute()
+        supabase_service.client.table("applications").update({"status": "QUALIFIED"}).eq("id", str(app_id)).execute()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.patch("/{app_id}/status", response_model=UpdateStatusResponse)
-def update_application_status(app_id: str, payload: UpdateStatusRequest):
+def update_application_status(app_id: UUID, payload: UpdateStatusRequest):
     """Met à jour le statut d'une candidature."""
     if not supabase_service.client:
         raise HTTPException(status_code=503, detail="Supabase non configuré")
@@ -155,7 +156,7 @@ def update_application_status(app_id: str, payload: UpdateStatusRequest):
     if payload.status == "APPLIED":
         update_data["applied_at"] = datetime.now(timezone.utc).isoformat()
 
-    supabase_service.client.table("applications").update(update_data).eq("id", app_id).execute()
+    supabase_service.client.table("applications").update(update_data).eq("id", str(app_id)).execute()
     return {"message": "Statut mis à jour", "status": payload.status}
 
 @router.get(
@@ -163,12 +164,12 @@ def update_application_status(app_id: str, payload: UpdateStatusRequest):
     response_class=Response,
     responses={200: {"content": {"application/pdf": {}}, "description": "Document PDF généré (ReportLab)"}},
 )
-def get_application_document(app_id: str, doc_type: DocumentType):
+def get_application_document(app_id: UUID, doc_type: DocumentType):
     """Télécharge ou prévisualise un document PDF (CV ou COVER_LETTER)."""
     if not supabase_service.client:
         raise HTTPException(status_code=503, detail="Supabase non configuré")
 
-    res_app = supabase_service.client.table("applications").select("*, jobs(*)").eq("id", app_id).execute()
+    res_app = supabase_service.client.table("applications").select("*, jobs(*)").eq("id", str(app_id)).execute()
     if not res_app.data:
         raise HTTPException(status_code=404, detail="Candidature introuvable")
     application = res_app.data[0]
@@ -199,12 +200,12 @@ def get_application_document(app_id: str, doc_type: DocumentType):
     )
 
 @router.post("/{app_id}/sync-notion", response_model=NotionSyncResponse)
-def sync_application_notion(app_id: str):
+def sync_application_notion(app_id: UUID):
     """Synchronise manuellement une candidature vers Notion."""
     if not supabase_service.client:
         raise HTTPException(status_code=503, detail="Supabase non configuré")
 
-    res_app = supabase_service.client.table("applications").select("*, jobs(*)").eq("id", app_id).execute()
+    res_app = supabase_service.client.table("applications").select("*, jobs(*)").eq("id", str(app_id)).execute()
     if not res_app.data:
         raise HTTPException(status_code=404, detail="Candidature introuvable")
     application = res_app.data[0]
@@ -217,6 +218,6 @@ def sync_application_notion(app_id: str):
         candidate=profile_data,
     )
     if page_id:
-        supabase_service.client.table("applications").update({"notion_page_id": page_id}).eq("id", app_id).execute()
+        supabase_service.client.table("applications").update({"notion_page_id": page_id}).eq("id", str(app_id)).execute()
         return {"message": "Synchronisation Notion réussie", "notion_page_id": page_id}
     raise HTTPException(status_code=500, detail="Échec de la synchronisation Notion")

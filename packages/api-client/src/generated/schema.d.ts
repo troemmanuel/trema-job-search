@@ -297,7 +297,7 @@ export interface paths {
         };
         /**
          * Get Job
-         * @description Détail complet d'une offre.
+         * @description Détail complet d'une offre, avec la candidature associée si elle existe.
          */
         get: operations["get_job_api_v1_jobs__job_id__get"];
         put?: never;
@@ -490,6 +490,26 @@ export interface paths {
          */
         put: operations["update_settings_api_v1_settings_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/blacklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add To Blacklist
+         * @description Ajoute une entreprise à la liste noire et passe ses offres existantes en BLACKLISTED.
+         */
+        post: operations["add_to_blacklist_api_v1_settings_blacklist_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -714,6 +734,26 @@ export interface components {
             updated_at?: string | null;
         } & {
             [key: string]: unknown;
+        };
+        /** BlacklistRequest */
+        BlacklistRequest: {
+            /**
+             * Company
+             * @description Nom de l'entreprise à exclure
+             */
+            company: string;
+        };
+        /** BlacklistResponse */
+        BlacklistResponse: {
+            /** Excluded Companies */
+            excluded_companies: string[];
+            /** Message */
+            message: string;
+            /**
+             * Retro Updated Jobs
+             * @description Offres existantes de cette entreprise passées en BLACKLISTED
+             */
+            retro_updated_jobs: number;
         };
         /** CandidatePreferences */
         CandidatePreferences: {
@@ -1076,6 +1116,58 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** JobDetail */
+        JobDetail: {
+            /** @description Candidature déjà créée pour cette offre, le cas échéant */
+            application?: components["schemas"]["ApplicationRecord"] | null;
+            /** Company */
+            company?: string | null;
+            /** Contract Type */
+            contract_type?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Description */
+            description?: string | null;
+            /**
+             * Id
+             * @description Absent uniquement pour une offre simulée (Supabase non configuré)
+             */
+            id?: string | null;
+            /** Location */
+            location?: string | null;
+            match_analysis?: components["schemas"]["JobMatchAnalysis"] | null;
+            /** Match Level */
+            match_level?: string | null;
+            /** Match Score */
+            match_score?: number | null;
+            normalized_data?: components["schemas"]["JobNormalizedData"] | null;
+            /** Published At */
+            published_at?: string | null;
+            /** Raw Data */
+            raw_data?: {
+                [key: string]: unknown;
+            } | null;
+            /** Salary Currency */
+            salary_currency?: string | null;
+            /** Salary Max */
+            salary_max?: number | null;
+            /** Salary Min */
+            salary_min?: number | null;
+            /** Source */
+            source?: string | null;
+            /** Source Job Id */
+            source_job_id?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+            /** Url */
+            url?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * JobImportRequest
          * @description Charge utile d'import manuel : mêmes champs que `JobImport`, tolérant aux extras des scrapers.
@@ -1141,6 +1233,33 @@ export interface components {
             /** Total Pages */
             total_pages: number;
         };
+        /**
+         * JobMatchAnalysis
+         * @description `MatchResult` persisté en base, tolérant : les anciennes analyses peuvent être partielles.
+         */
+        JobMatchAnalysis: {
+            /** Company Domain */
+            company_domain?: string | null;
+            /** Company Type */
+            company_type?: string | null;
+            /** Concerns */
+            concerns?: string[];
+            dimensions?: components["schemas"]["MatchDimensions"] | null;
+            /** Level */
+            level?: string | null;
+            /** Matched Skills */
+            matched_skills?: string[];
+            /** Missing Skills */
+            missing_skills?: string[];
+            /** Recommendation */
+            recommendation?: string | null;
+            /** Score */
+            score?: number | null;
+            /** Strengths */
+            strengths?: string[];
+        } & {
+            [key: string]: unknown;
+        };
         /** JobNormalizedData */
         JobNormalizedData: {
             /** Company */
@@ -1191,10 +1310,7 @@ export interface components {
             id?: string | null;
             /** Location */
             location?: string | null;
-            /** Match Analysis */
-            match_analysis?: {
-                [key: string]: unknown;
-            } | null;
+            match_analysis?: components["schemas"]["JobMatchAnalysis"] | null;
             /** Match Level */
             match_level?: string | null;
             /** Match Score */
@@ -1827,6 +1943,8 @@ export type ApplicationDetail = components['schemas']['ApplicationDetail'];
 export type ApplicationIdResponse = components['schemas']['ApplicationIdResponse'];
 export type ApplicationListResponse = components['schemas']['ApplicationListResponse'];
 export type ApplicationRecord = components['schemas']['ApplicationRecord'];
+export type BlacklistRequest = components['schemas']['BlacklistRequest'];
+export type BlacklistResponse = components['schemas']['BlacklistResponse'];
 export type CandidatePreferences = components['schemas']['CandidatePreferences'];
 export type CandidateProfile = components['schemas']['CandidateProfile'];
 export type CandidateProfileRecord = components['schemas']['CandidateProfileRecord'];
@@ -1844,9 +1962,11 @@ export type FunnelRates = components['schemas']['FunnelRates'];
 export type HealthResponse = components['schemas']['HealthResponse'];
 export type HttpValidationError = components['schemas']['HTTPValidationError'];
 export type InterfacesAnalyticsResponse = components['schemas']['InterfacesAnalyticsResponse'];
+export type JobDetail = components['schemas']['JobDetail'];
 export type JobImportRequest = components['schemas']['JobImportRequest'];
 export type JobImportResponse = components['schemas']['JobImportResponse'];
 export type JobListResponse = components['schemas']['JobListResponse'];
+export type JobMatchAnalysis = components['schemas']['JobMatchAnalysis'];
 export type JobNormalizedData = components['schemas']['JobNormalizedData'];
 export type JobRecord = components['schemas']['JobRecord'];
 export type MatchDimensions = components['schemas']['MatchDimensions'];
@@ -2328,7 +2448,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["JobRecord"];
+                    "application/json": components["schemas"]["JobDetail"];
                 };
             };
             /** @description Validation Error */
@@ -2619,6 +2739,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UpdateSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_to_blacklist_api_v1_settings_blacklist_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlacklistRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlacklistResponse"];
                 };
             };
             /** @description Validation Error */
