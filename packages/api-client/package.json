@@ -17,7 +17,7 @@
   "scripts": {
     "generate:api-client": "pnpm run export:openapi && pnpm run generate:types",
     "export:openapi": "uv run --directory ../../apps/api python scripts/export_openapi.py",
-    "generate:types": "openapi-typescript openapi.json -o src/generated/schema.d.ts --alphabetize --root-types --root-types-no-schema-prefix",
+    "generate:types": "openapi-typescript openapi.json -o src/generated/schema.d.ts --alphabetize --root-types --root-types-no-schema-prefix --default-non-nullable=false",
     "typecheck": "tsc --noEmit",
     "check:fresh": "pnpm run generate:api-client && git diff --exit-code -- openapi.json src/generated"
   },

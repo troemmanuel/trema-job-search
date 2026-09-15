@@ -552,7 +552,7 @@ export interface components {
              * Recommended
              * @default false
              */
-            recommended: boolean;
+            recommended?: boolean;
         };
         /** AnalyticsKpis */
         AnalyticsKpis: {
@@ -605,7 +605,7 @@ export interface components {
              * @default true
              * @constant
              */
-            success: true;
+            success?: true;
             /** Tech Performance */
             tech_performance: {
                 [key: string]: unknown;
@@ -721,39 +721,39 @@ export interface components {
              * Ai Custom Instructions
              * @default
              */
-            ai_custom_instructions: string | null;
+            ai_custom_instructions?: string | null;
             /**
              * Ai Model
              * @default gemini-2.5-flash
              */
-            ai_model: string;
+            ai_model?: string;
             /**
              * Ai Temperature
              * @default 0.2
              */
-            ai_temperature: number;
+            ai_temperature?: number;
             /**
              * Auto Prepare Documents
              * @default false
              */
-            auto_prepare_documents: boolean;
+            auto_prepare_documents?: boolean;
             /**
              * Auto Sync Notion
              * @default true
              */
-            auto_sync_notion: boolean;
+            auto_sync_notion?: boolean;
             /** Contract Types */
             contract_types?: string[];
             /**
              * Daily Collection Limit
              * @default 5
              */
-            daily_collection_limit: number;
+            daily_collection_limit?: number;
             /**
              * Default Search Duration
              * @default 24h
              */
-            default_search_duration: string;
+            default_search_duration?: string;
             /** Excluded Companies */
             excluded_companies?: string[];
             /** Excluded Keywords */
@@ -762,31 +762,31 @@ export interface components {
              * Filter Esn
              * @default false
              */
-            filter_esn: boolean;
+            filter_esn?: boolean;
             /** Locations */
             locations?: string[];
             /**
              * Match Threshold Priority
              * @default 85
              */
-            match_threshold_priority: number;
+            match_threshold_priority?: number;
             /**
              * Match Threshold Recommended
              * @default 75
              */
-            match_threshold_recommended: number;
+            match_threshold_recommended?: number;
             /**
              * Match Threshold Review
              * @default 60
              */
-            match_threshold_review: number;
+            match_threshold_review?: number;
             /** Minimum Salary */
             minimum_salary?: number | null;
             /**
              * Remote
              * @default true
              */
-            remote: boolean;
+            remote?: boolean;
             /** Sectors */
             sectors?: string[];
             /** Target Titles */
@@ -804,7 +804,7 @@ export interface components {
              * Is Active
              * @default true
              */
-            is_active: boolean;
+            is_active?: boolean;
             /** Languages */
             languages?: string[];
             /** Name */
@@ -822,7 +822,7 @@ export interface components {
              * Version
              * @default 1
              */
-            version: number;
+            version?: number;
         };
         /** CandidateProfileRecord */
         CandidateProfileRecord: {
@@ -834,7 +834,7 @@ export interface components {
              * Is Active
              * @default true
              */
-            is_active: boolean;
+            is_active?: boolean;
             /** Name */
             name?: string | null;
             preferences?: components["schemas"]["CandidatePreferences"];
@@ -871,17 +871,17 @@ export interface components {
              * Auto Prepare
              * @default true
              */
-            auto_prepare: boolean;
+            auto_prepare?: boolean;
             /**
              * Duration
              * @default 24h
              */
-            duration: string;
+            duration?: string;
             /**
              * Limit
              * @default 5
              */
-            limit: number;
+            limit?: number;
             /** Query */
             query?: string | null;
         };
@@ -1069,7 +1069,7 @@ export interface components {
              * @default true
              * @constant
              */
-            success: true;
+            success?: true;
             task_distribution: components["schemas"]["TaskDistribution"];
             /** Timestamp */
             timestamp: string;
@@ -1155,7 +1155,7 @@ export interface components {
              * Language
              * @default fr
              */
-            language: string;
+            language?: string;
             /** Location */
             location?: string | null;
             /** Nice To Have */
@@ -1164,7 +1164,7 @@ export interface components {
              * Remote
              * @default false
              */
-            remote: boolean | null;
+            remote?: boolean | null;
             /** Requirements */
             requirements?: string[];
             /** Seniority */
@@ -1282,7 +1282,7 @@ export interface components {
              * Created Notion Count
              * @default 0
              */
-            created_notion_count: number;
+            created_notion_count?: number;
             /** Details */
             details?: {
                 [key: string]: unknown;
@@ -1295,12 +1295,12 @@ export interface components {
              * Matched Count
              * @default 0
              */
-            matched_count: number;
+            matched_count?: number;
             /**
              * Refreshed Documents Count
              * @default 0
              */
-            refreshed_documents_count: number;
+            refreshed_documents_count?: number;
             /** Success */
             success: boolean;
             /** Timestamp */
@@ -1309,12 +1309,12 @@ export interface components {
              * Total Notion Pages
              * @default 0
              */
-            total_notion_pages: number;
+            total_notion_pages?: number;
             /**
              * Total Supabase Apps
              * @default 0
              */
-            total_supabase_apps: number;
+            total_supabase_apps?: number;
             /** Trashed Notion Pages */
             trashed_notion_pages?: {
                 [key: string]: unknown;
@@ -1323,12 +1323,12 @@ export interface components {
              * Updated Notion Count
              * @default 0
              */
-            updated_notion_count: number;
+            updated_notion_count?: number;
             /**
              * Updated Supabase Count
              * @default 0
              */
-            updated_supabase_count: number;
+            updated_supabase_count?: number;
         } & {
             [key: string]: unknown;
         };
@@ -1381,14 +1381,14 @@ export interface components {
              * Confidence
              * @default HIGH
              */
-            confidence: string;
+            confidence?: string;
             /** Question */
             question: string;
             /**
              * Validation Required
              * @default false
              */
-            validation_required: boolean;
+            validation_required?: boolean;
         };
         /** RootInfoResponse */
         RootInfoResponse: {
@@ -1414,33 +1414,33 @@ export interface components {
              * New Imported Count
              * @default 0
              */
-            new_imported_count: number;
+            new_imported_count?: number;
             notion_reconcile?: components["schemas"]["SchedulerReconcileSummary"] | null;
             /**
              * Notion Synced Count
              * @default 0
              */
-            notion_synced_count: number;
+            notion_synced_count?: number;
             /**
              * Prepared Count
              * @default 0
              */
-            prepared_count: number;
+            prepared_count?: number;
             /**
              * Processed Count
              * @default 0
              */
-            processed_count: number;
+            processed_count?: number;
             /**
              * Qualified Count
              * @default 0
              */
-            qualified_count: number;
+            qualified_count?: number;
             /**
              * Total Found
              * @default 0
              */
-            total_found: number;
+            total_found?: number;
         } & {
             [key: string]: unknown;
         };
@@ -1450,17 +1450,17 @@ export interface components {
              * Matched Count
              * @default 0
              */
-            matched_count: number;
+            matched_count?: number;
             /**
              * Updated Notion
              * @default 0
              */
-            updated_notion: number;
+            updated_notion?: number;
             /**
              * Updated Supabase
              * @default 0
              */
-            updated_supabase: number;
+            updated_supabase?: number;
         };
         /** SchedulerStatus */
         SchedulerStatus: {
@@ -1470,7 +1470,7 @@ export interface components {
              * Is Running Job
              * @default false
              */
-            is_running_job: boolean;
+            is_running_job?: boolean;
             last_result?: components["schemas"]["SchedulerLastResult"] | null;
             /** Last Run */
             last_run?: string | null;
@@ -1495,7 +1495,7 @@ export interface components {
              * Enabled
              * @default true
              */
-            enabled: boolean;
+            enabled?: boolean;
             /**
              * Time
              * @description Heure d'exécution quotidienne au format HH:MM
@@ -1530,7 +1530,7 @@ export interface components {
              * Prepared
              * @default false
              */
-            prepared: boolean;
+            prepared?: boolean;
             /** Score */
             score?: number | null;
             /** Status */
@@ -1553,7 +1553,7 @@ export interface components {
              * @default true
              * @constant
              */
-            is_batch: true;
+            is_batch?: true;
             /** Notion Synced Count */
             notion_synced_count: number;
             /** Prepared Count */
@@ -1595,7 +1595,7 @@ export interface components {
              * Prepared
              * @default false
              */
-            prepared: boolean;
+            prepared?: boolean;
             /** Score */
             score?: number | null;
             /** Status */
@@ -1611,12 +1611,12 @@ export interface components {
              * Auto Prepare
              * @default true
              */
-            auto_prepare: boolean;
+            auto_prepare?: boolean;
             /**
              * Min Match Score
              * @default 75
              */
-            min_match_score: number;
+            min_match_score?: number;
             /**
              * Url
              * @description Une URL, ou plusieurs séparées par virgule / retour à la ligne
@@ -1634,19 +1634,19 @@ export interface components {
              * Current
              * @default null
              */
-            current: number | null;
+            current?: number | null;
             /**
              * Error
              * @default null
              */
-            error: string | null;
+            error?: string | null;
             /** @default null */
-            result: components["schemas"]["ScrapeItemResult"] | null;
+            result?: components["schemas"]["ScrapeItemResult"] | null;
             /**
              * Total
              * @default null
              */
-            total: number | null;
+            total?: number | null;
             /**
              * Type
              * @enum {string}
@@ -1656,7 +1656,7 @@ export interface components {
              * Url
              * @default null
              */
-            url: string | null;
+            url?: string | null;
         };
         /** ServiceStatuses */
         ServiceStatuses: {
@@ -1716,7 +1716,7 @@ export interface components {
              * Language
              * @default fr
              */
-            language: string;
+            language?: string;
             /** Mobility */
             mobility?: string | null;
             /** Selected Experiences */
@@ -1735,7 +1735,7 @@ export interface components {
              * Validation Required
              * @default false
              */
-            validation_required: boolean;
+            validation_required?: boolean;
         };
         /** TaskDistribution */
         TaskDistribution: {
