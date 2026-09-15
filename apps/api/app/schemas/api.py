@@ -279,6 +279,7 @@ class CandidateProfileRecord(LenientModel):
     name: Optional[str] = None
     profile: CandidateProfile
     preferences: CandidatePreferences = Field(default_factory=CandidatePreferences)
+    version: int = 1
     is_active: bool = True
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
@@ -286,11 +287,19 @@ class CandidateProfileRecord(LenientModel):
 
 class UpdateCandidateProfileRequest(BaseModel):
     profile: CandidateProfile
-    preferences: CandidatePreferences = Field(default_factory=CandidatePreferences)
+    preferences: Optional[CandidatePreferences] = Field(default=None, description="Omis : les préférences actuelles sont conservées")
 
 
 class UpdateCandidateProfileResponse(MessageResponse):
     data: List[CandidateProfileRecord]
+
+
+class TranscribeCvRequest(BaseModel):
+    markdown: str = Field(min_length=1, description="Contenu Markdown du CV à transcrire en profil structuré")
+
+
+class TranscribeCvResponse(MessageResponse):
+    profile: CandidateProfileRecord
 
 
 # ---------------------------------------------------------------------------

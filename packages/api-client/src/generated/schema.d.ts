@@ -228,6 +228,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/candidate/transcribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transcribe Markdown Cv
+         * @description Transcrit un CV Markdown en profil structuré via l'IA, puis remplace le profil actif (version incrémentée).
+         */
+        post: operations["transcribe_markdown_cv_api_v1_candidate_transcribe_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboard/stats": {
         parameters: {
             query?: never;
@@ -881,6 +901,11 @@ export interface components {
             profile: components["schemas"]["CandidateProfile"];
             /** Updated At */
             updated_at?: string | null;
+            /**
+             * Version
+             * @default 1
+             */
+            version?: number;
         } & {
             [key: string]: unknown;
         };
@@ -1875,9 +1900,24 @@ export interface components {
             /** Labels */
             labels: string[];
         };
+        /** TranscribeCvRequest */
+        TranscribeCvRequest: {
+            /**
+             * Markdown
+             * @description Contenu Markdown du CV à transcrire en profil structuré
+             */
+            markdown: string;
+        };
+        /** TranscribeCvResponse */
+        TranscribeCvResponse: {
+            /** Message */
+            message: string;
+            profile: components["schemas"]["CandidateProfileRecord"];
+        };
         /** UpdateCandidateProfileRequest */
         UpdateCandidateProfileRequest: {
-            preferences?: components["schemas"]["CandidatePreferences"];
+            /** @description Omis : les préférences actuelles sont conservées */
+            preferences?: components["schemas"]["CandidatePreferences"] | null;
             profile: components["schemas"]["CandidateProfile"];
         };
         /** UpdateCandidateProfileResponse */
@@ -1996,6 +2036,8 @@ export type SkillGroup = components['schemas']['SkillGroup'];
 export type TailoredCv = components['schemas']['TailoredCV'];
 export type TaskDistribution = components['schemas']['TaskDistribution'];
 export type Timeline = components['schemas']['Timeline'];
+export type TranscribeCvRequest = components['schemas']['TranscribeCvRequest'];
+export type TranscribeCvResponse = components['schemas']['TranscribeCvResponse'];
 export type UpdateCandidateProfileRequest = components['schemas']['UpdateCandidateProfileRequest'];
 export type UpdateCandidateProfileResponse = components['schemas']['UpdateCandidateProfileResponse'];
 export type UpdateSettingsRequest = components['schemas']['UpdateSettingsRequest'];
@@ -2344,6 +2386,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UpdateCandidateProfileResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transcribe_markdown_cv_api_v1_candidate_transcribe_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TranscribeCvRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranscribeCvResponse"];
                 };
             };
             /** @description Validation Error */

@@ -27,6 +27,8 @@ import type {
   ScrapeItemResult,
   ScrapeRequest,
   SettingsResponse,
+  TranscribeCvRequest,
+  TranscribeCvResponse,
   UpdateCandidateProfileRequest,
   UpdateCandidateProfileResponse,
   UpdateSettingsRequest,
@@ -123,6 +125,9 @@ export function createTremaApi(options: { baseUrl?: string; fetch?: typeof fetch
       profile: (): Promise<CandidateProfileRecord> => client.GET('/api/v1/candidate/profile').then(unwrap),
       updateProfile: (body: UpdateCandidateProfileRequest): Promise<UpdateCandidateProfileResponse> =>
         client.PUT('/api/v1/candidate/profile', { body }).then(unwrap),
+      /** Transcription IA d'un CV Markdown : remplace le profil actif (les préférences sont conservées). */
+      transcribe: (body: TranscribeCvRequest): Promise<TranscribeCvResponse> =>
+        client.POST('/api/v1/candidate/transcribe', { body }).then(unwrap),
     },
 
     scheduler: {

@@ -860,6 +860,11 @@
               }
             ],
             "title": "Updated At"
+          },
+          "version": {
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -3874,10 +3879,50 @@
         "title": "Timeline",
         "type": "object"
       },
+      "TranscribeCvRequest": {
+        "properties": {
+          "markdown": {
+            "description": "Contenu Markdown du CV à transcrire en profil structuré",
+            "minLength": 1,
+            "title": "Markdown",
+            "type": "string"
+          }
+        },
+        "required": [
+          "markdown"
+        ],
+        "title": "TranscribeCvRequest",
+        "type": "object"
+      },
+      "TranscribeCvResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/CandidateProfileRecord"
+          }
+        },
+        "required": [
+          "message",
+          "profile"
+        ],
+        "title": "TranscribeCvResponse",
+        "type": "object"
+      },
       "UpdateCandidateProfileRequest": {
         "properties": {
           "preferences": {
-            "$ref": "#/components/schemas/CandidatePreferences"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CandidatePreferences"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Omis : les préférences actuelles sont conservées"
           },
           "profile": {
             "$ref": "#/components/schemas/CandidateProfile"
@@ -4591,6 +4636,48 @@
           }
         },
         "summary": "Update Candidate Profile",
+        "tags": [
+          "Candidate"
+        ]
+      }
+    },
+    "/api/v1/candidate/transcribe": {
+      "post": {
+        "description": "Transcrit un CV Markdown en profil structuré via l'IA, puis remplace le profil actif (version incrémentée).",
+        "operationId": "transcribe_markdown_cv_api_v1_candidate_transcribe_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TranscribeCvRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscribeCvResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Transcribe Markdown Cv",
         "tags": [
           "Candidate"
         ]
