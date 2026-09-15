@@ -251,7 +251,7 @@ class ApplicationDetail(ApplicationRecord):
 
 
 class ApplicationListResponse(PaginationMeta):
-    applications: List[ApplicationRecord]
+    applications: List[ApplicationDetail]
 
 
 class ApplicationIdResponse(MessageResponse):

@@ -113,7 +113,7 @@ export interface paths {
         };
         /**
          * Get Application Document
-         * @description Télécharge ou prévisualise un document PDF (CV ou COVER_LETTER).
+         * @description Prévisualise (inline) ou télécharge (`?download=true`) un document PDF : CV ou COVER_LETTER.
          */
         get: operations["get_application_document_api_v1_applications__app_id__documents__doc_type__get"];
         put?: never;
@@ -690,7 +690,7 @@ export interface components {
         /** ApplicationListResponse */
         ApplicationListResponse: {
             /** Applications */
-            applications: components["schemas"]["ApplicationRecord"][];
+            applications: components["schemas"]["ApplicationDetail"][];
             /** Has Next */
             has_next: boolean;
             /** Has Prev */
@@ -2144,7 +2144,9 @@ export interface operations {
     };
     get_application_document_api_v1_applications__app_id__documents__doc_type__get: {
         parameters: {
-            query?: never;
+            query?: {
+                download?: boolean;
+            };
             header?: never;
             path: {
                 app_id: string;

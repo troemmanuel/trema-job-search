@@ -45,6 +45,7 @@ type Query<P extends keyof paths, M extends keyof paths[P]> = paths[P][M] extend
 
 export type JobListQuery = NonNullable<Query<'/api/v1/jobs', 'get'>>;
 export type ApplicationListQuery = NonNullable<Query<'/api/v1/applications', 'get'>>;
+export type ApplicationStatus = UpdateStatusRequest['status'];
 export type AnalyticsPeriod = NonNullable<NonNullable<Query<'/api/v1/analytics/stats', 'get'>>['period']>;
 export type DocumentType = paths['/api/v1/applications/{app_id}/documents/{doc_type}']['get']['parameters']['path']['doc_type'];
 
@@ -105,9 +106,9 @@ export function createTremaApi(options: { baseUrl?: string; fetch?: typeof fetch
         client
           .POST('/api/v1/applications/{app_id}/sync-notion', { params: { path: { app_id: appId } } })
           .then(unwrap),
-      /** URL directe du PDF (CV ou lettre), utilisable dans un `<iframe>` ou un lien de téléchargement. */
-      documentUrl: (appId: string, docType: DocumentType): string =>
-        `${baseUrl}/api/v1/applications/${encodeURIComponent(appId)}/documents/${docType}`,
+      /** URL directe du PDF (CV ou lettre) : inline pour un `<iframe>`, `download: true` pour forcer l'enregistrement. */
+      documentUrl: (appId: string, docType: DocumentType, options: { download?: boolean } = {}): string =>
+        `${baseUrl}/api/v1/applications/${encodeURIComponent(appId)}/documents/${docType}${options.download ? '?download=true' : ''}`,
       /** Télécharge le PDF en mémoire (ex. pour un visualiseur PDF in-app). */
       document: (appId: string, docType: DocumentType): Promise<Blob> =>
         client

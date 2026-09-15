@@ -10,6 +10,7 @@ export {
   type TremaApi,
   type JobListQuery,
   type ApplicationListQuery,
+  type ApplicationStatus,
   type AnalyticsPeriod,
   type DocumentType,
 } from './api';

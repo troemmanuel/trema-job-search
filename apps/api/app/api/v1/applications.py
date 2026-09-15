@@ -164,8 +164,8 @@ def update_application_status(app_id: UUID, payload: UpdateStatusRequest):
     response_class=Response,
     responses={200: {"content": {"application/pdf": {}}, "description": "Document PDF généré (ReportLab)"}},
 )
-def get_application_document(app_id: UUID, doc_type: DocumentType):
-    """Télécharge ou prévisualise un document PDF (CV ou COVER_LETTER)."""
+def get_application_document(app_id: UUID, doc_type: DocumentType, download: bool = False):
+    """Prévisualise (inline) ou télécharge (`?download=true`) un document PDF : CV ou COVER_LETTER."""
     if not supabase_service.client:
         raise HTTPException(status_code=503, detail="Supabase non configuré")
 
@@ -173,30 +173,39 @@ def get_application_document(app_id: UUID, doc_type: DocumentType):
     if not res_app.data:
         raise HTTPException(status_code=404, detail="Candidature introuvable")
     application = res_app.data[0]
-    job = application.get("jobs", {})
+    job = application.get("jobs") or {}
 
-    company = (job.get("company") or "Entreprise").replace(" ", "_")
+    from app.services.documents.renderer import build_document_filename, build_letter_payload
+
+    profile_data = supabase_service.get_active_candidate_profile()
+    raw_profile = profile_data["profile"] if profile_data else {}
+
     if doc_type == "CV":
         tailored_cv = application.get("tailored_cv")
         if not tailored_cv:
-            raise HTTPException(status_code=404, detail="CV non généré pour cette offre")
-        profile_data = supabase_service.get_active_candidate_profile()
-        candidate_profile = CandidateProfile.model_validate(profile_data["profile"])
-        pdf_bytes = pdf_generator.generate_cv_pdf(tailored_cv, candidate_profile, company=company)
-        filename = f"CV_Emmanuel_Tro_{company}.pdf"
+            raise HTTPException(status_code=404, detail="CV non généré pour cette candidature")
+        pdf_bytes = pdf_generator.generate_cv_pdf(raw_profile, tailored_cv)
+        filename = build_document_filename("CV", job.get("company"), job.get("title"))
     else:
         letter_content = application.get("cover_letter")
         if not letter_content:
-            raise HTTPException(status_code=404, detail="Lettre de motivation non générée")
-        profile_data = supabase_service.get_active_candidate_profile()
-        candidate_profile = CandidateProfile.model_validate(profile_data["profile"])
-        pdf_bytes = pdf_generator.generate_letter_pdf(letter_content, candidate_profile, company=company, job_title=job.get("title", ""))
-        filename = f"Lettre_Motivation_Emmanuel_Tro_{company}.pdf"
+            raise HTTPException(status_code=404, detail="Lettre de motivation non générée pour cette candidature")
+        pdf_bytes = pdf_generator.generate_letter_pdf(
+            raw_profile,
+            build_letter_payload(
+                letter_content,
+                job=job,
+                prepared_at=application.get("prepared_at"),
+                mobility=(application.get("tailored_cv") or {}).get("mobility"),
+            ),
+        )
+        filename = build_document_filename("LM", job.get("company"), job.get("title"))
 
+    disposition = "attachment" if download else "inline"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"inline; filename={filename}"},
+        headers={"Content-Disposition": f'{disposition}; filename="{filename}"'},
     )
 
 @router.post("/{app_id}/sync-notion", response_model=NotionSyncResponse)

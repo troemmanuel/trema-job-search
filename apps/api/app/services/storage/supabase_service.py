@@ -179,26 +179,26 @@ class SupabaseService:
 
             start = (page - 1) * per_page
             end = start + per_page - 1
-            query = query.range(start, end)
 
-            res = query.execute()
-            items = res.data or []
-
-            # Si recherche textuelle sur l'offre associée (titre / entreprise)
             if search and search.strip():
+                # La recherche porte sur l'offre jointe (titre / entreprise), que PostgREST ne sait pas
+                # filtrer côté serveur : on filtre en mémoire l'ensemble, puis on pagine.
                 s_lower = search.strip().lower()
-                items = [
-                    app for app in items
+                res = query.range(0, 999).execute()
+                matching = [
+                    app for app in (res.data or [])
                     if (app.get("jobs") and (
                         s_lower in (app["jobs"].get("title") or "").lower() or
                         s_lower in (app["jobs"].get("company") or "").lower()
                     ))
                 ]
-                total = len(items)
-                total_pages = max(1, math.ceil(total / per_page))
+                total = len(matching)
+                items = matching[start:end + 1]
             else:
+                res = query.range(start, end).execute()
+                items = res.data or []
                 total = res.count if res.count is not None else len(items)
-                total_pages = max(1, math.ceil(total / per_page))
+            total_pages = max(1, math.ceil(total / per_page))
 
             return {
                 "items": items,
