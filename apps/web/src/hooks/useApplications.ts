@@ -48,6 +48,19 @@ export function useUpdateApplicationStatus() {
   });
 }
 
+/** Génère CV, lettre et réponses pour une candidature, puis synchronise Notion (long : appels LLM). */
+export function usePrepareApplication() {
+  const invalidate = useInvalidateApplications();
+  return useMutation({
+    mutationFn: (applicationId: string) => api.applications.prepare(applicationId),
+    onSuccess: (res) => {
+      invalidate();
+      toast.success(res.message);
+    },
+    onError: (err: Error) => toast.error(`Préparation échouée : ${err.message}`),
+  });
+}
+
 export function useSyncApplicationNotion() {
   const invalidate = useInvalidateApplications();
   return useMutation({

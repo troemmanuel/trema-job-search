@@ -7,7 +7,8 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useBlacklistCompany, useCreateApplication, useMatchJob, usePrepareApplication } from '@/hooks/useJobs';
+import { usePrepareApplication } from '@/hooks/useApplications';
+import { useBlacklistCompany, useCreateApplication, useMatchJob } from '@/hooks/useJobs';
 import { formatDateTime } from '@/lib/format';
 import { APPLICATION_STATUS_LABELS, STATUS_TONES } from '@/lib/status';
 
@@ -17,7 +18,7 @@ export function JobActions({ job }: { job: JobDetail }) {
   const jobId = job.id ?? '';
   const match = useMatchJob(jobId);
   const create = useCreateApplication(jobId);
-  const prepare = usePrepareApplication(jobId);
+  const prepare = usePrepareApplication();
   const blacklist = useBlacklistCompany();
 
   const app = job.application;

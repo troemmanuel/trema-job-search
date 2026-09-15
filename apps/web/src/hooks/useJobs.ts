@@ -72,21 +72,6 @@ export function useCreateApplication(jobId: string) {
   });
 }
 
-/** Génère CV, lettre et réponses pour une candidature, puis synchronise Notion (long : appels LLM). */
-export function usePrepareApplication(jobId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (applicationId: string) => api.applications.prepare(applicationId),
-    onSuccess: (res) => {
-      void queryClient.invalidateQueries({ queryKey: jobKeys.detail(jobId) });
-      void queryClient.invalidateQueries({ queryKey: ['applications'] });
-      void queryClient.invalidateQueries({ queryKey: dashboardKeys.stats });
-      toast.success(res.message);
-    },
-    onError: (err: Error) => toast.error(`Préparation échouée : ${err.message}`),
-  });
-}
-
 /** Exclut une entreprise : ses offres passent en BLACKLISTED et elle est ignorée par les prochaines collectes. */
 export function useBlacklistCompany() {
   const queryClient = useQueryClient();
