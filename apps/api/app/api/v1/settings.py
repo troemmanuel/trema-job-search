@@ -8,7 +8,10 @@ from app.schemas.api import (
     BlacklistRequest,
     BlacklistResponse,
     NotionReconcileResponse,
+    ProviderTestRequest,
+    ProviderTestResponse,
     SettingsResponse,
+    SuccessMessageResponse,
     UpdateSettingsRequest,
     UpdateSettingsResponse,
 )
@@ -143,3 +146,50 @@ def add_to_blacklist(payload: BlacklistRequest):
         "excluded_companies": excluded,
         "retro_updated_jobs": updated_jobs_count,
     }
+
+
+@router.delete("/blacklist", response_model=BlacklistResponse)
+def remove_from_blacklist(payload: BlacklistRequest):
+    """Retire une entreprise de la liste noire (les offres déjà marquées BLACKLISTED ne sont pas modifiées)."""
+    if not supabase_service.client:
+        raise HTTPException(status_code=503, detail="Supabase non configuré")
+    company = payload.company.strip()
+    profile = supabase_service.get_active_candidate_profile()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profil candidat introuvable")
+
+    current_prefs = dict(profile.get("preferences") or {})
+    excluded = [c for c in (current_prefs.get("excluded_companies") or []) if c.lower() != company.lower()]
+    current_prefs["excluded_companies"] = excluded
+    supabase_service.client.table("candidate_profiles").update({
+        "preferences": current_prefs,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", profile["id"]).execute()
+    return {"message": f"« {company} » a été retirée de la liste noire.", "excluded_companies": excluded}
+
+
+@router.post("/router/test", response_model=ProviderTestResponse)
+def test_router_provider(payload: ProviderTestRequest):
+    """Teste la connectivité d'un provider LLM (Gemini, Groq, Mistral, OpenRouter) avec un modèle optionnel."""
+    from app.llm import router as llm_router
+    try:
+        return llm_router.test_provider(payload.provider.lower(), model=payload.model)
+    except Exception as e:
+        logger.error(f"Erreur test provider '{payload.provider}': {e}")
+        return {"success": False, "provider": payload.provider, "error": str(e)}
+
+
+@router.post("/router/cache/clear", response_model=SuccessMessageResponse)
+def clear_router_cache():
+    """Vide le cache d'idempotence SHA-256 des appels LLM."""
+    from app.llm.cache import llm_cache
+    llm_cache.clear()
+    return {"message": "Cache LLM vidé."}
+
+
+@router.post("/router/stats/reset", response_model=SuccessMessageResponse)
+def reset_router_stats():
+    """Réinitialise les compteurs d'utilisation des providers LLM."""
+    from app.llm import router as llm_router
+    llm_router.reset_stats()
+    return {"message": "Statistiques du routeur réinitialisées."}

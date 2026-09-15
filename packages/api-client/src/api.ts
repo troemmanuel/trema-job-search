@@ -19,6 +19,9 @@ import type {
   MatchJobResponse,
   NotionReconcileResponse,
   NotionSyncResponse,
+  ProviderTestRequest,
+  ProviderTestResponse,
+  SuccessMessageResponse,
   SchedulerStatus,
   SchedulerTriggerResponse,
   SchedulerUpdateRequest,
@@ -151,6 +154,12 @@ export function createTremaApi(options: { baseUrl?: string; fetch?: typeof fetch
       syncNotion: (): Promise<NotionReconcileResponse> => client.POST('/api/v1/settings/sync-notion').then(unwrap),
       addToBlacklist: (body: BlacklistRequest): Promise<BlacklistResponse> =>
         client.POST('/api/v1/settings/blacklist', { body }).then(unwrap),
+      removeFromBlacklist: (body: BlacklistRequest): Promise<BlacklistResponse> =>
+        client.DELETE('/api/v1/settings/blacklist', { body }).then(unwrap),
+      testProvider: (body: ProviderTestRequest): Promise<ProviderTestResponse> =>
+        client.POST('/api/v1/settings/router/test', { body }).then(unwrap),
+      clearLlmCache: (): Promise<SuccessMessageResponse> => client.POST('/api/v1/settings/router/cache/clear').then(unwrap),
+      resetRouterStats: (): Promise<SuccessMessageResponse> => client.POST('/api/v1/settings/router/stats/reset').then(unwrap),
     },
   };
 }

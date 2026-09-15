@@ -455,10 +455,61 @@ class AIModel(BaseModel):
     recommended: bool = False
 
 
+class ProviderStats(LenientModel):
+    provider: str
+    requests_count: int = 0
+    success_count: int = 0
+    errors_count: int = 0
+    total_latency_seconds: float = 0.0
+    total_tokens: int = 0
+    last_used_at: Optional[str] = None
+    last_error: Optional[str] = None
+
+
+class ProviderInfo(BaseModel):
+    name: str
+    display_name: str
+    is_configured: bool
+    default_model: Optional[str] = None
+    models: List[str] = Field(default_factory=list)
+    stats: ProviderStats
+
+
+class CacheStats(LenientModel):
+    size: int = 0
+    hits: int = 0
+    misses: int = 0
+    hit_ratio_percent: float = 0.0
+
+
+class RouterOverview(BaseModel):
+    providers: List[ProviderInfo]
+    routing_config: Dict[str, List[str]] = Field(description="Ordre de repli des providers par type de tâche")
+    cache: CacheStats
+
+
 class SettingsResponse(BaseModel):
     preferences: CandidatePreferences
     available_models: List[AIModel]
-    router_overview: Optional[Dict[str, Any]] = None
+    router_overview: Optional[RouterOverview] = None
+
+
+class ProviderTestRequest(BaseModel):
+    provider: str = "gemini"
+    model: Optional[str] = None
+
+
+class ProviderTestResponse(LenientModel):
+    success: bool
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    response_time_ms: Optional[float] = None
+    output: Optional[str] = None
+    error: Optional[str] = None
+
+
+class SuccessMessageResponse(MessageResponse):
+    success: Literal[True] = True
 
 
 class UpdateSettingsRequest(BaseModel):
@@ -475,7 +526,7 @@ class BlacklistRequest(BaseModel):
 
 class BlacklistResponse(MessageResponse):
     excluded_companies: List[str]
-    retro_updated_jobs: int = Field(description="Offres existantes de cette entreprise passées en BLACKLISTED")
+    retro_updated_jobs: int = Field(default=0, description="Offres existantes de cette entreprise passées en BLACKLISTED")
 
 
 class NotionReconcileResponse(LenientModel):

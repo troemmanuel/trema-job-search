@@ -530,6 +530,70 @@ export interface paths {
          * @description Ajoute une entreprise à la liste noire et passe ses offres existantes en BLACKLISTED.
          */
         post: operations["add_to_blacklist_api_v1_settings_blacklist_post"];
+        /**
+         * Remove From Blacklist
+         * @description Retire une entreprise de la liste noire (les offres déjà marquées BLACKLISTED ne sont pas modifiées).
+         */
+        delete: operations["remove_from_blacklist_api_v1_settings_blacklist_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/router/cache/clear": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Clear Router Cache
+         * @description Vide le cache d'idempotence SHA-256 des appels LLM.
+         */
+        post: operations["clear_router_cache_api_v1_settings_router_cache_clear_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/router/stats/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Router Stats
+         * @description Réinitialise les compteurs d'utilisation des providers LLM.
+         */
+        post: operations["reset_router_stats_api_v1_settings_router_stats_reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/router/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Router Provider
+         * @description Teste la connectivité d'un provider LLM (Gemini, Groq, Mistral, OpenRouter) avec un modèle optionnel.
+         */
+        post: operations["test_router_provider_api_v1_settings_router_test_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -772,8 +836,34 @@ export interface components {
             /**
              * Retro Updated Jobs
              * @description Offres existantes de cette entreprise passées en BLACKLISTED
+             * @default 0
              */
-            retro_updated_jobs: number;
+            retro_updated_jobs?: number;
+        };
+        /** CacheStats */
+        CacheStats: {
+            /**
+             * Hit Ratio Percent
+             * @default 0
+             */
+            hit_ratio_percent?: number;
+            /**
+             * Hits
+             * @default 0
+             */
+            hits?: number;
+            /**
+             * Misses
+             * @default 0
+             */
+            misses?: number;
+            /**
+             * Size
+             * @default 0
+             */
+            size?: number;
+        } & {
+            [key: string]: unknown;
         };
         /** CandidatePreferences */
         CandidatePreferences: {
@@ -1514,6 +1604,83 @@ export interface components {
             /** Status */
             status?: string | null;
         };
+        /** ProviderInfo */
+        ProviderInfo: {
+            /** Default Model */
+            default_model?: string | null;
+            /** Display Name */
+            display_name: string;
+            /** Is Configured */
+            is_configured: boolean;
+            /** Models */
+            models?: string[];
+            /** Name */
+            name: string;
+            stats: components["schemas"]["ProviderStats"];
+        };
+        /** ProviderStats */
+        ProviderStats: {
+            /**
+             * Errors Count
+             * @default 0
+             */
+            errors_count?: number;
+            /** Last Error */
+            last_error?: string | null;
+            /** Last Used At */
+            last_used_at?: string | null;
+            /** Provider */
+            provider: string;
+            /**
+             * Requests Count
+             * @default 0
+             */
+            requests_count?: number;
+            /**
+             * Success Count
+             * @default 0
+             */
+            success_count?: number;
+            /**
+             * Total Latency Seconds
+             * @default 0
+             */
+            total_latency_seconds?: number;
+            /**
+             * Total Tokens
+             * @default 0
+             */
+            total_tokens?: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /** ProviderTestRequest */
+        ProviderTestRequest: {
+            /** Model */
+            model?: string | null;
+            /**
+             * Provider
+             * @default gemini
+             */
+            provider?: string;
+        };
+        /** ProviderTestResponse */
+        ProviderTestResponse: {
+            /** Error */
+            error?: string | null;
+            /** Model */
+            model?: string | null;
+            /** Output */
+            output?: string | null;
+            /** Provider */
+            provider?: string | null;
+            /** Response Time Ms */
+            response_time_ms?: number | null;
+            /** Success */
+            success: boolean;
+        } & {
+            [key: string]: unknown;
+        };
         /** QuestionAnswer */
         QuestionAnswer: {
             /** Answer */
@@ -1541,6 +1708,19 @@ export interface components {
             openapi: string;
             /** Version */
             version: string;
+        };
+        /** RouterOverview */
+        RouterOverview: {
+            cache: components["schemas"]["CacheStats"];
+            /** Providers */
+            providers: components["schemas"]["ProviderInfo"][];
+            /**
+             * Routing Config
+             * @description Ordre de repli des providers par type de tâche
+             */
+            routing_config: {
+                [key: string]: string[];
+            };
         };
         /**
          * SchedulerLastResult
@@ -1822,10 +2002,7 @@ export interface components {
             /** Available Models */
             available_models: components["schemas"]["AIModel"][];
             preferences: components["schemas"]["CandidatePreferences"];
-            /** Router Overview */
-            router_overview?: {
-                [key: string]: unknown;
-            } | null;
+            router_overview?: components["schemas"]["RouterOverview"] | null;
         };
         /** SkillCategories */
         SkillCategories: {
@@ -1844,6 +2021,17 @@ export interface components {
             items?: string[];
             /** Label */
             label: string;
+        };
+        /** SuccessMessageResponse */
+        SuccessMessageResponse: {
+            /** Message */
+            message: string;
+            /**
+             * Success
+             * @default true
+             * @constant
+             */
+            success?: true;
         };
         /** TailoredCV */
         TailoredCV: {
@@ -1985,6 +2173,7 @@ export type ApplicationListResponse = components['schemas']['ApplicationListResp
 export type ApplicationRecord = components['schemas']['ApplicationRecord'];
 export type BlacklistRequest = components['schemas']['BlacklistRequest'];
 export type BlacklistResponse = components['schemas']['BlacklistResponse'];
+export type CacheStats = components['schemas']['CacheStats'];
 export type CandidatePreferences = components['schemas']['CandidatePreferences'];
 export type CandidateProfile = components['schemas']['CandidateProfile'];
 export type CandidateProfileRecord = components['schemas']['CandidateProfileRecord'];
@@ -2016,8 +2205,13 @@ export type NotionReconcileResponse = components['schemas']['NotionReconcileResp
 export type NotionSyncResponse = components['schemas']['NotionSyncResponse'];
 export type PersonalInfo = components['schemas']['PersonalInfo'];
 export type Project = components['schemas']['Project'];
+export type ProviderInfo = components['schemas']['ProviderInfo'];
+export type ProviderStats = components['schemas']['ProviderStats'];
+export type ProviderTestRequest = components['schemas']['ProviderTestRequest'];
+export type ProviderTestResponse = components['schemas']['ProviderTestResponse'];
 export type QuestionAnswer = components['schemas']['QuestionAnswer'];
 export type RootInfoResponse = components['schemas']['RootInfoResponse'];
+export type RouterOverview = components['schemas']['RouterOverview'];
 export type SchedulerLastResult = components['schemas']['SchedulerLastResult'];
 export type SchedulerReconcileSummary = components['schemas']['SchedulerReconcileSummary'];
 export type SchedulerStatus = components['schemas']['SchedulerStatus'];
@@ -2033,6 +2227,7 @@ export type ServiceStatuses = components['schemas']['ServiceStatuses'];
 export type SettingsResponse = components['schemas']['SettingsResponse'];
 export type SkillCategories = components['schemas']['SkillCategories'];
 export type SkillGroup = components['schemas']['SkillGroup'];
+export type SuccessMessageResponse = components['schemas']['SuccessMessageResponse'];
 export type TailoredCv = components['schemas']['TailoredCV'];
 export type TaskDistribution = components['schemas']['TaskDistribution'];
 export type Timeline = components['schemas']['Timeline'];
@@ -2849,6 +3044,112 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BlacklistResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_from_blacklist_api_v1_settings_blacklist_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlacklistRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlacklistResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_router_cache_api_v1_settings_router_cache_clear_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessMessageResponse"];
+                };
+            };
+        };
+    };
+    reset_router_stats_api_v1_settings_router_stats_reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessMessageResponse"];
+                };
+            };
+        };
+    };
+    test_router_provider_api_v1_settings_router_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderTestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderTestResponse"];
                 };
             };
             /** @description Validation Error */

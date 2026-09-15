@@ -581,6 +581,7 @@
             "type": "string"
           },
           "retro_updated_jobs": {
+            "default": 0,
             "description": "Offres existantes de cette entreprise passées en BLACKLISTED",
             "title": "Retro Updated Jobs",
             "type": "integer"
@@ -588,10 +589,36 @@
         },
         "required": [
           "message",
-          "excluded_companies",
-          "retro_updated_jobs"
+          "excluded_companies"
         ],
         "title": "BlacklistResponse",
+        "type": "object"
+      },
+      "CacheStats": {
+        "additionalProperties": true,
+        "properties": {
+          "hit_ratio_percent": {
+            "default": 0.0,
+            "title": "Hit Ratio Percent",
+            "type": "number"
+          },
+          "hits": {
+            "default": 0,
+            "title": "Hits",
+            "type": "integer"
+          },
+          "misses": {
+            "default": 0,
+            "title": "Misses",
+            "type": "integer"
+          },
+          "size": {
+            "default": 0,
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "title": "CacheStats",
         "type": "object"
       },
       "CandidatePreferences": {
@@ -2868,6 +2895,203 @@
         "title": "Project",
         "type": "object"
       },
+      "ProviderInfo": {
+        "properties": {
+          "default_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Model"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "is_configured": {
+            "title": "Is Configured",
+            "type": "boolean"
+          },
+          "models": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/ProviderStats"
+          }
+        },
+        "required": [
+          "name",
+          "display_name",
+          "is_configured",
+          "stats"
+        ],
+        "title": "ProviderInfo",
+        "type": "object"
+      },
+      "ProviderStats": {
+        "additionalProperties": true,
+        "properties": {
+          "errors_count": {
+            "default": 0,
+            "title": "Errors Count",
+            "type": "integer"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "requests_count": {
+            "default": 0,
+            "title": "Requests Count",
+            "type": "integer"
+          },
+          "success_count": {
+            "default": 0,
+            "title": "Success Count",
+            "type": "integer"
+          },
+          "total_latency_seconds": {
+            "default": 0.0,
+            "title": "Total Latency Seconds",
+            "type": "number"
+          },
+          "total_tokens": {
+            "default": 0,
+            "title": "Total Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "provider"
+        ],
+        "title": "ProviderStats",
+        "type": "object"
+      },
+      "ProviderTestRequest": {
+        "properties": {
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "provider": {
+            "default": "gemini",
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "title": "ProviderTestRequest",
+        "type": "object"
+      },
+      "ProviderTestResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "response_time_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Time Ms"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "title": "ProviderTestResponse",
+        "type": "object"
+      },
       "QuestionAnswer": {
         "properties": {
           "answer": {
@@ -2922,6 +3146,38 @@
           "openapi"
         ],
         "title": "RootInfoResponse",
+        "type": "object"
+      },
+      "RouterOverview": {
+        "properties": {
+          "cache": {
+            "$ref": "#/components/schemas/CacheStats"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderInfo"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "routing_config": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "description": "Ordre de repli des providers par type de tâche",
+            "title": "Routing Config",
+            "type": "object"
+          }
+        },
+        "required": [
+          "providers",
+          "routing_config",
+          "cache"
+        ],
+        "title": "RouterOverview",
         "type": "object"
       },
       "SchedulerLastResult": {
@@ -3653,14 +3909,12 @@
           "router_overview": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/RouterOverview"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Router Overview"
+            ]
           }
         },
         "required": [
@@ -3722,6 +3976,25 @@
           "label"
         ],
         "title": "SkillGroup",
+        "type": "object"
+      },
+      "SuccessMessageResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "success": {
+            "const": true,
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "SuccessMessageResponse",
         "type": "object"
       },
       "TailoredCV": {
@@ -5264,6 +5537,46 @@
       }
     },
     "/api/v1/settings/blacklist": {
+      "delete": {
+        "description": "Retire une entreprise de la liste noire (les offres déjà marquées BLACKLISTED ne sont pas modifiées).",
+        "operationId": "remove_from_blacklist_api_v1_settings_blacklist_delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BlacklistRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlacklistResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove From Blacklist",
+        "tags": [
+          "Settings"
+        ]
+      },
       "post": {
         "description": "Ajoute une entreprise à la liste noire et passe ses offres existantes en BLACKLISTED.",
         "operationId": "add_to_blacklist_api_v1_settings_blacklist_post",
@@ -5300,6 +5613,92 @@
           }
         },
         "summary": "Add To Blacklist",
+        "tags": [
+          "Settings"
+        ]
+      }
+    },
+    "/api/v1/settings/router/cache/clear": {
+      "post": {
+        "description": "Vide le cache d'idempotence SHA-256 des appels LLM.",
+        "operationId": "clear_router_cache_api_v1_settings_router_cache_clear_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessMessageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Clear Router Cache",
+        "tags": [
+          "Settings"
+        ]
+      }
+    },
+    "/api/v1/settings/router/stats/reset": {
+      "post": {
+        "description": "Réinitialise les compteurs d'utilisation des providers LLM.",
+        "operationId": "reset_router_stats_api_v1_settings_router_stats_reset_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessMessageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Reset Router Stats",
+        "tags": [
+          "Settings"
+        ]
+      }
+    },
+    "/api/v1/settings/router/test": {
+      "post": {
+        "description": "Teste la connectivité d'un provider LLM (Gemini, Groq, Mistral, OpenRouter) avec un modèle optionnel.",
+        "operationId": "test_router_provider_api_v1_settings_router_test_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderTestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderTestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Test Router Provider",
         "tags": [
           "Settings"
         ]
