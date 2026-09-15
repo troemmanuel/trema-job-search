@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Candidatures — Trema Job Search{% endblock %}
+
+{% block content %}
+<div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h1>Candidatures</h1>
+        <p class="subtitle">Suivi du statut de vos dossiers préparés.</p>
+    </div>
+    <div>
+        <button class="btn btn-secondary" onclick="syncNotion()" id="syncNotionBtn" style="font-weight: 600;">
+            🔄 Synchroniser Notion
+        </button>
+    </div>
+</div>
+
+<!-- Barre de filtres -->
+<div class="filter-card">
+    <form method="GET" action="/applications" class="filter-form">
+        <div class="filter-group filter-group-lg">
+            <label for="q">Recherche textuelle</label>
+            <input type="text" id="q" name="q" class="filter-input" placeholder="Titre du poste, entreprise..." value="{{ filters.q if filters else '' }}">
+        </div>
+        <div class="filter-group">
+            <label for="status">Statut dossier</label>
+            <select id="status" name="status" class="filter-select">
+                <option value="">Tous les statuts</option>
+                <option value="QUALIFIED" {% if filters and filters.status == 'QUALIFIED' %}selected{% endif %}>QUALIFIED</option>
+                <option value="PREPARING" {% if filters and filters.status == 'PREPARING' %}selected{% endif %}>PREPARING</option>
+                <option value="PREPARED" {% if filters and filters.status == 'PREPARED' %}selected{% endif %}>PREPARED</option>
+                <option value="READY" {% if filters and filters.status == 'READY' %}selected{% endif %}>READY</option>
+                <option value="APPLIED" {% if filters and filters.status == 'APPLIED' %}selected{% endif %}>APPLIED</option>
+                <option value="ERROR" {% if filters and filters.status == 'ERROR' %}selected{% endif %}>ERROR</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="min_score">Score minimum</label>
+            <select id="min_score" name="min_score" class="filter-select">
+                <option value="">Tous les scores</option>
+                <option value="80" {% if filters and filters.min_score == '80' %}selected{% endif %}>&ge; 80 (Excellent)</option>
+                <option value="75" {% if filters and filters.min_score == '75' %}selected{% endif %}>&ge; 75 (Recommandé)</option>
+                <option value="60" {% if filters and filters.min_score == '60' %}selected{% endif %}>&ge; 60 (Moyen)</option>
+                <option value="50" {% if filters and filters.min_score == '50' %}selected{% endif %}>&ge; 50 (Passable)</option>
+            </select>
+        </div>
+        <div class="filter-actions">
+            <button type="submit" class="btn btn-primary">🔍 Filtrer</button>
+            {% if filters and (filters.q or filters.status or filters.min_score) %}
+            <a href="/applications" class="btn btn-secondary" title="Réinitialiser les filtres">✕</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    {% if applications %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Entreprise</th>
+                <th>Poste</th>
+                <th>Score</th>
+                <th>Statut</th>
+                <th>Préparé le</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for app in applications %}
+            <tr>
+                <td><strong>{{ app.jobs.company if app.jobs else 'N/A' }}</strong></td>
+                <td>{{ app.jobs.title if app.jobs else 'Poste' }}</td>
+                <td>
+                    {% if app.match_score %}
+                        <span class="badge badge-score">{{ app.match_score }}/100</span>
+                    {% else %}
+                        <span class="badge">—</span>
+                    {% endif %}
+                </td>
+                <td><span class="badge badge-status-{{ app.status|lower }}">{{ app.status }}</span></td>
+                <td>{{ app.prepared_at or 'En attente' }}</td>
+                <td>
+                    <a href="/applications/{{ app.id }}" class="btn btn-sm">Gérer</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% include "components/pagination.html" %}
+
+    {% else %}
+    <div class="empty-state">
+        {% if filters and (filters.q or filters.status or filters.min_score) %}
+            <p>Aucune candidature ne correspond à vos critères de recherche.</p>
+            <a href="/applications" class="btn btn-secondary mt-2">Réinitialiser les filtres</a>
+        {% else %}
+            <p>Aucune candidature en cours.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+<script>
+async function syncNotion() {
+    const btn = document.getElementById('syncNotionBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = '🔄 Synchronisation...';
+    }
+    try {
+        const res = await fetch('/api/notion/reconcile', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            const upSupa = data.updated_supabase_count || 0;
+            const upNotion = data.updated_notion_count || 0;
+            alert(`✅ Synchronisation Notion réussie !\n• ${data.total_notion_pages} fiches analysées\n• ${data.matched_count} candidatures appariées\n• ${upSupa} mise(s) à jour dans Supabase\n• ${upNotion} mise(s) à jour dans Notion`);
+            location.reload();
+        } else {
+            alert(`⚠️ Erreur : ${data.error || 'Erreur inconnue'}`);
+        }
+    } catch (e) {
+        alert('❌ Erreur réseau lors de la synchronisation Notion.');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = '🔄 Synchroniser Notion';
+        }
+    }
+}
+</script>
+{% endblock %}

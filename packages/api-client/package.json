@@ -1,0 +1,31 @@
+{
+  "name": "@trema/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SDK TypeScript typé de bout en bout, généré depuis l'OpenAPI de l'API FastAPI Trema Job Search.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/generated/schema.d.ts"
+  },
+  "files": [
+    "src",
+    "openapi.json"
+  ],
+  "scripts": {
+    "generate:api-client": "pnpm run export:openapi && pnpm run generate:types",
+    "export:openapi": "uv run --directory ../../apps/api python scripts/export_openapi.py",
+    "generate:types": "openapi-typescript openapi.json -o src/generated/schema.d.ts --alphabetize --root-types --root-types-no-schema-prefix",
+    "typecheck": "tsc --noEmit",
+    "check:fresh": "pnpm run generate:api-client && git diff --exit-code -- openapi.json src/generated"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.13.5"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.6.1",
+    "typescript": "^5.7.3"
+  }
+}

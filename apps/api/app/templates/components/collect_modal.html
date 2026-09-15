@@ -1,0 +1,356 @@
+<!-- Modal de Collecte Automatique d'Offres (Zéro Saisie Manuelle) -->
+<dialog id="collectModal" class="modal" style="max-width: 720px; width: 95%;">
+    <div class="modal-content">
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+            <div style="display: flex; align-items: center; gap: 0.6rem;">
+                <span style="font-size: 1.4rem;">⚡</span>
+                <h2 style="margin: 0; font-size: 1.25rem; font-weight: 700;">Collecte Automatique d'Offres Récentes</h2>
+            </div>
+            <button class="btn btn-sm btn-secondary" onclick="document.getElementById('collectModal').close()" style="border-radius: 50%; width: 2rem; height: 2rem; padding: 0;">✕</button>
+        </div>
+
+        <!-- Formulaire de configuration zéro-saisie -->
+        <div id="collectFormSection">
+            <!-- Carte des Critères Détectés depuis le CV Maître -->
+            <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 8px; padding: 1rem 1.15rem; margin-bottom: 1.25rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; flex-wrap: wrap; gap: 0.5rem;">
+                    <span style="font-weight: 700; color: #60a5fa; font-size: 0.9rem; display: flex; align-items: center; gap: 0.4rem;">
+                        🎯 Critères Détectés de votre Profil Maître
+                    </span>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">
+                            {{ active_candidate.name if active_candidate else 'Emmanuel TRO' }} (v{{ active_candidate.version if active_candidate else 1 }})
+                        </span>
+                        <a href="/candidate" style="color: #60a5fa; font-size: 0.75rem; text-decoration: underline;">Modifier le CV ↗</a>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; font-size: 0.82rem;">
+                    <div>
+                        <span class="text-muted" style="display: block;">Postes ciblés :</span>
+                        <strong style="color: var(--text-main);">
+                            {% if active_candidate and active_candidate.preferences and active_candidate.preferences.target_titles %}
+                                {{ active_candidate.preferences.target_titles | join(', ') }}
+                            {% else %}
+                                Ingénieur Logiciel, Ingénieur Backend, Développeur Backend
+                            {% endif %}
+                        </strong>
+                    </div>
+                    <div>
+                        <span class="text-muted" style="display: block;">Type de contrat :</span>
+                        <span class="badge" style="background: rgba(59, 130, 246, 0.25); color: #93c5fd; border: 1px solid #3b82f6; font-size: 0.8rem; font-weight: 700;">
+                            {% if active_candidate and active_candidate.preferences and active_candidate.preferences.contract_types %}
+                                {{ active_candidate.preferences.contract_types | join(' / ') }}
+                            {% else %}
+                                CDI
+                            {% endif %}
+                        </span>
+                        <small style="color: #94a3b8; display: block; font-size: 0.72rem; margin-top: 0.15rem;">Filtrage strict WTTJ activé</small>
+                    </div>
+                    <div>
+                        <span class="text-muted" style="display: block;">Compétences clés :</span>
+                        <span style="color: #cbd5e1;">
+                            {% if active_candidate and active_candidate.profile and active_candidate.profile.skills %}
+                                {% set tech = active_candidate.profile.skills.technical or [] %}
+                                {% set tools = active_candidate.profile.skills.tools or [] %}
+                                {{ (tech[:7] + tools[:5]) | join(', ') }}
+                                {% if (tech|length + tools|length) > 12 %}
+                                    <small style="color: #60a5fa; font-weight: 600;">(+{{ (tech|length + tools|length) - 12 }} autres)</small>
+                                {% endif %}
+                            {% else %}
+                                Java, Python, Go, Docker, Kubernetes, AWS, CI/CD, SQL
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div>
+                        <span class="text-muted" style="display: block;">Localisation & Télétravail :</span>
+                        <span style="color: #cbd5e1;">
+                            {% if active_candidate and active_candidate.preferences and active_candidate.preferences.locations %}
+                                {{ active_candidate.preferences.locations | join(', ') }}
+                            {% elif active_candidate and active_candidate.profile and active_candidate.profile.personal and active_candidate.profile.personal.location %}
+                                {{ active_candidate.profile.personal.location }}
+                            {% else %}
+                                France
+                            {% endif %}
+                            {% if active_candidate and active_candidate.preferences and active_candidate.preferences.remote %}
+                                (Télétravail accepté)
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                <div style="margin-top: 0.75rem; padding-top: 0.6rem; border-top: 1px dashed rgba(59, 130, 246, 0.2); font-size: 0.78rem; color: #94a3b8;">
+                    💡 <em>Zéro saisie manuelle : Le robot s'adapte automatiquement à votre CV maître actif et applique le filtre <strong>CDI</strong> sur Welcome to the Jungle.</em>
+                </div>
+            </div>
+
+
+            <form id="collectJobsForm" onsubmit="triggerCollection(event)">
+                <!-- Sélecteur de Durée (Pilules) -->
+                <div style="margin-bottom: 1.25rem;">
+                    <label style="display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.5rem;">
+                        ⏱️ Période de publication sur Welcome to the Jungle :
+                    </label>
+                    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;" id="durationPills">
+                        <label class="duration-pill active" style="flex: 1; min-width: 140px; cursor: pointer; text-align: center; padding: 0.75rem; border-radius: 8px; border: 2px solid #3b82f6; background: rgba(59, 130, 246, 0.15); transition: all 0.2s;">
+                            <input type="radio" name="duration" value="24h" checked style="display: none;" onchange="updatePillSelection(this)">
+                            <strong style="display: block; font-size: 1.1rem; color: #60a5fa;">24 Heures</strong>
+                            <small class="text-muted" style="font-size: 0.75rem;">Offres d'aujourd'hui</small>
+                        </label>
+                        <label class="duration-pill" style="flex: 1; min-width: 140px; cursor: pointer; text-align: center; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--card-border); background: rgba(255, 255, 255, 0.02); transition: all 0.2s;">
+                            <input type="radio" name="duration" value="3j" style="display: none;" onchange="updatePillSelection(this)">
+                            <strong style="display: block; font-size: 1.1rem; color: var(--text-main);">3 Jours</strong>
+                            <small class="text-muted" style="font-size: 0.75rem;">Offres récentes</small>
+                        </label>
+                        <label class="duration-pill" style="flex: 1; min-width: 140px; cursor: pointer; text-align: center; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--card-border); background: rgba(255, 255, 255, 0.02); transition: all 0.2s;">
+                            <input type="radio" name="duration" value="7j" style="display: none;" onchange="updatePillSelection(this)">
+                            <strong style="display: block; font-size: 1.1rem; color: var(--text-main);">7 Jours</strong>
+                            <small class="text-muted" style="font-size: 0.75rem;">Semaine passée</small>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Nombre d'offres -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+                    <label style="font-weight: 600; font-size: 0.85rem;">
+                        📊 Nombre d'offres à collecter et matcher :
+                    </label>
+                    <select id="collectLimit" class="code-editor" style="width: auto; padding: 0.45rem 1rem;">
+                        <option value="3">3 offres (test rapide)</option>
+                        <option value="5" selected>5 offres (recommandé)</option>
+                        <option value="10">10 offres</option>
+                        <option value="20">20 offres</option>
+                    </select>
+                </div>
+
+                <!-- Option avancée de surcharge (repliée par défaut) -->
+                <details style="margin-bottom: 1.25rem; font-size: 0.8rem; color: var(--text-muted);">
+                    <summary style="cursor: pointer; padding: 0.25rem 0; color: #64748b;">
+                        ⚙️ Surcharger un mot-clé manuellement (optionnel)
+                    </summary>
+                    <div style="margin-top: 0.5rem;">
+                        <input type="text" id="collectQuery" placeholder="Laissez vide pour utiliser automatiquement le profil maître" class="code-editor" style="padding: 0.5rem; font-size: 0.8rem;" />
+                    </div>
+                </details>
+
+                <!-- Checkbox Auto-Preparation & Notion -->
+                <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 1.5rem;">
+                    <label style="display: flex; align-items: flex-start; gap: 0.6rem; cursor: pointer;">
+                        <input type="checkbox" id="collectAutoPrepare" checked style="margin-top: 0.2rem; transform: scale(1.15);" />
+                        <span style="font-size: 0.85rem; line-height: 1.4;">
+                            <strong style="color: #34d399;">Génération automatique du dossier complet & sync Notion CRM</strong><br />
+                            Pour les offres qualifiées (Score ≥ 75/100) : CV sur mesure, lettre de motivation personnalisée, réponses aux questions et fiche Notion prête.
+                        </span>
+                    </label>
+                </div>
+
+                <!-- Actions -->
+                <div style="display: flex; justify-content: flex-end; gap: 0.8rem;">
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('collectModal').close()">Annuler</button>
+                    <button type="submit" id="collectStartBtn" class="btn btn-primary" style="background: linear-gradient(135deg, #3b82f6, #8b5cf6); border: none; font-weight: 700; padding: 0.65rem 1.5rem;">
+                        🚀 Lancer la collecte (Zéro-saisie)
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Section Suivi en direct (Pendant la collecte) -->
+        <div id="collectProgressSection" style="display: none; padding: 2rem 1rem; text-align: center;">
+            <div class="spinner" style="width: 44px; height: 44px; margin: 0 auto 1.5rem; border: 4px solid rgba(59, 130, 246, 0.2); border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+            <h3 id="collectProgressTitle" style="font-size: 1.15rem; margin-bottom: 0.5rem; color: #60a5fa;">Collecte en cours...</h3>
+            <p id="collectProgressText" class="text-muted" style="font-size: 0.9rem; max-width: 480px; margin: 0 auto 1.25rem;">
+                Recherche automatique des offres CDI selon vos postes cibles...
+            </p>
+            <div style="background: rgba(0,0,0,0.25); border-radius: 6px; padding: 0.75rem; max-width: 450px; margin: 0 auto; font-size: 0.8rem; color: #94a3b8; font-family: monospace;">
+                ⏱️ Cela peut prendre entre 30 secondes et 2 minutes selon le nombre d'offres à scraper et analyser.
+            </div>
+        </div>
+
+        <!-- Section Résultats de la collecte -->
+        <div id="collectResultSection" style="display: none;">
+            <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 1rem; margin-bottom: 1.25rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-size: 1.25rem;">🎉</span>
+                        <strong style="color: #34d399; font-size: 1.05rem;">Collecte terminée avec succès !</strong>
+                    </div>
+                    <span id="resContractFilterBadge" class="badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa;">Contrats : CDI</span>
+                </div>
+                <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); margin-top: 0.8rem; gap: 0.5rem;">
+                    <div class="stat-box" style="padding: 0.5rem;">
+                        <span class="stat-num" id="resFoundCount" style="font-size: 1.25rem;">0</span>
+                        <span class="stat-label" style="font-size: 0.7rem;">Trouvées</span>
+                    </div>
+                    <div class="stat-box" style="padding: 0.5rem;">
+                        <span class="stat-num" id="resProcessedCount" style="font-size: 1.25rem;">0</span>
+                        <span class="stat-label" style="font-size: 0.7rem;">Scrapées</span>
+                    </div>
+                    <div class="stat-box" style="padding: 0.5rem;">
+                        <span class="stat-num" id="resQualifiedCount" style="font-size: 1.25rem; color: #34d399;">0</span>
+                        <span class="stat-label" style="font-size: 0.7rem;">Qualifiées IA</span>
+                    </div>
+                    <div class="stat-box" style="padding: 0.5rem;">
+                        <span class="stat-num" id="resNotionCount" style="font-size: 1.25rem; color: #60a5fa;">0</span>
+                        <span class="stat-label" style="font-size: 0.7rem;">Notion CRM</span>
+                    </div>
+                </div>
+            </div>
+
+            <h4 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--text-muted);">Détail des offres traitées :</h4>
+            <div id="collectJobsList" style="max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.25rem; padding-right: 0.25rem;">
+                <!-- Liste injectée en JS -->
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--card-border); padding-top: 1rem;">
+                <span class="text-muted" style="font-size: 0.8rem;">Les offres sont enregistrées dans votre base Supabase et synchronisées dans Notion.</span>
+                <button class="btn btn-primary" onclick="location.reload()">Fermer & Actualiser</button>
+            </div>
+        </div>
+    </div>
+</dialog>
+
+<style>
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+.duration-pill.active {
+    border-color: #3b82f6 !important;
+    background: rgba(59, 130, 246, 0.18) !important;
+}
+.duration-pill.active strong {
+    color: #60a5fa !important;
+}
+</style>
+
+<script>
+function updatePillSelection(radio) {
+    document.querySelectorAll('.duration-pill').forEach(pill => {
+        pill.classList.remove('active');
+        pill.style.borderColor = 'var(--card-border)';
+        pill.style.background = 'rgba(255, 255, 255, 0.02)';
+        pill.querySelector('strong').style.color = 'var(--text-main)';
+    });
+    const parent = radio.closest('.duration-pill');
+    if (parent) {
+        parent.classList.add('active');
+        parent.style.borderColor = '#3b82f6';
+        parent.style.background = 'rgba(59, 130, 246, 0.18)';
+        parent.querySelector('strong').style.color = '#60a5fa';
+    }
+}
+
+async function triggerCollection(event) {
+    if (event) event.preventDefault();
+
+    const selectedDuration = document.querySelector('input[name="duration"]:checked')?.value || '24h';
+    const queryInput = document.getElementById('collectQuery');
+    const query = (queryInput && queryInput.value.trim()) ? queryInput.value.trim() : null;
+    const limit = parseInt(document.getElementById('collectLimit').value, 10) || 5;
+    const autoPrepare = document.getElementById('collectAutoPrepare').checked;
+
+    // Switch view to progress
+    document.getElementById('collectFormSection').style.display = 'none';
+    document.getElementById('collectProgressSection').style.display = 'block';
+    document.getElementById('collectResultSection').style.display = 'none';
+
+    // Update progress messages dynamically
+    const progressText = document.getElementById('collectProgressText');
+    const steps = [
+        "🔍 Recherche automatique des offres CDI publiées sur la période (" + selectedDuration + ")...",
+        "📥 Scraping des fiches de poste détaillées depuis Welcome to the Jungle...",
+        "🧠 Évaluation du matching IA (forces, compétences, prérequis)...",
+        "📄 Génération des candidatures ciblées (CV & Lettre PDF)...",
+        "📝 Synchronisation dans le CRM Notion « Suivi candidatures »..."
+    ];
+    let stepIdx = 0;
+    const interval = setInterval(() => {
+        stepIdx = (stepIdx + 1) % steps.length;
+        if (progressText) progressText.textContent = steps[stepIdx];
+    }, 4500);
+
+    try {
+        const response = await fetch('/api/jobs/collect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                duration: selectedDuration,
+                query: query,
+                limit: limit,
+                auto_prepare: autoPrepare
+            })
+        });
+
+        clearInterval(interval);
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "Erreur lors de la collecte");
+        }
+
+        // Show results
+        document.getElementById('collectProgressSection').style.display = 'none';
+        document.getElementById('collectResultSection').style.display = 'block';
+
+        document.getElementById('resFoundCount').textContent = data.total_found || 0;
+        document.getElementById('resProcessedCount').textContent = data.processed_count || 0;
+        document.getElementById('resQualifiedCount').textContent = data.qualified_count || 0;
+        document.getElementById('resNotionCount').textContent = data.notion_synced_count || 0;
+
+        const contractBadge = document.getElementById('resContractFilterBadge');
+        if (contractBadge && data.contract_filter) {
+            contractBadge.textContent = "Contrats : " + (data.contract_filter.join(', ') || 'Tous');
+        }
+
+        const listContainer = document.getElementById('collectJobsList');
+        listContainer.innerHTML = '';
+
+        if (!data.jobs || data.jobs.length === 0) {
+            listContainer.innerHTML = '<p class="text-muted" style="text-align: center; padding: 1rem;">Aucune nouvelle offre trouvée sur cette période correspondant à votre profil.</p>';
+        } else {
+            data.jobs.forEach(job => {
+                const item = document.createElement('div');
+                item.style.background = 'rgba(255, 255, 255, 0.03)';
+                item.style.border = '1px solid var(--card-border)';
+                item.style.borderRadius = '6px';
+                item.style.padding = '0.65rem 0.85rem';
+                item.style.display = 'flex';
+                item.style.justifyContent = 'space-between';
+                item.style.alignItems = 'center';
+                item.style.flexWrap = 'wrap';
+                item.style.gap = '0.5rem';
+
+                let scoreBadge = '';
+                if (job.match_score !== null && job.match_score !== undefined) {
+                    const color = job.match_score >= 75 ? '#34d399' : (job.match_score >= 60 ? '#f59e0b' : '#94a3b8');
+                    scoreBadge = `<span class="badge" style="background: rgba(255,255,255,0.05); color: ${color}; border: 1px solid ${color}55;">Score: ${job.match_score}/100</span>`;
+                }
+
+                let notionBtn = '';
+                if (job.notion_url) {
+                    notionBtn = `<a href="${job.notion_url}" target="_blank" class="btn btn-sm" style="background: #2563eb; color: white;">↗ Fiche Notion</a>`;
+                }
+
+                item.innerHTML = `
+                    <div style="flex: 1; min-width: 220px;">
+                        <strong style="display: block; font-size: 0.9rem;">${job.title}</strong>
+                        <span class="text-muted" style="font-size: 0.75rem;">${job.company || 'Entreprise'}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        ${scoreBadge}
+                        <span class="badge">${job.status}</span>
+                        ${notionBtn}
+                    </div>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+
+    } catch (err) {
+        clearInterval(interval);
+        document.getElementById('collectProgressSection').style.display = 'none';
+        document.getElementById('collectFormSection').style.display = 'block';
+        alert("Erreur lors de la collecte : " + err.message);
+    }
+}
+</script>

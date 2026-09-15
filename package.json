@@ -1,0 +1,16 @@
+{
+  "name": "trema-job-search-monorepo",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "generate:api-client": "turbo generate:api-client --filter=@trema/api-client",
+    "test:api": "uv run --directory apps/api pytest"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.4"
+  },
+  "packageManager": "pnpm@11.23.0"
+}

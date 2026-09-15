@@ -1,0 +1,4725 @@
+{
+  "components": {
+    "schemas": {
+      "AIModel": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "recommended": {
+            "default": false,
+            "title": "Recommended",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description"
+        ],
+        "title": "AIModel",
+        "type": "object"
+      },
+      "AnalyticsKpis": {
+        "additionalProperties": true,
+        "properties": {
+          "applied_count": {
+            "title": "Applied Count",
+            "type": "integer"
+          },
+          "avg_match_score": {
+            "title": "Avg Match Score",
+            "type": "number"
+          },
+          "global_conversion_rate": {
+            "title": "Global Conversion Rate",
+            "type": "number"
+          },
+          "interview_count": {
+            "title": "Interview Count",
+            "type": "integer"
+          },
+          "offer_count": {
+            "title": "Offer Count",
+            "type": "integer"
+          },
+          "qualified_count": {
+            "title": "Qualified Count",
+            "type": "integer"
+          },
+          "recommendations": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Recommendations",
+            "type": "object"
+          },
+          "total_applications": {
+            "title": "Total Applications",
+            "type": "integer"
+          },
+          "total_jobs": {
+            "title": "Total Jobs",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_jobs",
+          "total_applications",
+          "avg_match_score",
+          "qualified_count",
+          "applied_count",
+          "interview_count",
+          "offer_count",
+          "global_conversion_rate",
+          "recommendations"
+        ],
+        "title": "AnalyticsKpis",
+        "type": "object"
+      },
+      "AnalyticsStatsResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "company_types": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Company Types",
+            "type": "object"
+          },
+          "funnel": {
+            "$ref": "#/components/schemas/Funnel"
+          },
+          "geography": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Geography",
+            "type": "object"
+          },
+          "kpis": {
+            "$ref": "#/components/schemas/AnalyticsKpis"
+          },
+          "period": {
+            "enum": [
+              "all",
+              "30d",
+              "7d"
+            ],
+            "title": "Period",
+            "type": "string"
+          },
+          "router_stats": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Router Stats"
+          },
+          "success": {
+            "const": true,
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          },
+          "tech_performance": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Tech Performance",
+            "type": "array"
+          },
+          "timeline": {
+            "$ref": "#/components/schemas/Timeline"
+          },
+          "total_applications": {
+            "title": "Total Applications",
+            "type": "integer"
+          },
+          "total_jobs": {
+            "title": "Total Jobs",
+            "type": "integer"
+          },
+          "workplace": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Workplace",
+            "type": "object"
+          }
+        },
+        "required": [
+          "period",
+          "kpis",
+          "funnel",
+          "tech_performance",
+          "geography",
+          "workplace",
+          "company_types",
+          "timeline",
+          "total_jobs",
+          "total_applications"
+        ],
+        "title": "AnalyticsStatsResponse",
+        "type": "object"
+      },
+      "ApplicationAnswers": {
+        "properties": {
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/QuestionAnswer"
+            },
+            "title": "Questions",
+            "type": "array"
+          }
+        },
+        "title": "ApplicationAnswers",
+        "type": "object"
+      },
+      "ApplicationDetail": {
+        "additionalProperties": true,
+        "properties": {
+          "application_answers": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ApplicationAnswers"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "applied_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applied At"
+          },
+          "candidate_profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Profile Id"
+          },
+          "cover_letter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Letter"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "jobs": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobRecord"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Offre associée (jointure Supabase)"
+          },
+          "match_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Score"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "notion_page_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notion Page Id"
+          },
+          "prepared_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prepared At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tailored_cv": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TailoredCV"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "job_id",
+          "status"
+        ],
+        "title": "ApplicationDetail",
+        "type": "object"
+      },
+      "ApplicationIdResponse": {
+        "properties": {
+          "application_id": {
+            "title": "Application Id",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "application_id"
+        ],
+        "title": "ApplicationIdResponse",
+        "type": "object"
+      },
+      "ApplicationListResponse": {
+        "properties": {
+          "applications": {
+            "items": {
+              "$ref": "#/components/schemas/ApplicationRecord"
+            },
+            "title": "Applications",
+            "type": "array"
+          },
+          "has_next": {
+            "title": "Has Next",
+            "type": "boolean"
+          },
+          "has_prev": {
+            "title": "Has Prev",
+            "type": "boolean"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "per_page": {
+            "title": "Per Page",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "total_pages": {
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "per_page",
+          "total_pages",
+          "has_prev",
+          "has_next",
+          "applications"
+        ],
+        "title": "ApplicationListResponse",
+        "type": "object"
+      },
+      "ApplicationRecord": {
+        "additionalProperties": true,
+        "properties": {
+          "application_answers": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ApplicationAnswers"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "applied_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applied At"
+          },
+          "candidate_profile_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Profile Id"
+          },
+          "cover_letter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Letter"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "match_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Score"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "notion_page_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notion Page Id"
+          },
+          "prepared_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prepared At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tailored_cv": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TailoredCV"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "job_id",
+          "status"
+        ],
+        "title": "ApplicationRecord",
+        "type": "object"
+      },
+      "CandidatePreferences": {
+        "properties": {
+          "ai_custom_instructions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "",
+            "title": "Ai Custom Instructions"
+          },
+          "ai_model": {
+            "default": "gemini-2.5-flash",
+            "title": "Ai Model",
+            "type": "string"
+          },
+          "ai_temperature": {
+            "default": 0.2,
+            "title": "Ai Temperature",
+            "type": "number"
+          },
+          "auto_prepare_documents": {
+            "default": false,
+            "title": "Auto Prepare Documents",
+            "type": "boolean"
+          },
+          "auto_sync_notion": {
+            "default": true,
+            "title": "Auto Sync Notion",
+            "type": "boolean"
+          },
+          "contract_types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Contract Types",
+            "type": "array"
+          },
+          "daily_collection_limit": {
+            "default": 5,
+            "title": "Daily Collection Limit",
+            "type": "integer"
+          },
+          "default_search_duration": {
+            "default": "24h",
+            "title": "Default Search Duration",
+            "type": "string"
+          },
+          "excluded_companies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Excluded Companies",
+            "type": "array"
+          },
+          "excluded_keywords": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Excluded Keywords",
+            "type": "array"
+          },
+          "filter_esn": {
+            "default": false,
+            "title": "Filter Esn",
+            "type": "boolean"
+          },
+          "locations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Locations",
+            "type": "array"
+          },
+          "match_threshold_priority": {
+            "default": 85,
+            "title": "Match Threshold Priority",
+            "type": "integer"
+          },
+          "match_threshold_recommended": {
+            "default": 75,
+            "title": "Match Threshold Recommended",
+            "type": "integer"
+          },
+          "match_threshold_review": {
+            "default": 60,
+            "title": "Match Threshold Review",
+            "type": "integer"
+          },
+          "minimum_salary": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum Salary"
+          },
+          "remote": {
+            "default": true,
+            "title": "Remote",
+            "type": "boolean"
+          },
+          "sectors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sectors",
+            "type": "array"
+          },
+          "target_titles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Target Titles",
+            "type": "array"
+          }
+        },
+        "title": "CandidatePreferences",
+        "type": "object"
+      },
+      "CandidateProfile": {
+        "properties": {
+          "certifications": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Certifications",
+            "type": "array"
+          },
+          "education": {
+            "items": {
+              "$ref": "#/components/schemas/Education"
+            },
+            "title": "Education",
+            "type": "array"
+          },
+          "experiences": {
+            "items": {
+              "$ref": "#/components/schemas/Experience"
+            },
+            "title": "Experiences",
+            "type": "array"
+          },
+          "is_active": {
+            "default": true,
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "languages": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Languages",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "personal": {
+            "$ref": "#/components/schemas/PersonalInfo"
+          },
+          "preferences": {
+            "$ref": "#/components/schemas/CandidatePreferences"
+          },
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/Project"
+            },
+            "title": "Projects",
+            "type": "array"
+          },
+          "skills": {
+            "$ref": "#/components/schemas/SkillCategories"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "version": {
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "personal"
+        ],
+        "title": "CandidateProfile",
+        "type": "object"
+      },
+      "CandidateProfileRecord": {
+        "additionalProperties": true,
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_active": {
+            "default": true,
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "preferences": {
+            "$ref": "#/components/schemas/CandidatePreferences"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/CandidateProfile"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "profile"
+        ],
+        "title": "CandidateProfileRecord",
+        "type": "object"
+      },
+      "CollectRequest": {
+        "properties": {
+          "auto_prepare": {
+            "default": true,
+            "title": "Auto Prepare",
+            "type": "boolean"
+          },
+          "duration": {
+            "default": "24h",
+            "title": "Duration",
+            "type": "string"
+          },
+          "limit": {
+            "default": 5,
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
+          }
+        },
+        "title": "CollectRequest",
+        "type": "object"
+      },
+      "CollectResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "candidate_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Name"
+          },
+          "contract_filter": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Filter"
+          },
+          "duration": {
+            "title": "Duration",
+            "type": "string"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/CollectedJobSummary"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "new_imported_count": {
+            "title": "New Imported Count",
+            "type": "integer"
+          },
+          "notion_synced_count": {
+            "title": "Notion Synced Count",
+            "type": "integer"
+          },
+          "prepared_count": {
+            "title": "Prepared Count",
+            "type": "integer"
+          },
+          "processed_count": {
+            "title": "Processed Count",
+            "type": "integer"
+          },
+          "qualified_count": {
+            "title": "Qualified Count",
+            "type": "integer"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
+          },
+          "total_found": {
+            "title": "Total Found",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "duration",
+          "total_found",
+          "processed_count",
+          "new_imported_count",
+          "qualified_count",
+          "prepared_count",
+          "notion_synced_count",
+          "jobs"
+        ],
+        "title": "CollectResponse",
+        "type": "object"
+      },
+      "CollectedJobSummary": {
+        "additionalProperties": true,
+        "properties": {
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "match_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Score"
+          },
+          "notion_page_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notion Page Id"
+          },
+          "notion_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notion Url"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "CollectedJobSummary",
+        "type": "object"
+      },
+      "DashboardCounters": {
+        "properties": {
+          "applied_count": {
+            "title": "Applied Count",
+            "type": "integer"
+          },
+          "ignored_count": {
+            "title": "Ignored Count",
+            "type": "integer"
+          },
+          "interview_count": {
+            "title": "Interview Count",
+            "type": "integer"
+          },
+          "priority_count": {
+            "title": "Priority Count",
+            "type": "integer"
+          },
+          "ready_count": {
+            "title": "Ready Count",
+            "type": "integer"
+          },
+          "recommended_count": {
+            "title": "Recommended Count",
+            "type": "integer"
+          },
+          "review_count": {
+            "title": "Review Count",
+            "type": "integer"
+          },
+          "to_prepare_count": {
+            "title": "To Prepare Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "priority_count",
+          "recommended_count",
+          "review_count",
+          "ignored_count",
+          "to_prepare_count",
+          "ready_count",
+          "applied_count",
+          "interview_count"
+        ],
+        "title": "DashboardCounters",
+        "type": "object"
+      },
+      "DashboardStatsResponse": {
+        "properties": {
+          "recent_applications": {
+            "items": {
+              "$ref": "#/components/schemas/ApplicationRecord"
+            },
+            "title": "Recent Applications",
+            "type": "array"
+          },
+          "recent_jobs": {
+            "items": {
+              "$ref": "#/components/schemas/JobRecord"
+            },
+            "title": "Recent Jobs",
+            "type": "array"
+          },
+          "scheduler_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SchedulerStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stats": {
+            "$ref": "#/components/schemas/DashboardCounters"
+          }
+        },
+        "required": [
+          "stats",
+          "recent_jobs",
+          "recent_applications"
+        ],
+        "title": "DashboardStatsResponse",
+        "type": "object"
+      },
+      "Education": {
+        "properties": {
+          "degree": {
+            "title": "Degree",
+            "type": "string"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "field_of_study": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field Of Study"
+          },
+          "institution": {
+            "title": "Institution",
+            "type": "string"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          }
+        },
+        "required": [
+          "institution",
+          "degree"
+        ],
+        "title": "Education",
+        "type": "object"
+      },
+      "Experience": {
+        "properties": {
+          "achievements": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Achievements",
+            "type": "array"
+          },
+          "client": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client"
+          },
+          "company": {
+            "title": "Company",
+            "type": "string"
+          },
+          "contract_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Type"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "skills": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Skills",
+            "type": "array"
+          },
+          "start_date": {
+            "title": "Start Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "company",
+          "role",
+          "start_date"
+        ],
+        "title": "Experience",
+        "type": "object"
+      },
+      "ExperienceHighlight": {
+        "properties": {
+          "achievements": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Achievements",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "skills": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Skills",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "ExperienceHighlight",
+        "type": "object"
+      },
+      "Funnel": {
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/FunnelCounts"
+          },
+          "rates": {
+            "$ref": "#/components/schemas/FunnelRates"
+          }
+        },
+        "required": [
+          "counts",
+          "rates"
+        ],
+        "title": "Funnel",
+        "type": "object"
+      },
+      "FunnelCounts": {
+        "properties": {
+          "applied": {
+            "title": "Applied",
+            "type": "integer"
+          },
+          "detected": {
+            "title": "Detected",
+            "type": "integer"
+          },
+          "interview": {
+            "title": "Interview",
+            "type": "integer"
+          },
+          "offer": {
+            "title": "Offer",
+            "type": "integer"
+          },
+          "prepared": {
+            "title": "Prepared",
+            "type": "integer"
+          },
+          "qualified": {
+            "title": "Qualified",
+            "type": "integer"
+          },
+          "rejected": {
+            "title": "Rejected",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "detected",
+          "qualified",
+          "prepared",
+          "applied",
+          "interview",
+          "offer",
+          "rejected"
+        ],
+        "title": "FunnelCounts",
+        "type": "object"
+      },
+      "FunnelRates": {
+        "properties": {
+          "application_rate": {
+            "title": "Application Rate",
+            "type": "number"
+          },
+          "global_conversion_rate": {
+            "title": "Global Conversion Rate",
+            "type": "number"
+          },
+          "interview_rate": {
+            "title": "Interview Rate",
+            "type": "number"
+          },
+          "offer_rate": {
+            "title": "Offer Rate",
+            "type": "number"
+          },
+          "preparation_rate": {
+            "title": "Preparation Rate",
+            "type": "number"
+          },
+          "qualification_rate": {
+            "title": "Qualification Rate",
+            "type": "number"
+          }
+        },
+        "required": [
+          "qualification_rate",
+          "preparation_rate",
+          "application_rate",
+          "interview_rate",
+          "offer_rate",
+          "global_conversion_rate"
+        ],
+        "title": "FunnelRates",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "properties": {
+          "services": {
+            "$ref": "#/components/schemas/ServiceStatuses"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "version",
+          "services"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "InterfacesAnalyticsResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "cache": {
+            "additionalProperties": true,
+            "title": "Cache",
+            "type": "object"
+          },
+          "external_connectors": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "External Connectors",
+            "type": "object"
+          },
+          "kpis": {
+            "additionalProperties": true,
+            "title": "Kpis",
+            "type": "object"
+          },
+          "providers": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "recent_runs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Recent Runs",
+            "type": "array"
+          },
+          "success": {
+            "const": true,
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          },
+          "task_distribution": {
+            "$ref": "#/components/schemas/TaskDistribution"
+          },
+          "timestamp": {
+            "title": "Timestamp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "timestamp",
+          "kpis",
+          "providers",
+          "task_distribution",
+          "external_connectors",
+          "cache",
+          "recent_runs"
+        ],
+        "title": "InterfacesAnalyticsResponse",
+        "type": "object"
+      },
+      "JobImportRequest": {
+        "additionalProperties": true,
+        "description": "Charge utile d'import manuel : mêmes champs que `JobImport`, tolérant aux extras des scrapers.",
+        "properties": {
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "contract_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Type"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "normalized_data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobNormalizedData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "raw_data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Data"
+          },
+          "salary_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Salary Currency"
+          },
+          "salary_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Salary Max"
+          },
+          "salary_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Salary Min"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Job Id"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "title",
+          "url"
+        ],
+        "title": "JobImportRequest",
+        "type": "object"
+      },
+      "JobImportResponse": {
+        "properties": {
+          "job": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobRecord"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "status": {
+            "enum": [
+              "CREATED",
+              "DUPLICATE",
+              "SIMULATED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "JobImportResponse",
+        "type": "object"
+      },
+      "JobListResponse": {
+        "properties": {
+          "has_next": {
+            "title": "Has Next",
+            "type": "boolean"
+          },
+          "has_prev": {
+            "title": "Has Prev",
+            "type": "boolean"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/JobRecord"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "per_page": {
+            "title": "Per Page",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "total_pages": {
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "per_page",
+          "total_pages",
+          "has_prev",
+          "has_next",
+          "jobs"
+        ],
+        "title": "JobListResponse",
+        "type": "object"
+      },
+      "JobNormalizedData": {
+        "properties": {
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "company_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Type"
+          },
+          "contract_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Type"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "language": {
+            "default": "fr",
+            "title": "Language",
+            "type": "string"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "nice_to_have": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Nice To Have",
+            "type": "array"
+          },
+          "remote": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": false,
+            "title": "Remote"
+          },
+          "requirements": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Requirements",
+            "type": "array"
+          },
+          "seniority": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seniority"
+          },
+          "skills": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Skills",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "JobNormalizedData",
+        "type": "object"
+      },
+      "JobRecord": {
+        "additionalProperties": true,
+        "properties": {
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "contract_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Type"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Absent uniquement pour une offre simulée (Supabase non configuré)",
+            "title": "Id"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "match_analysis": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Analysis"
+          },
+          "match_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Level"
+          },
+          "match_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Score"
+          },
+          "normalized_data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobNormalizedData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "raw_data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Data"
+          },
+          "salary_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Salary Currency"
+          },
+          "salary_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Salary Max"
+          },
+          "salary_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Salary Min"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "source_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Job Id"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "title": "JobRecord",
+        "type": "object"
+      },
+      "MatchDimensions": {
+        "properties": {
+          "experience_match": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Experience Match",
+            "type": "integer"
+          },
+          "location_match": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Location Match",
+            "type": "integer"
+          },
+          "salary_match": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Salary Match",
+            "type": "integer"
+          },
+          "seniority_match": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Seniority Match",
+            "type": "integer"
+          },
+          "skills_match": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Skills Match",
+            "type": "integer"
+          },
+          "title_match": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Title Match",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "title_match",
+          "skills_match",
+          "experience_match",
+          "seniority_match",
+          "location_match",
+          "salary_match"
+        ],
+        "title": "MatchDimensions",
+        "type": "object"
+      },
+      "MatchJobResponse": {
+        "properties": {
+          "match": {
+            "$ref": "#/components/schemas/MatchResult"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "match"
+        ],
+        "title": "MatchJobResponse",
+        "type": "object"
+      },
+      "MatchResult": {
+        "properties": {
+          "company_domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Domaine d'activité et secteur réel de l'entreprise (ex: 'Fintech', 'Cybersécurité', 'Santé / MedTech', 'Conseil IT')",
+            "title": "Company Domain"
+          },
+          "company_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Type de l'entreprise (ex: 'Grand groupe (Conseil & ESN)', 'Scale-up / Éditeur SaaS', 'ESN', 'Startup', 'PME')",
+            "title": "Company Type"
+          },
+          "concerns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Concerns",
+            "type": "array"
+          },
+          "dimensions": {
+            "$ref": "#/components/schemas/MatchDimensions"
+          },
+          "level": {
+            "title": "Level",
+            "type": "string"
+          },
+          "matched_skills": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Matched Skills",
+            "type": "array"
+          },
+          "missing_skills": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Skills",
+            "type": "array"
+          },
+          "recommendation": {
+            "title": "Recommendation",
+            "type": "string"
+          },
+          "score": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Score",
+            "type": "integer"
+          },
+          "strengths": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Strengths",
+            "type": "array"
+          }
+        },
+        "required": [
+          "score",
+          "level",
+          "dimensions",
+          "recommendation"
+        ],
+        "title": "MatchResult",
+        "type": "object"
+      },
+      "NotionReconcileResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "created_notion_count": {
+            "default": 0,
+            "title": "Created Notion Count",
+            "type": "integer"
+          },
+          "details": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Details",
+            "type": "array"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "errors": {
+            "items": {},
+            "title": "Errors",
+            "type": "array"
+          },
+          "matched_count": {
+            "default": 0,
+            "title": "Matched Count",
+            "type": "integer"
+          },
+          "refreshed_documents_count": {
+            "default": 0,
+            "title": "Refreshed Documents Count",
+            "type": "integer"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "timestamp": {
+            "title": "Timestamp",
+            "type": "string"
+          },
+          "total_notion_pages": {
+            "default": 0,
+            "title": "Total Notion Pages",
+            "type": "integer"
+          },
+          "total_supabase_apps": {
+            "default": 0,
+            "title": "Total Supabase Apps",
+            "type": "integer"
+          },
+          "trashed_notion_pages": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Trashed Notion Pages",
+            "type": "array"
+          },
+          "updated_notion_count": {
+            "default": 0,
+            "title": "Updated Notion Count",
+            "type": "integer"
+          },
+          "updated_supabase_count": {
+            "default": 0,
+            "title": "Updated Supabase Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "success",
+          "timestamp"
+        ],
+        "title": "NotionReconcileResponse",
+        "type": "object"
+      },
+      "NotionSyncResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "notion_page_id": {
+            "title": "Notion Page Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "notion_page_id"
+        ],
+        "title": "NotionSyncResponse",
+        "type": "object"
+      },
+      "PersonalInfo": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "first_name": {
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
+            "title": "Last Name",
+            "type": "string"
+          },
+          "linkedin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linkedin"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "portfolio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Portfolio"
+          }
+        },
+        "required": [
+          "first_name",
+          "last_name",
+          "email"
+        ],
+        "title": "PersonalInfo",
+        "type": "object"
+      },
+      "Project": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "mission": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mission"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "skills": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Skills",
+            "type": "array"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "Project",
+        "type": "object"
+      },
+      "QuestionAnswer": {
+        "properties": {
+          "answer": {
+            "title": "Answer",
+            "type": "string"
+          },
+          "confidence": {
+            "default": "HIGH",
+            "title": "Confidence",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "validation_required": {
+            "default": false,
+            "title": "Validation Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "question",
+          "answer"
+        ],
+        "title": "QuestionAnswer",
+        "type": "object"
+      },
+      "RootInfoResponse": {
+        "properties": {
+          "docs": {
+            "title": "Docs",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "openapi": {
+            "title": "Openapi",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "version",
+          "docs",
+          "openapi"
+        ],
+        "title": "RootInfoResponse",
+        "type": "object"
+      },
+      "SchedulerStatus": {
+        "additionalProperties": true,
+        "properties": {
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "is_running_job": {
+            "default": false,
+            "title": "Is Running Job",
+            "type": "boolean"
+          },
+          "last_result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Result"
+          },
+          "last_run": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run"
+          },
+          "next_run": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Run"
+          },
+          "schedule_time": {
+            "title": "Schedule Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "is_active",
+          "schedule_time"
+        ],
+        "title": "SchedulerStatus",
+        "type": "object"
+      },
+      "SchedulerTriggerResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "started": {
+            "title": "Started",
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SchedulerStatus"
+          }
+        },
+        "required": [
+          "message",
+          "started",
+          "status"
+        ],
+        "title": "SchedulerTriggerResponse",
+        "type": "object"
+      },
+      "SchedulerUpdateRequest": {
+        "properties": {
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "time": {
+            "description": "Heure d'exécution quotidienne au format HH:MM",
+            "pattern": "^\\d{1,2}:\\d{2}$",
+            "title": "Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "time"
+        ],
+        "title": "SchedulerUpdateRequest",
+        "type": "object"
+      },
+      "SchedulerUpdateResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SchedulerStatus"
+          }
+        },
+        "required": [
+          "message",
+          "status"
+        ],
+        "title": "SchedulerUpdateResponse",
+        "type": "object"
+      },
+      "ScrapeBatchItemResult": {
+        "additionalProperties": true,
+        "properties": {
+          "application_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Id"
+          },
+          "cv_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cv Url"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "job": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobRecord"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "letter_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Letter Url"
+          },
+          "match": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MatchResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "notion_page_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notion Page Id"
+          },
+          "notion_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notion Url"
+          },
+          "prepared": {
+            "default": false,
+            "title": "Prepared",
+            "type": "boolean"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "success",
+          "url"
+        ],
+        "title": "ScrapeBatchItemResult",
+        "type": "object"
+      },
+      "ScrapeBatchResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "error_count": {
+            "title": "Error Count",
+            "type": "integer"
+          },
+          "is_batch": {
+            "const": true,
+            "default": true,
+            "title": "Is Batch",
+            "type": "boolean"
+          },
+          "notion_synced_count": {
+            "title": "Notion Synced Count",
+            "type": "integer"
+          },
+          "prepared_count": {
+            "title": "Prepared Count",
+            "type": "integer"
+          },
+          "processed_count": {
+            "title": "Processed Count",
+            "type": "integer"
+          },
+          "qualified_count": {
+            "title": "Qualified Count",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ScrapeBatchItemResult"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          },
+          "total_requested": {
+            "title": "Total Requested",
+            "type": "integer"
+          },
+          "total_unique": {
+            "title": "Total Unique",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "success",
+          "total_requested",
+          "total_unique",
+          "processed_count",
+          "qualified_count",
+          "prepared_count",
+          "notion_synced_count",
+          "error_count",
+          "results"
+        ],
+        "title": "ScrapeBatchResponse",
+        "type": "object"
+      },
+      "ScrapeItemResult": {
+        "additionalProperties": true,
+        "properties": {
+          "application_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Id"
+          },
+          "cv_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cv Url"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "job": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobRecord"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "letter_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Letter Url"
+          },
+          "match": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MatchResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "notion_page_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notion Page Id"
+          },
+          "notion_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notion Url"
+          },
+          "prepared": {
+            "default": false,
+            "title": "Prepared",
+            "type": "boolean"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "title": "ScrapeItemResult",
+        "type": "object"
+      },
+      "ScrapeRequest": {
+        "properties": {
+          "auto_prepare": {
+            "default": true,
+            "title": "Auto Prepare",
+            "type": "boolean"
+          },
+          "min_match_score": {
+            "default": 75,
+            "title": "Min Match Score",
+            "type": "integer"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Une URL, ou plusieurs séparées par virgule / retour à la ligne",
+            "title": "Url"
+          },
+          "urls": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Urls"
+          }
+        },
+        "title": "ScrapeRequest",
+        "type": "object"
+      },
+      "ScrapeStreamEvent": {
+        "description": "Événement SSE émis par POST /jobs/scrape/stream (champ `data` de chaque message).",
+        "properties": {
+          "current": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Current"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Error"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScrapeItemResult"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Total"
+          },
+          "type": {
+            "enum": [
+              "start",
+              "processing",
+              "item_done",
+              "item_error",
+              "complete"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Url"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "ScrapeStreamEvent",
+        "type": "object"
+      },
+      "ServiceStatuses": {
+        "properties": {
+          "gemini": {
+            "enum": [
+              "configured",
+              "unconfigured"
+            ],
+            "title": "Gemini",
+            "type": "string"
+          },
+          "notion": {
+            "enum": [
+              "configured",
+              "unconfigured"
+            ],
+            "title": "Notion",
+            "type": "string"
+          },
+          "supabase": {
+            "enum": [
+              "connected",
+              "unconfigured"
+            ],
+            "title": "Supabase",
+            "type": "string"
+          }
+        },
+        "required": [
+          "supabase",
+          "gemini",
+          "notion"
+        ],
+        "title": "ServiceStatuses",
+        "type": "object"
+      },
+      "SettingsResponse": {
+        "properties": {
+          "available_models": {
+            "items": {
+              "$ref": "#/components/schemas/AIModel"
+            },
+            "title": "Available Models",
+            "type": "array"
+          },
+          "preferences": {
+            "$ref": "#/components/schemas/CandidatePreferences"
+          },
+          "router_overview": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Router Overview"
+          }
+        },
+        "required": [
+          "preferences",
+          "available_models"
+        ],
+        "title": "SettingsResponse",
+        "type": "object"
+      },
+      "SkillCategories": {
+        "properties": {
+          "business": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Business",
+            "type": "array"
+          },
+          "soft_skills": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Soft Skills",
+            "type": "array"
+          },
+          "technical": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Technical",
+            "type": "array"
+          },
+          "tools": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tools",
+            "type": "array"
+          }
+        },
+        "title": "SkillCategories",
+        "type": "object"
+      },
+      "SkillGroup": {
+        "properties": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "SkillGroup",
+        "type": "object"
+      },
+      "TailoredCV": {
+        "properties": {
+          "changes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "experience_highlights": {
+            "items": {
+              "$ref": "#/components/schemas/ExperienceHighlight"
+            },
+            "title": "Experience Highlights",
+            "type": "array"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "language": {
+            "default": "fr",
+            "title": "Language",
+            "type": "string"
+          },
+          "mobility": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mobility"
+          },
+          "selected_experiences": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Selected Experiences",
+            "type": "array"
+          },
+          "selected_projects": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Selected Projects",
+            "type": "array"
+          },
+          "skill_groups": {
+            "items": {
+              "$ref": "#/components/schemas/SkillGroup"
+            },
+            "title": "Skill Groups",
+            "type": "array"
+          },
+          "skills": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Skills",
+            "type": "array"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "validation_required": {
+            "default": false,
+            "title": "Validation Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "job_id",
+          "summary",
+          "selected_experiences",
+          "skills"
+        ],
+        "title": "TailoredCV",
+        "type": "object"
+      },
+      "TaskDistribution": {
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "percentages": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Percentages",
+            "type": "object"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "counts",
+          "total",
+          "percentages"
+        ],
+        "title": "TaskDistribution",
+        "type": "object"
+      },
+      "Timeline": {
+        "properties": {
+          "applications_series": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Applications Series",
+            "type": "array"
+          },
+          "jobs_series": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Jobs Series",
+            "type": "array"
+          },
+          "labels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "array"
+          }
+        },
+        "required": [
+          "labels",
+          "jobs_series",
+          "applications_series"
+        ],
+        "title": "Timeline",
+        "type": "object"
+      },
+      "UpdateCandidateProfileRequest": {
+        "properties": {
+          "preferences": {
+            "$ref": "#/components/schemas/CandidatePreferences"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/CandidateProfile"
+          }
+        },
+        "required": [
+          "profile"
+        ],
+        "title": "UpdateCandidateProfileRequest",
+        "type": "object"
+      },
+      "UpdateCandidateProfileResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateProfileRecord"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "data"
+        ],
+        "title": "UpdateCandidateProfileResponse",
+        "type": "object"
+      },
+      "UpdateSettingsRequest": {
+        "properties": {
+          "preferences": {
+            "$ref": "#/components/schemas/CandidatePreferences"
+          }
+        },
+        "required": [
+          "preferences"
+        ],
+        "title": "UpdateSettingsRequest",
+        "type": "object"
+      },
+      "UpdateSettingsResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "preferences": {
+            "$ref": "#/components/schemas/CandidatePreferences"
+          }
+        },
+        "required": [
+          "message",
+          "preferences"
+        ],
+        "title": "UpdateSettingsResponse",
+        "type": "object"
+      },
+      "UpdateStatusRequest": {
+        "properties": {
+          "status": {
+            "enum": [
+              "QUALIFIED",
+              "PREPARING",
+              "READY",
+              "APPLIED",
+              "INTERVIEW",
+              "OFFER",
+              "REJECTED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "UpdateStatusRequest",
+        "type": "object"
+      },
+      "UpdateStatusResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "QUALIFIED",
+              "PREPARING",
+              "READY",
+              "APPLIED",
+              "INTERVIEW",
+              "OFFER",
+              "REJECTED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "status"
+        ],
+        "title": "UpdateStatusResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Backend API moderne pour l'agent IA de recherche d'emploi et de génération de candidatures sur mesure.",
+    "title": "Trema Job Search API",
+    "version": "2.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/": {
+      "get": {
+        "description": "Information racine de l'API.",
+        "operationId": "root_info__get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RootInfoResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Root Info",
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/api/v1/analytics/interfaces": {
+      "get": {
+        "description": "API JSON des métriques d'observabilité des interfaces et APIs (LLM, Cache, Connecteurs).",
+        "operationId": "get_analytics_interfaces_api_v1_analytics_interfaces_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterfacesAnalyticsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Analytics Interfaces",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/api/v1/analytics/stats": {
+      "get": {
+        "description": "API JSON des métriques d'entonnoir et de conversion.",
+        "operationId": "get_analytics_stats_api_v1_analytics_stats_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "period",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "enum": [
+                "all",
+                "30d",
+                "7d"
+              ],
+              "title": "Period",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsStatsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Analytics Stats",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/api/v1/applications": {
+      "get": {
+        "description": "Liste les candidatures existantes avec pagination et filtres.",
+        "operationId": "list_applications_api_v1_applications_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "per_page",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Per Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "min_score",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Min Score"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Applications",
+        "tags": [
+          "Applications"
+        ]
+      }
+    },
+    "/api/v1/applications/create-from-job/{job_id}": {
+      "post": {
+        "description": "Crée une candidature à partir d'une offre d'emploi.",
+        "operationId": "create_application_from_job_api_v1_applications_create_from_job__job_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationIdResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Application From Job",
+        "tags": [
+          "Applications"
+        ]
+      }
+    },
+    "/api/v1/applications/{app_id}": {
+      "get": {
+        "description": "Détail complet d'une candidature avec son offre associée.",
+        "operationId": "get_application_api_v1_applications__app_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Application",
+        "tags": [
+          "Applications"
+        ]
+      }
+    },
+    "/api/v1/applications/{app_id}/documents/{doc_type}": {
+      "get": {
+        "description": "Télécharge ou prévisualise un document PDF (CV ou COVER_LETTER).",
+        "operationId": "get_application_document_api_v1_applications__app_id__documents__doc_type__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "doc_type",
+            "required": true,
+            "schema": {
+              "enum": [
+                "CV",
+                "COVER_LETTER"
+              ],
+              "title": "Doc Type",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/pdf": {}
+            },
+            "description": "Document PDF généré (ReportLab)"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Application Document",
+        "tags": [
+          "Applications"
+        ]
+      }
+    },
+    "/api/v1/applications/{app_id}/prepare": {
+      "post": {
+        "description": "Génère le CV personnalisé, la lettre et les réponses, puis synchronise Notion.",
+        "operationId": "prepare_application_api_v1_applications__app_id__prepare_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationIdResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prepare Application",
+        "tags": [
+          "Applications"
+        ]
+      }
+    },
+    "/api/v1/applications/{app_id}/status": {
+      "patch": {
+        "description": "Met à jour le statut d'une candidature.",
+        "operationId": "update_application_status_api_v1_applications__app_id__status_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Application Status",
+        "tags": [
+          "Applications"
+        ]
+      }
+    },
+    "/api/v1/applications/{app_id}/sync-notion": {
+      "post": {
+        "description": "Synchronise manuellement une candidature vers Notion.",
+        "operationId": "sync_application_notion_api_v1_applications__app_id__sync_notion_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "app_id",
+            "required": true,
+            "schema": {
+              "title": "App Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotionSyncResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sync Application Notion",
+        "tags": [
+          "Applications"
+        ]
+      }
+    },
+    "/api/v1/candidate/profile": {
+      "get": {
+        "description": "Récupère le profil candidat maître actif.",
+        "operationId": "get_candidate_profile_api_v1_candidate_profile_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateProfileRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Candidate Profile",
+        "tags": [
+          "Candidate"
+        ]
+      },
+      "put": {
+        "description": "Met à jour le profil candidat maître actif (validation Pydantic automatique, 422 si invalide).",
+        "operationId": "update_candidate_profile_api_v1_candidate_profile_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCandidateProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateCandidateProfileResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Candidate Profile",
+        "tags": [
+          "Candidate"
+        ]
+      }
+    },
+    "/api/v1/dashboard/stats": {
+      "get": {
+        "description": "Statistiques globales et KPIs pour le Dashboard.",
+        "operationId": "get_dashboard_stats_api_v1_dashboard_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardStatsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Dashboard Stats",
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "description": "Endpoint de santé pour monitoring et tests de disponibilité.",
+        "operationId": "health_check_api_v1_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health Check",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/v1/jobs": {
+      "get": {
+        "description": "Liste les offres enregistrées avec pagination et filtres.",
+        "operationId": "list_jobs_api_v1_jobs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "per_page",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Per Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "contract_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Contract Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "min_score",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Min Score"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Jobs",
+        "tags": [
+          "Jobs"
+        ]
+      }
+    },
+    "/api/v1/jobs/collect": {
+      "post": {
+        "description": "Lance la collecte automatique et scraping batch d'offres récentes.",
+        "operationId": "collect_jobs_api_v1_jobs_collect_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CollectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Collect Jobs",
+        "tags": [
+          "Jobs"
+        ]
+      }
+    },
+    "/api/v1/jobs/import": {
+      "post": {
+        "description": "Importe une nouvelle offre et la persiste après déduplication.",
+        "operationId": "import_job_api_v1_jobs_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobImportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Job",
+        "tags": [
+          "Jobs"
+        ]
+      }
+    },
+    "/api/v1/jobs/scrape": {
+      "post": {
+        "description": "Scrape une ou plusieurs offres depuis leurs URLs (LinkedIn, WTTJ, etc.).\n\nUne seule URL renvoie un `ScrapeItemResult`, un lot renvoie un `ScrapeBatchResponse` (`is_batch: true`).",
+        "operationId": "scrape_job_api_v1_jobs_scrape_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScrapeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ScrapeItemResult"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ScrapeBatchResponse"
+                    }
+                  ],
+                  "title": "Response Scrape Job Api V1 Jobs Scrape Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Scrape Job",
+        "tags": [
+          "Jobs"
+        ]
+      }
+    },
+    "/api/v1/jobs/scrape/stream": {
+      "post": {
+        "description": "Scrape un lot d'offres avec streaming SSE pour afficher l'avancement en direct.\n\nChaque message `data:` est un `ScrapeStreamEvent` sérialisé en JSON.",
+        "operationId": "scrape_job_stream_api_v1_jobs_scrape_stream_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScrapeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScrapeStreamEvent"
+                }
+              }
+            },
+            "description": "Flux SSE : chaque `data:` est un ScrapeStreamEvent JSON"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Scrape Job Stream",
+        "tags": [
+          "Jobs"
+        ]
+      }
+    },
+    "/api/v1/jobs/{job_id}": {
+      "get": {
+        "description": "Détail complet d'une offre.",
+        "operationId": "get_job_api_v1_jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobRecord"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Job",
+        "tags": [
+          "Jobs"
+        ]
+      }
+    },
+    "/api/v1/jobs/{job_id}/match": {
+      "post": {
+        "description": "Calcule le score de matching IA pour l'offre spécifiée.",
+        "operationId": "match_job_api_v1_jobs__job_id__match_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchJobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Match Job",
+        "tags": [
+          "Jobs"
+        ]
+      }
+    },
+    "/api/v1/scheduler/status": {
+      "get": {
+        "description": "Récupère l'état courant du planificateur matinal.",
+        "operationId": "get_scheduler_status_api_v1_scheduler_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchedulerStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Scheduler Status",
+        "tags": [
+          "Scheduler"
+        ]
+      }
+    },
+    "/api/v1/scheduler/trigger": {
+      "post": {
+        "description": "Déclenche manuellement et immédiatement le job de collecte et préparation.",
+        "operationId": "trigger_scheduler_job_api_v1_scheduler_trigger_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchedulerTriggerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Trigger Scheduler Job",
+        "tags": [
+          "Scheduler"
+        ]
+      }
+    },
+    "/api/v1/scheduler/update": {
+      "post": {
+        "description": "Met à jour l'heure et la configuration du planificateur.",
+        "operationId": "update_scheduler_settings_api_v1_scheduler_update_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SchedulerUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchedulerUpdateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Scheduler Settings",
+        "tags": [
+          "Scheduler"
+        ]
+      }
+    },
+    "/api/v1/settings": {
+      "get": {
+        "description": "Récupère les préférences et paramètres actuels.",
+        "operationId": "get_settings_api_v1_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Settings",
+        "tags": [
+          "Settings"
+        ]
+      },
+      "put": {
+        "description": "Met à jour les paramètres dans le profil candidat actif.",
+        "operationId": "update_settings_api_v1_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Settings",
+        "tags": [
+          "Settings"
+        ]
+      }
+    },
+    "/api/v1/settings/sync-notion": {
+      "post": {
+        "description": "Déclenche la synchronisation bidirectionnelle Notion ↔ Supabase.",
+        "operationId": "trigger_notion_bidirectional_sync_api_v1_settings_sync_notion_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotionReconcileResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Trigger Notion Bidirectional Sync",
+        "tags": [
+          "Settings"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "Healthcheck global pour Docker et proxies.",
+        "operationId": "root_health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Root Health",
+        "tags": [
+          "System"
+        ]
+      }
+    }
+  }
+}

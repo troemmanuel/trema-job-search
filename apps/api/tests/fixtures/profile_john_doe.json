@@ -1,0 +1,159 @@
+{
+  "name": "John Doe",
+  "title": "Développeur Full-Stack - Python / Data / DevOps",
+  "personal": {
+    "first_name": "John",
+    "last_name": "Doe",
+    "email": "john.doe@example.com",
+    "phone": "+33 6 00 00 00 00",
+    "location": "Rennes - mobile sur la France",
+    "linkedin": "linkedin.com/in/john-doe",
+    "portfolio": "johndoe.example.com"
+  },
+  "summary": "Ingénieur logiciel avec plus de 4 ans d'expérience cumulée (CDI en fintech, alternances et conseil), combinant développement backend Python (FastAPI) et Java/Node.js, avec une solide pratique des architectures orientées services : synchronisation par message brokers (Kafka, RabbitMQ, BullMQ), pipelines de traitement de données, et conteneurisation/observabilité (Kubernetes, Docker, ELK). J'ai conçu et déployé un service Python (FastAPI) en lien avec une équipe Machine Learning, et je porte un intérêt réel aux problématiques de sécurité et de détection. Diplômé d'un Master Informatique (Université Technologique, 2026).",
+  "experiences": [
+    {
+      "id": "exp_001",
+      "company": "Acme Cloud Services",
+      "client": "Client Secteur Public",
+      "role": "Ingénieur Logiciel",
+      "contract_type": "Alternance",
+      "location": "Rennes",
+      "start_date": "2026-03",
+      "end_date": null,
+      "achievements": [
+        "Développé une dizaine de user stories complètes sur les modules de facturation et gestion documentaire, de l'analyse technique à l'implémentation, du modèle de données aux endpoints REST livrés en production.",
+        "Assuré une grande qualité de code : tests unitaires JUnit, tests d'intégration Cucumber et tests manuels documentés dans Confluence.",
+        "Préparé et animé les sessions de backlog refinement (BR) avec l'équipe, en appui du Product Owner et du suivi des travaux techniques."
+      ],
+      "skills": ["Spring Boot", "Java", "MariaDB", "REST", "JUnit", "Cucumber"]
+    },
+    {
+      "id": "exp_002",
+      "company": "Acme Cloud Services",
+      "client": "Client Secteur Public",
+      "role": "Ingénieur DevOps",
+      "contract_type": "Alternance",
+      "location": "Rennes",
+      "start_date": "2025-01",
+      "end_date": "2026-03",
+      "achievements": [
+        "Déployé une stack d'observabilité ELK (centralisation et supervision des logs) sur un cluster Kubernetes couvrant une dizaine de services, réduisant le temps de diagnostic et d'investigation.",
+        "Participé à la refonte de l'automatisation Ansible existante : rôles modulaires et réutilisables sur l'ensemble des services, et mise en place d'Ansible Automation Platform (AAP/AWX) pour l'exécution et l'industrialisation des installations."
+      ],
+      "skills": ["Kubernetes", "Ansible", "AAP/AWX", "CI/CD", "Docker", "ELK", "Linux"]
+    },
+    {
+      "id": "exp_003",
+      "company": "Acme Cloud Services",
+      "client": "Client Secteur Public",
+      "role": "Support technique N2/N3 - Run applicatif",
+      "contract_type": "Stage puis alternance",
+      "location": "Rennes",
+      "start_date": "2024-04",
+      "end_date": "2025-01",
+      "achievements": [
+        "Analysé une vingtaine d'incidents et résolu les anomalies critiques, contribuant à la continuité de service."
+      ],
+      "skills": ["Java", "ITSM"]
+    },
+    {
+      "id": "exp_004",
+      "company": "PayTech Innovations",
+      "role": "Ingénieur Logiciel",
+      "contract_type": "CDI",
+      "location": "Paris",
+      "start_date": "2022-03",
+      "end_date": "2023-08",
+      "achievements": [
+        "Conçu, développé et déployé un service Python (FastAPI) de vérification documentaire, en collaboration avec l'équipe Machine Learning, et provisionné son infrastructure AWS avec Terraform.",
+        "Réduit de 90 % les pertes de revenus sur les abonnements et transactions récurrentes en fiabilisant les opérations récurrentes avec BullMQ (synchronisation asynchrone des services) : historisation des transactions, traçabilité des étapes et reprise au point d'échec sans rejouer l'intégralité du processus.",
+        "Conçu et développé une vingtaine de fonctionnalités autour de la gestion des comptes dans une architecture orientée microservices (NestJS), couvrant leur cycle de vie, les transactions et opérations récurrentes, ainsi que l'optimisation des performances grâce au cache Redis et à l'optimisation des requêtes PostgreSQL."
+      ],
+      "skills": ["NestJS", "Node.js", "TypeScript", "FastAPI", "Python", "PostgreSQL", "Redis", "Kafka", "RabbitMQ", "BullMQ", "AWS", "Terraform"]
+    },
+    {
+      "id": "exp_005",
+      "company": "Digital Solutions",
+      "role": "Développeur Logiciel",
+      "contract_type": "CDD",
+      "location": "Lyon",
+      "start_date": "2021-09",
+      "end_date": "2022-02",
+      "achievements": [
+        "Développé les interfaces Angular d'une plateforme de services municipaux et démarches administratives en ligne."
+      ],
+      "skills": ["Java", "Spring", "Angular", "PostgreSQL"]
+    },
+    {
+      "id": "exp_006",
+      "company": "Web Agency",
+      "role": "Développeur Logiciel Junior",
+      "contract_type": "Stage",
+      "location": "Rennes",
+      "start_date": "2021-01",
+      "end_date": "2021-06",
+      "achievements": [
+        "Assuré la maintenance d'une application logistique de gestion des tournées (Laravel / MySQL), corrigeant des anomalies et livrant des correctifs en production."
+      ],
+      "skills": ["Laravel", "MySQL"]
+    }
+  ],
+  "projects": [
+    {
+      "id": "prj_001",
+      "name": "Simulateur Mobilité",
+      "kind": "Académique",
+      "status": "Terminé",
+      "description": "Collecte de données géolocalisées pour alimenter une plateforme d'analyse de mobilité urbaine, via questionnaires utilisateurs et capteurs embarqués.",
+      "mission": "Conception de l'API de collecte de données avec FastAPI (Python) et intégration des interfaces mobiles Flutter.",
+      "skills": ["FastAPI", "Python", "Flutter", "GitLab"]
+    },
+    {
+      "id": "prj_002",
+      "name": "JobAutomation",
+      "kind": "Collaboratif",
+      "status": "En cours",
+      "description": "Agent logiciel automatisant la veille et le suivi d'opportunités professionnelles sur différentes plateformes selon des critères ciblés.",
+      "mission": "Conception des flux d'automatisation, intégration des services backend et persistance des données.",
+      "skills": ["Node.js", "OpenAPI", "PostgreSQL", "Docker", "GitLab CI/CD"]
+    },
+    {
+      "id": "prj_003",
+      "name": "DonationHub",
+      "kind": "Collaboratif",
+      "status": "En pause",
+      "description": "Plateforme de gestion de collectes et dons en ligne permettant à des structures associatives de piloter leurs campagnes.",
+      "mission": "Conception et développement du backend en TypeScript avec NestJS et d'un frontend Vue.js (Nuxt.js), mise en place de la CI/CD pour les déploiements cloud.",
+      "skills": ["NestJS", "TypeScript", "PostgreSQL", "Nuxt.js (Vue.js)", "Docker", "GitLab CI/CD"]
+    },
+    {
+      "id": "prj_004",
+      "name": "NotificationGateway",
+      "kind": "Collaboratif",
+      "status": "En cours",
+      "description": "Plateforme d'envoi et de routage de notifications et SMS transactionnels, conçue comme un service programmable à haute disponibilité.",
+      "mission": "Développement du backend du data plane en Go, responsable du traitement et de l'exécution des envois.",
+      "skills": ["Go", "Kubernetes", "Docker", "GitHub Actions"]
+    }
+  ],
+  "skills": {
+    "technical": ["Python", "TypeScript", "JavaScript", "Java", "Go", "SQL", "FastAPI", "Node.js", "NestJS", "Spring Boot", "API REST", "Microservices", "Kafka", "RabbitMQ", "BullMQ", "PostgreSQL", "MariaDB", "MySQL", "Redis"],
+    "tools": ["AWS", "Docker", "Kubernetes", "Terraform", "GitHub Actions", "GitLab CI", "ELK", "Ansible", "Git", "GitHub", "GitLab", "Maven", "JUnit", "Cucumber"],
+    "business": ["Agile/Scrum", "SAFe", "Backlog refinement"],
+    "soft_skills": ["Revues de code", "Documentation", "Collaboration équipe ML"]
+  },
+  "education": [
+    {"institution": "Université Technologique", "degree": "Master Informatique", "start_date": "2024", "end_date": "2026"},
+    {"institution": "Université Technologique", "degree": "Licence Informatique", "start_date": "2023", "end_date": "2024"},
+    {"institution": "Institut Universitaire de Technologie", "degree": "DUT Informatique", "field_of_study": "Informatique", "start_date": "2017", "end_date": "2020"}
+  ],
+  "languages": ["Français : natif", "Anglais : professionnel"],
+  "certifications": [],
+  "preferences": {
+    "target_titles": ["Ingénieur Logiciel", "Ingénieur Backend", "Développeur Python", "Développeur Java", "Ingénieur DevOps"],
+    "locations": ["Rennes", "Remote"],
+    "remote": true,
+    "contract_types": ["CDI"]
+  }
+}

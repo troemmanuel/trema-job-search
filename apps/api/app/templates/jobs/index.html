@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}Offres — Trema Job Search{% endblock %}
+
+{% block content %}
+<div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h1>Offres d'emploi</h1>
+        <p class="subtitle">Toutes les offres collectées et analysées.</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+        <button class="btn btn-primary" onclick="document.getElementById('collectModal').showModal()" style="background: linear-gradient(135deg, #3b82f6, #8b5cf6); border: none; font-weight: 700; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); font-size: 0.95rem; padding: 0.6rem 1.25rem;">
+            ⚡ Collecter les offres (24h / 3j / 7j)
+        </button>
+        <button class="btn btn-secondary" onclick="document.getElementById('urlImportModal').showModal()" style="font-weight: 600;">
+            📥 Importer par URL
+        </button>
+    </div>
+</div>
+
+<!-- Bandeau d'action rapide pour la collecte -->
+<div style="background: linear-gradient(90deg, rgba(59, 130, 246, 0.12), rgba(139, 92, 246, 0.12)); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 0.85rem 1.25rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div style="display: flex; align-items: center; gap: 0.6rem;">
+        <span style="font-size: 1.2rem;">⏱️</span>
+        <span style="font-size: 0.9rem; font-weight: 500;">
+            Lancer le scraping des offres publiées récemment sur WTTJ :
+        </span>
+    </div>
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <button class="btn btn-sm btn-secondary" onclick="openCollectWithDuration('24h')">Dernières 24h</button>
+        <button class="btn btn-sm btn-secondary" onclick="openCollectWithDuration('3j')">3 derniers jours</button>
+        <button class="btn btn-sm btn-secondary" onclick="openCollectWithDuration('7j')">7 derniers jours</button>
+    </div>
+</div>
+
+
+<!-- Barre de filtres -->
+<div class="filter-card">
+    <form method="GET" action="/jobs" class="filter-form">
+        <div class="filter-group filter-group-lg">
+            <label for="q">Recherche textuelle</label>
+            <input type="text" id="q" name="q" class="filter-input" placeholder="Titre, entreprise, ville..." value="{{ filters.q if filters else '' }}">
+        </div>
+        <div class="filter-group">
+            <label for="status">Statut</label>
+            <select id="status" name="status" class="filter-select">
+                <option value="">Tous les statuts</option>
+                <option value="NEW" {% if filters and filters.status == 'NEW' %}selected{% endif %}>NEW</option>
+                <option value="QUALIFIED" {% if filters and filters.status == 'QUALIFIED' %}selected{% endif %}>QUALIFIED</option>
+                <option value="REVIEW" {% if filters and filters.status == 'REVIEW' %}selected{% endif %}>REVIEW</option>
+                <option value="REJECTED" {% if filters and filters.status == 'REJECTED' %}selected{% endif %}>REJECTED (Rejetées pré-filtrage)</option>
+                <option value="FILTERED_KEYWORD" {% if filters and filters.status == 'FILTERED_KEYWORD' %}selected{% endif %}>FILTERED_KEYWORD (Mots-clés)</option>
+                <option value="FILTERED_ESN" {% if filters and filters.status == 'FILTERED_ESN' %}selected{% endif %}>FILTERED_ESN (ESN)</option>
+                <option value="BLACKLISTED" {% if filters and filters.status == 'BLACKLISTED' %}selected{% endif %}>BLACKLISTED (Exclues)</option>
+                <option value="ARCHIVED" {% if filters and filters.status == 'ARCHIVED' %}selected{% endif %}>ARCHIVED</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="contract_type">Contrat</label>
+            <select id="contract_type" name="contract_type" class="filter-select">
+                <option value="">Tous les contrats</option>
+                <option value="CDI" {% if filters and filters.contract_type == 'CDI' %}selected{% endif %}>CDI</option>
+                <option value="CDD" {% if filters and filters.contract_type == 'CDD' %}selected{% endif %}>CDD</option>
+                <option value="Freelance" {% if filters and filters.contract_type == 'Freelance' %}selected{% endif %}>Freelance</option>
+                <option value="Stage" {% if filters and filters.contract_type == 'Stage' %}selected{% endif %}>Stage / Alternance</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="min_score">Score minimum</label>
+            <select id="min_score" name="min_score" class="filter-select">
+                <option value="">Tous les scores</option>
+                <option value="80" {% if filters and filters.min_score == '80' %}selected{% endif %}>&ge; 80 (Excellent)</option>
+                <option value="75" {% if filters and filters.min_score == '75' %}selected{% endif %}>&ge; 75 (Recommandé)</option>
+                <option value="60" {% if filters and filters.min_score == '60' %}selected{% endif %}>&ge; 60 (Moyen)</option>
+                <option value="50" {% if filters and filters.min_score == '50' %}selected{% endif %}>&ge; 50 (Passable)</option>
+            </select>
+        </div>
+        <div class="filter-actions">
+            <button type="submit" class="btn btn-primary">🔍 Filtrer</button>
+            {% if filters and (filters.q or filters.status or filters.contract_type or filters.min_score) %}
+            <a href="/jobs" class="btn btn-secondary" title="Réinitialiser les filtres">✕</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    {% if jobs %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Titre</th>
+                <th>Entreprise</th>
+                <th>Lieu</th>
+                <th>Contrat</th>
+                <th>Score</th>
+                <th>Statut</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for job in jobs %}
+            <tr>
+                <td><strong>{{ job.title }}</strong></td>
+                <td>{{ job.company or 'N/A' }}</td>
+                <td>{{ job.location or 'N/A' }}</td>
+                <td>{{ job.contract_type or 'N/A' }}</td>
+                <td>
+                    {% if job.match_score is not none %}
+                        <span class="badge badge-score">{{ job.match_score }}/100</span>
+                    {% else %}
+                        <span class="badge badge-neutral">—</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if job.status == 'BLACKLISTED' %}
+                        <span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171;">🚫 BLACKLISTÉE</span>
+                    {% elif job.status == 'QUALIFIED' %}
+                        <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399;">QUALIFIED</span>
+                    {% elif job.status == 'REVIEW' %}
+                        <span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24;">REVIEW</span>
+                    {% elif job.status in ['FILTERED_KEYWORD', 'FILTERED_ESN', 'REJECTED'] %}
+                        <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171;">{{ job.status }}</span>
+                    {% else %}
+                        <span class="badge">{{ job.status }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="/jobs/{{ job.id }}" class="btn btn-sm btn-secondary">Consulter</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% include "components/pagination.html" %}
+
+    {% else %}
+    <div class="empty-state">
+        {% if filters and (filters.q or filters.status or filters.contract_type or filters.min_score) %}
+            <p>Aucune offre ne correspond à vos critères de recherche.</p>
+            <a href="/jobs" class="btn btn-secondary mt-2">Réinitialiser les filtres</a>
+        {% else %}
+            <p>Aucune offre enregistrée pour le moment.</p>
+            <button class="btn btn-primary mt-2" onclick="document.getElementById('urlImportModal').showModal()">📥 Importer une offre (URL ou Saisie)</button>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function openCollectWithDuration(dur) {
+    const modal = document.getElementById('collectModal');
+    if (!modal) return;
+    const radio = modal.querySelector(`input[name="duration"][value="${dur}"]`);
+    if (radio) {
+        radio.checked = true;
+        updatePillSelection(radio);
+    }
+    modal.showModal();
+}
+</script>
+
+{% include "components/collect_modal.html" %}
+{% include "components/url_import_modal.html" %}
+{% endblock %}
+

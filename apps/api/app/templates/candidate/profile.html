@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Profil Candidat — Trema Job Search{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <h1>Profil Maître Candidat</h1>
+    <p class="subtitle">La source unique de vérité utilisée par l'IA pour générer vos candidatures.</p>
+</div>
+
+<!-- Section Import Markdown -->
+<div class="card mb-4" style="margin-bottom: 2rem;">
+    <div class="card-header-actions">
+        <h2>📄 Importer votre CV en Markdown (.md)</h2>
+        <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399;">Transcription IA automatique</span>
+    </div>
+    <p class="text-muted">Glissez ou sélectionnez votre fichier CV au format Markdown. Gemini le transcrira automatiquement dans la structure JSON exacte requise.</p>
+
+    <div class="mt-2" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+        <input type="file" id="cvFileInput" accept=".md,.markdown,.txt" class="btn btn-secondary" style="padding: 0.4rem;" />
+        <button id="uploadBtn" onclick="uploadMarkdownCV()" class="btn btn-success">⚡ Transcrire & Enregistrer</button>
+        <span id="uploadStatus" style="font-size: 0.9rem; font-weight: 500;"></span>
+    </div>
+</div>
+
+<!-- Section JSON Profil -->
+<div class="card">
+    <div class="card-header-actions">
+        <h2>Données du profil (JSON structuré)</h2>
+        {% if profile %}
+            <span class="badge">Version {{ profile.version }}</span>
+        {% else %}
+            <span class="badge badge-neutral">Non initialisé</span>
+        {% endif %}
+    </div>
+
+    <p class="text-muted">Vous pouvez également ajuster manuellement le JSON structuré si nécessaire. Toute sauvegarde incrémente la version.</p>
+
+    <div class="form-group mt-4">
+        <label for="profileJson"><strong>Profil & Préférences (JSON) :</strong></label>
+        <textarea id="profileJson" rows="20" class="code-editor">{{ profile | tojson(indent=2) if profile else "{}" }}</textarea>
+    </div>
+
+    <div class="mt-4">
+        <button onclick="saveProfile()" class="btn btn-primary">Enregistrer manuellement le JSON</button>
+    </div>
+</div>
+
+<script>
+async function uploadMarkdownCV() {
+    const fileInput = document.getElementById('cvFileInput');
+    const statusSpan = document.getElementById('uploadStatus');
+    const uploadBtn = document.getElementById('uploadBtn');
+
+    if (!fileInput.files || fileInput.files.length === 0) {
+        alert("Veuillez d'abord sélectionner un fichier .md");
+        return;
+    }
+
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+
+    uploadBtn.disabled = true;
+    statusSpan.style.color = '#38bdf8';
+    statusSpan.textContent = "⏳ Transcription par Gemini en cours...";
+
+    try {
+        const res = await fetch('/api/candidate/upload-md', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            statusSpan.style.color = '#34d399';
+            statusSpan.textContent = "✅ Transcription réussie ! Rechargement...";
+            setTimeout(() => location.reload(), 1200);
+        } else {
+            statusSpan.style.color = '#f87171';
+            statusSpan.textContent = "❌ " + (data.error || "Erreur de transcription");
+            uploadBtn.disabled = false;
+        }
+    } catch (err) {
+        statusSpan.style.color = '#f87171';
+        statusSpan.textContent = "❌ Erreur de connexion au serveur";
+        uploadBtn.disabled = false;
+    }
+}
+
+async function saveProfile() {
+    const raw = document.getElementById('profileJson').value;
+    let parsed;
+    try {
+        parsed = JSON.parse(raw);
+    } catch(e) {
+        alert("Erreur de syntaxe JSON : " + e.message);
+        return;
+    }
+
+    const res = await fetch('/api/candidate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(parsed)
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+        alert("Profil sauvegardé avec succès !");
+        location.reload();
+    } else {
+        alert("Erreur: " + (data.error || "Impossible d'enregistrer le profil"));
+    }
+}
+</script>
+{% endblock %}

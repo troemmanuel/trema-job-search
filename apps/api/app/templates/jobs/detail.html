@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block title %}{{ job.title if job else 'Offre' }} — Trema Job Search{% endblock %}
+
+{% block content %}
+{% if job %}
+<div class="card">
+    <div class="job-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+        <div>
+            <h1 style="font-size: 1.8rem; margin-bottom: 0.25rem;">{{ job.title }}</h1>
+            <p class="company-sub" style="font-size: 1.1rem; color: #94a3b8; font-weight: 500;">{{ job.company or 'Entreprise confidentielle' }}</p>
+            <p class="job-meta mt-2" style="display: flex; gap: 1rem; font-size: 0.9rem; color: #cbd5e1;">
+                <span>📍 {{ job.location or 'Non précisé' }}</span>
+                <span>📄 {{ job.contract_type or 'CDI' }}</span>
+                {% if job.normalized_data and job.normalized_data.remote %}
+                    <span>🏠 Télétravail</span>
+                {% endif %}
+                {% if job.salary_min %}
+                    <span>💰 {{ job.salary_min }}€ {{ 'à ' ~ job.salary_max ~ '€' if job.salary_max else '' }}</span>
+                {% endif %}
+            </p>
+        </div>
+            {% if job.status == 'BLACKLISTED' %}
+            <div class="score-badge-large" style="background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.4);">
+                <span class="score-value" style="color: #f87171; font-size: 1.1rem;">🚫 Blacklistée</span>
+                <span class="score-level" style="color: #fca5a5;">Entreprise exclue</span>
+            </div>
+            {% elif job.match_score is not none %}
+            <div class="score-badge-large">
+                <span class="score-value">{{ job.match_score }}/100</span>
+                <span class="score-level">
+                    {% if job.match_score >= 85 %}🔥 Priorité
+                    {% elif job.match_score >= 75 %}✅ Recommandée
+                    {% elif job.match_score >= 60 %}🟠 À revoir
+                    {% else %}❌ Ignorer{% endif %}
+                </span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if job.status == 'REJECTED' %}
+    <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); border-left: 4px solid #ef4444; border-radius: 8px; padding: 0.9rem 1.25rem; margin-top: 1.25rem; font-size: 0.92rem;">
+        <strong style="color: #f87171;">🛡️ Offre écartée par le pré-filtrage déterministe (Économie de quota LLM)</strong>
+        <p style="margin: 0.25rem 0 0; color: #cbd5e1; font-size: 0.85rem;">
+            Cette offre a été analysée localement et rejetée en amont sans consommer de requête IA (incompatibilité de type de contrat, compétences techniques divergentes ou seuil insuffisant). Vous pouvez forcer un recalcul ci-dessous si souhaité.
+        </p>
+    </div>
+    {% elif job.status == 'FILTERED_KEYWORD' %}
+    <div style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-left: 4px solid #f59e0b; border-radius: 8px; padding: 0.9rem 1.25rem; margin-top: 1.25rem; font-size: 0.92rem;">
+        <strong style="color: #fbbf24;">🚫 Écartée par filtre de mot-clé</strong>
+        <p style="margin: 0.25rem 0 0; color: #cbd5e1; font-size: 0.85rem;">
+            Le titre de cette offre contient l'un de vos mots-clés indésirables configurés dans vos paramètres.
+        </p>
+    </div>
+    {% elif job.status == 'FILTERED_ESN' %}
+    <div style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-left: 4px solid #f59e0b; border-radius: 8px; padding: 0.9rem 1.25rem; margin-top: 1.25rem; font-size: 0.92rem;">
+        <strong style="color: #fbbf24;">🏢 Écartée par le filtre ESN</strong>
+        <p style="margin: 0.25rem 0 0; color: #cbd5e1; font-size: 0.85rem;">
+            L'entreprise a été identifiée comme société de conseil / ESN et votre filtre ESN est activé.
+        </p>
+    </div>
+    {% endif %}
+
+    <hr class="separator" />
+
+    {% if job.match_analysis %}
+    <div class="analysis-box">
+        <h3 style="margin-bottom: 0.75rem;">Analyse du Matching IA :</h3>
+
+        {% if job.match_analysis.dimensions %}
+        <div class="dimensions-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
+            <div class="stat-box" style="padding: 0.5rem;">
+                <small class="text-muted">Poste & Titre</small>
+                <strong>{{ job.match_analysis.dimensions.title_match }}/100</strong>
+            </div>
+            <div class="stat-box" style="padding: 0.5rem;">
+                <small class="text-muted">Compétences</small>
+                <strong>{{ job.match_analysis.dimensions.skills_match }}/100</strong>
+            </div>
+            <div class="stat-box" style="padding: 0.5rem;">
+                <small class="text-muted">Expérience</small>
+                <strong>{{ job.match_analysis.dimensions.experience_match }}/100</strong>
+            </div>
+            <div class="stat-box" style="padding: 0.5rem;">
+                <small class="text-muted">Localisation</small>
+                <strong>{{ job.match_analysis.dimensions.location_match }}/100</strong>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="grid-2">
+            <div>
+                <strong style="color: #34d399;">✓ Compétences en commun :</strong>
+                {% if job.match_analysis.matched_skills %}
+                <ul style="margin: 0.5rem 0 1rem 1.2rem;">
+                    {% for ms in job.match_analysis.matched_skills %}
+                    <li>{{ ms }}</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted" style="margin-top: 0.25rem;">Aucune compétence explicite trouvée.</p>
+                {% endif %}
+            </div>
+
+            <div>
+                <strong style="color: #f87171;">⚠ Compétences manquantes / à acquérir :</strong>
+                {% if job.match_analysis.missing_skills %}
+                <ul style="margin: 0.5rem 0 1rem 1.2rem;">
+                    {% for mis in job.match_analysis.missing_skills %}
+                    <li>{{ mis }}</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted" style="margin-top: 0.25rem;">Aucune lacune bloquante identifiée.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if job.match_analysis.strengths %}
+        <div class="strengths mt-2">
+            <strong style="color: #38bdf8;">Points forts identifiés :</strong>
+            <ul style="margin: 0.5rem 0 0.5rem 1.2rem;">
+                {% for st in job.match_analysis.strengths %}
+                <li>{{ st }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% if job.match_analysis.concerns %}
+        <div class="concerns mt-2">
+            <strong style="color: #fbbf24;">Points d'attention / vigilance :</strong>
+            <ul style="margin: 0.5rem 0 0.5rem 1.2rem;">
+                {% for co in job.match_analysis.concerns %}
+                <li>{{ co }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+    <hr class="separator" />
+    {% endif %}
+
+    <div class="job-description">
+        <h3>Description de l'offre</h3>
+        <div style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6; margin-top: 0.5rem; color: #cbd5e1;">
+            {{ job.description or 'Aucune description fournie.' }}
+        </div>
+    </div>
+
+    <div class="job-actions mt-4" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+        <a href="{{ job.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Voir l'offre originale ↗</a>
+        <button id="matchBtn" onclick="triggerMatch('{{ job.id }}')" class="btn btn-primary">
+            {{ 'Recalculer matching IA' if job.match_score is not none else 'Calculer matching IA' }}
+        </button>
+        <button id="applyBtn" onclick="generateApplication('{{ job.id }}')" class="btn btn-success" style="font-weight: 600;">
+            ⚡ Générer dossier de candidature
+        </button>
+        {% if job.company and job.status != 'BLACKLISTED' %}
+        <button id="blacklistBtn" onclick="blacklistCompany('{{ job.company | escape }}')" class="btn" style="margin-left: auto; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171;">
+            🚫 Blacklister cette entreprise
+        </button>
+        {% endif %}
+    </div>
+
+    <div id="jobActionStatus" style="display: none; margin-top: 1rem; padding: 0.85rem 1.25rem; border-radius: 8px; font-size: 0.9rem; font-weight: 500;"></div>
+</div>
+
+<script>
+async function blacklistCompany(company) {
+    if (!confirm(`Voulez-vous vraiment blacklister "${company}" ?\nToutes ses offres actuelles et futures seront écartées.`)) {
+        return;
+    }
+    const btn = document.getElementById('blacklistBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = "⏳ Ajout...";
+    }
+    try {
+        const res = await fetch('/api/settings/blacklist', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ company: company })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            alert(`✅ ${company} a été ajoutée à votre liste noire !`);
+            location.reload();
+        } else {
+            alert("Erreur: " + (data.error || "Impossible de blacklister"));
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = "🚫 Blacklister cette entreprise";
+            }
+        }
+    } catch(e) {
+        alert("Erreur réseau: " + e.message);
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = "🚫 Blacklister cette entreprise";
+        }
+    }
+}
+
+async function triggerMatch(jobId) {
+    const btn = document.getElementById('matchBtn');
+    const statusBox = document.getElementById('jobActionStatus');
+    btn.disabled = true;
+    btn.textContent = "⏳ Calcul en cours...";
+    statusBox.style.display = 'block';
+    statusBox.style.background = 'rgba(59, 130, 246, 0.12)';
+    statusBox.style.border = '1px solid rgba(59, 130, 246, 0.35)';
+    statusBox.style.color = '#60a5fa';
+    statusBox.innerHTML = '🤖 <strong>Calcul du matching IA en cours :</strong> Évaluation des critères de compétences et d\'expérience via le LLM Router...';
+
+    try {
+        const res = await fetch(`/api/jobs/${jobId}/match`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+            statusBox.style.background = 'rgba(16, 185, 129, 0.15)';
+            statusBox.style.border = '1px solid rgba(16, 185, 129, 0.35)';
+            statusBox.style.color = '#34d399';
+            statusBox.innerHTML = `✅ <strong>Matching réussi :</strong> Score ${data.match.score}/100 (${data.match.level}). Rechargement...`;
+            setTimeout(() => location.reload(), 1200);
+        } else {
+            statusBox.style.background = 'rgba(239, 68, 68, 0.15)';
+            statusBox.style.border = '1px solid rgba(239, 68, 68, 0.35)';
+            statusBox.style.color = '#f87171';
+            statusBox.innerHTML = `❌ Erreur: ${data.error || 'Impossible de calculer le matching'}`;
+            btn.disabled = false;
+            btn.textContent = "Calculer matching IA";
+        }
+    } catch(e) {
+        statusBox.style.background = 'rgba(239, 68, 68, 0.15)';
+        statusBox.style.border = '1px solid rgba(239, 68, 68, 0.35)';
+        statusBox.style.color = '#f87171';
+        statusBox.innerHTML = `❌ Erreur réseau: ${e.message}`;
+        btn.disabled = false;
+        btn.textContent = "Calculer matching IA";
+    }
+}
+
+async function generateApplication(jobId) {
+    const btn = document.getElementById('applyBtn');
+    const statusBox = document.getElementById('jobActionStatus');
+    btn.disabled = true;
+    btn.textContent = "⏳ Préparation du dossier...";
+    statusBox.style.display = 'block';
+    statusBox.style.background = 'rgba(59, 130, 246, 0.12)';
+    statusBox.style.border = '1px solid rgba(59, 130, 246, 0.35)';
+    statusBox.style.color = '#60a5fa';
+    statusBox.innerHTML = '🚀 <strong>Création et préparation :</strong> Génération du dossier bundle (CV + Lettre) via le LLM Router...';
+
+    try {
+        const res = await fetch(`/api/applications/create-from-job/${jobId}`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+            const prepRes = await fetch(`/api/applications/${data.application_id}/prepare`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ force: false })
+            });
+            if (prepRes.ok) {
+                statusBox.style.background = 'rgba(16, 185, 129, 0.15)';
+                statusBox.style.border = '1px solid rgba(16, 185, 129, 0.35)';
+                statusBox.style.color = '#34d399';
+                statusBox.innerHTML = '✅ <strong>Dossier prêt !</strong> Redirection vers la candidature...';
+                window.location.href = `/applications/${data.application_id}`;
+            } else {
+                const prepData = await prepRes.json();
+                statusBox.style.background = 'rgba(239, 68, 68, 0.15)';
+                statusBox.style.border = '1px solid rgba(239, 68, 68, 0.35)';
+                statusBox.style.color = '#f87171';
+                statusBox.innerHTML = `❌ Erreur génération: ${prepData.error || 'Échec de préparation'}`;
+                btn.disabled = false;
+                btn.textContent = "⚡ Générer dossier de candidature";
+            }
+        } else {
+            statusBox.style.background = 'rgba(239, 68, 68, 0.15)';
+            statusBox.style.border = '1px solid rgba(239, 68, 68, 0.35)';
+            statusBox.style.color = '#f87171';
+            statusBox.innerHTML = `❌ Erreur création: ${data.error || 'Impossible de créer la candidature'}`;
+            btn.disabled = false;
+            btn.textContent = "⚡ Générer dossier de candidature";
+        }
+    } catch(e) {
+        statusBox.style.background = 'rgba(239, 68, 68, 0.15)';
+        statusBox.style.border = '1px solid rgba(239, 68, 68, 0.35)';
+        statusBox.style.color = '#f87171';
+        statusBox.innerHTML = `❌ Erreur réseau: ${e.message}`;
+        btn.disabled = false;
+        btn.textContent = "⚡ Générer dossier de candidature";
+    }
+}
+</script>
+
+{% else %}
+<div class="card">
+    <p>Offre introuvable.</p>
+</div>
+{% endif %}
+{% endblock %}

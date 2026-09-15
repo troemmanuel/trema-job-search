@@ -1,0 +1,58 @@
+{% if pagination and pagination.total > 0 %}
+<div class="pagination-container">
+  <div class="pagination-info">
+    Affichage de <strong>{{ ((pagination.page - 1) * pagination.per_page) + 1 }}</strong> à <strong>{{ [pagination.page * pagination.per_page, pagination.total] | min }}</strong> sur <strong>{{ pagination.total }}</strong> résultat{{ 's' if pagination.total > 1 else '' }}
+  </div>
+  {% if pagination.total_pages > 1 %}
+  <nav class="pagination-nav" aria-label="Pagination">
+    {% macro page_url(p) -%}
+      {%- set args = {} -%}
+      {%- for k, v in request.args.items() -%}
+        {%- if v and k != 'page' -%}
+          {%- set _ = args.update({k: v}) -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {%- set _ = args.update({'page': p}) -%}
+      {{ url_for(request.endpoint, **args) }}
+    {%- endmacro %}
+
+    {% if pagination.has_prev %}
+      <a href="{{ page_url(1) }}" class="pagination-btn" title="Première page">&laquo;</a>
+      <a href="{{ page_url(pagination.prev_page) }}" class="pagination-btn" title="Page précédente">&lsaquo; Précédent</a>
+    {% else %}
+      <span class="pagination-btn disabled" aria-disabled="true">&laquo;</span>
+      <span class="pagination-btn disabled" aria-disabled="true">&lsaquo; Précédent</span>
+    {% endif %}
+
+    {% set start_page = [1, pagination.page - 2] | max %}
+    {% set end_page = [pagination.total_pages, pagination.page + 2] | min %}
+
+    {% if start_page > 1 %}
+      <a href="{{ page_url(1) }}" class="pagination-btn">1</a>
+      {% if start_page > 2 %}<span class="pagination-ellipsis">&hellip;</span>{% endif %}
+    {% endif %}
+
+    {% for p in range(start_page, end_page + 1) %}
+      {% if p == pagination.page %}
+        <span class="pagination-btn active" aria-current="page">{{ p }}</span>
+      {% else %}
+        <a href="{{ page_url(p) }}" class="pagination-btn">{{ p }}</a>
+      {% endif %}
+    {% endfor %}
+
+    {% if end_page < pagination.total_pages %}
+      {% if end_page < pagination.total_pages - 1 %}<span class="pagination-ellipsis">&hellip;</span>{% endif %}
+      <a href="{{ page_url(pagination.total_pages) }}" class="pagination-btn">{{ pagination.total_pages }}</a>
+    {% endif %}
+
+    {% if pagination.has_next %}
+      <a href="{{ page_url(pagination.next_page) }}" class="pagination-btn" title="Page suivante">Suivant &rsaquo;</a>
+      <a href="{{ page_url(pagination.total_pages) }}" class="pagination-btn" title="Dernière page">&raquo;</a>
+    {% else %}
+      <span class="pagination-btn disabled" aria-disabled="true">Suivant &rsaquo;</span>
+      <span class="pagination-btn disabled" aria-disabled="true">&raquo;</span>
+    {% endif %}
+  </nav>
+  {% endif %}
+</div>
+{% endif %}

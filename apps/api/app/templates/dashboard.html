@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Trema Job Search{% endblock %}
+
+{% block content %}
+<div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h1>Tableau de bord</h1>
+        <p class="subtitle">L'IA prépare, vous décidez et postulez.</p>
+    </div>
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+        <button class="btn btn-primary" onclick="document.getElementById('collectModal').showModal()" style="background: linear-gradient(135deg, #3b82f6, #8b5cf6); border: none; font-weight: 700; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); font-size: 0.95rem; padding: 0.6rem 1.25rem;">
+            ⚡ Collecter les offres (24h / 3j / 7j)
+        </button>
+        <button class="btn btn-secondary" onclick="document.getElementById('urlImportModal').showModal()" style="font-weight: 600;">
+            📥 Importer via URL
+        </button>
+        <button class="btn btn-secondary" onclick="syncNotion()" id="syncNotionBtn" style="font-weight: 600;">
+            🔄 Synchroniser Notion
+        </button>
+        <a href="/analytics" class="btn btn-secondary" style="font-weight: 600;">
+            📊 Analytique
+        </a>
+        <a href="/jobs" class="btn btn-secondary">Voir les offres</a>
+    </div>
+</div>
+
+<!-- Carte Planificateur Automatique Quotidien -->
+<div class="card mt-4" id="schedulerCard" style="border: 1px solid rgba(59, 130, 246, 0.4); border-left: 5px solid #3b82f6; background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%); padding: 1.4rem 1.75rem; margin-bottom: 2rem; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 20px rgba(59, 130, 246, 0.12);">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.25rem;">
+        <div>
+            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.4rem;">
+                <h2 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 0.6rem;">
+                    <span style="background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.4); padding: 0.25rem 0.55rem; border-radius: 8px; font-size: 1.15rem;">🕒</span>
+                    Planificateur Quotidien (Cron 24h)
+                </h2>
+                <span id="schedulerStatusBadge" class="badge" style="background: {% if scheduler_status and scheduler_status.is_active %}rgba(16, 185, 129, 0.18); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);{% else %}rgba(245, 158, 11, 0.18); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4);{% endif %} font-weight: 700; font-size: 0.82rem; padding: 0.3rem 0.75rem; border-radius: 9999px; display: inline-flex; align-items: center; gap: 0.45rem;">
+                    {% if scheduler_status and scheduler_status.is_active %}
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981; display: inline-block;"></span> Actif
+                    {% else %}
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; display: inline-block;"></span> En pause
+                    {% endif %}
+                </span>
+            </div>
+            <p style="margin: 0; color: #94a3b8; font-size: 0.9rem; line-height: 1.4;">
+                Collecte automatique quotidienne des offres (dernières 24h), scoring IA, génération des dossiers PDF & synchronisation Notion.
+            </p>
+        </div>
+
+        <!-- Contrôles rapides -->
+        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; background: rgba(15, 23, 42, 0.8); border: 1px solid #334155; padding: 0.25rem 0.65rem; border-radius: 8px;">
+                <label for="schedulerTimeInput" style="font-size: 0.85rem; font-weight: 600; color: #cbd5e1;">Heure :</label>
+                <input type="time" id="schedulerTimeInput" value="{{ scheduler_status.schedule_time if scheduler_status else '08:00' }}" style="background: transparent; color: #f8fafc; border: none; font-weight: 700; font-size: 0.95rem; outline: none; padding: 0.2rem;">
+            </div>
+            
+            <button class="btn btn-sm" onclick="updateSchedulerTime()" title="Enregistrer l'heure programmée" style="background: #334155; color: #f8fafc; border: 1px solid #475569; font-size: 0.85rem; padding: 0.5rem 0.85rem; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
+                💾 Enregistrer
+            </button>
+            <button class="btn btn-sm" id="schedulerToggleBtn" onclick="toggleScheduler()" style="background: #334155; color: #f8fafc; border: 1px solid #475569; font-size: 0.85rem; padding: 0.5rem 0.85rem; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
+                {% if scheduler_status and scheduler_status.is_active %}⏸️ Mettre en pause{% else %}▶️ Activer{% endif %}
+            </button>
+            <button class="btn btn-sm" id="schedulerRunBtn" onclick="runSchedulerNow()" style="font-size: 0.85rem; padding: 0.5rem 1rem; font-weight: 700; background: linear-gradient(135deg, #2563eb, #3b82f6); color: #ffffff; border: none; border-radius: 8px; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4); cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; transition: transform 0.1s, box-shadow 0.2s;">
+                ⚡ Exécuter maintenant
+            </button>
+        </div>
+    </div>
+
+    <!-- Informations d'exécution -->
+    <div style="margin-top: 1.1rem; padding-top: 1rem; border-top: 1px solid rgba(51, 65, 85, 0.7); display: flex; gap: 2rem; align-items: center; flex-wrap: wrap; font-size: 0.85rem; color: #94a3b8;">
+        <div>
+            <strong style="color: #cbd5e1;">Prochaine collecte :</strong> 
+            <span id="schedulerNextRun" style="color: #60a5fa; font-weight: 700;">
+                {{ scheduler_status.next_run[:16].replace('T', ' à ') if scheduler_status and scheduler_status.next_run else '08:00' }}
+            </span>
+        </div>
+        <div>
+            <strong style="color: #cbd5e1;">Dernier passage :</strong> 
+            <span id="schedulerLastRun" style="color: #e2e8f0; font-weight: 500;">
+                {{ scheduler_status.last_run[:16].replace('T', ' à ') if scheduler_status and scheduler_status.last_run else 'Aucun pour le moment' }}
+            </span>
+        </div>
+        {% if scheduler_status and scheduler_status.last_result and not scheduler_status.last_result.error %}
+        <div id="schedulerLastResultBadge" style="display: inline-flex; align-items: center; gap: 0.4rem; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); padding: 0.25rem 0.75rem; border-radius: 6px; color: #34d399; font-weight: 600; font-size: 0.82rem;">
+            ✓ Dernier run : {{ scheduler_status.last_result.processed_count }} analysées • {{ scheduler_status.last_result.prepared_count }} préparées • {{ scheduler_status.last_result.notion_synced_count }} Notion
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+async function updateSchedulerTime() {
+    const timeVal = document.getElementById('schedulerTimeInput').value;
+    if (!timeVal) return;
+    try {
+        const res = await fetch('/api/scheduler/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ schedule_time: timeVal })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            alert(`Heure de collecte programmée mise à jour : ${timeVal}`);
+            location.reload();
+        } else {
+            alert(`Erreur : ${data.error}`);
+        }
+    } catch (e) {
+        alert('Erreur réseau lors de la mise à jour');
+    }
+}
+
+async function toggleScheduler() {
+    const isCurrentlyActive = document.getElementById('schedulerStatusBadge').innerText.includes('Actif');
+    const newActiveState = !isCurrentlyActive;
+    try {
+        const res = await fetch('/api/scheduler/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_active: newActiveState })
+        });
+        if (res.ok) {
+            location.reload();
+        } else {
+            alert('Erreur lors du changement de statut');
+        }
+    } catch (e) {
+        alert('Erreur réseau');
+    }
+}
+
+let schedulerPollingInterval = null;
+
+async function checkSchedulerStatus() {
+    try {
+        const res = await fetch('/api/scheduler/status');
+        if (!res.ok) return;
+        const status = await res.json();
+        
+        const runBtn = document.getElementById('schedulerRunBtn');
+        const badge = document.getElementById('schedulerStatusBadge');
+        const toggleBtn = document.getElementById('schedulerToggleBtn');
+        const nextRun = document.getElementById('schedulerNextRun');
+        const lastRun = document.getElementById('schedulerLastRun');
+
+        if (status.is_running_job) {
+            if (runBtn) {
+                runBtn.disabled = true;
+                runBtn.innerHTML = '⏳ Collecte en cours...';
+                runBtn.style.opacity = '0.75';
+            }
+            if (!schedulerPollingInterval) {
+                schedulerPollingInterval = setInterval(checkSchedulerStatus, 3000);
+            }
+        } else {
+            if (runBtn) {
+                runBtn.disabled = false;
+                runBtn.innerHTML = '⚡ Exécuter maintenant';
+                runBtn.style.opacity = '1';
+            }
+            if (schedulerPollingInterval) {
+                clearInterval(schedulerPollingInterval);
+                schedulerPollingInterval = null;
+            }
+        }
+
+        if (badge) {
+            if (status.is_active) {
+                badge.style.background = 'rgba(16, 185, 129, 0.18)';
+                badge.style.color = '#34d399';
+                badge.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+                badge.innerHTML = '<span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981; display: inline-block;"></span> Actif';
+            } else {
+                badge.style.background = 'rgba(245, 158, 11, 0.18)';
+                badge.style.color = '#fbbf24';
+                badge.style.border = '1px solid rgba(245, 158, 11, 0.4)';
+                badge.innerHTML = '<span style="width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; display: inline-block;"></span> En pause';
+            }
+        }
+
+        if (toggleBtn) {
+            toggleBtn.innerText = status.is_active ? '⏸️ Mettre en pause' : '▶️ Activer';
+        }
+
+        if (nextRun && status.next_run) {
+            nextRun.innerText = status.next_run.slice(0, 16).replace('T', ' à ');
+        }
+        if (lastRun && status.last_run) {
+            lastRun.innerText = status.last_run.slice(0, 16).replace('T', ' à ');
+        }
+    } catch (e) {
+        console.error('Erreur actualisation statut scheduler:', e);
+    }
+}
+
+async function runSchedulerNow() {
+    if (!confirm("Lancer immédiatement la collecte quotidienne des offres des dernières 24h en arrière-plan ?")) return;
+    const runBtn = document.getElementById('schedulerRunBtn');
+    if (runBtn) {
+        runBtn.disabled = true;
+        runBtn.innerHTML = '⏳ Démarrage...';
+    }
+    try {
+        const res = await fetch('/api/scheduler/run-now', { method: 'POST' });
+        const data = await res.json();
+        alert(data.message);
+        checkSchedulerStatus();
+        if (!schedulerPollingInterval) {
+            schedulerPollingInterval = setInterval(checkSchedulerStatus, 3000);
+        }
+    } catch (e) {
+        alert('Erreur lors du déclenchement manuel');
+        if (runBtn) {
+            runBtn.disabled = false;
+            runBtn.innerHTML = '⚡ Exécuter maintenant';
+        }
+    }
+}
+
+// Vérifier l'état en direct dès le chargement de la page
+document.addEventListener('DOMContentLoaded', () => {
+    checkSchedulerStatus();
+});
+
+async function syncNotion() {
+    const btn = document.getElementById('syncNotionBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = '🔄 Synchronisation...';
+    }
+    try {
+        const res = await fetch('/api/notion/reconcile', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            const upSupa = data.updated_supabase_count || 0;
+            const upNotion = data.updated_notion_count || 0;
+            alert(`✅ Synchronisation Notion réussie !\n• ${data.total_notion_pages} fiches analysées\n• ${data.matched_count} candidatures appariées\n• ${upSupa} mise(s) à jour dans Supabase\n• ${upNotion} mise(s) à jour dans Notion`);
+            location.reload();
+        } else {
+            alert(`⚠️ Erreur : ${data.error || 'Erreur inconnue'}`);
+        }
+    } catch (e) {
+        alert('❌ Erreur réseau lors de la synchronisation Notion.');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = '🔄 Synchroniser Notion';
+        }
+    }
+}
+</script>
+
+<div class="grid-2">
+    <!-- Section Scores Offres -->
+    <div class="card">
+        <h2>Offres du jour</h2>
+        <div class="stats-grid">
+            <div class="stat-box priority">
+                <span class="stat-num">{{ stats.priority_count }}</span>
+                <span class="stat-label">🔥 Prioritaires</span>
+            </div>
+            <div class="stat-box recommended">
+                <span class="stat-num">{{ stats.recommended_count }}</span>
+                <span class="stat-label">✅ Recommandées</span>
+            </div>
+            <div class="stat-box review">
+                <span class="stat-num">{{ stats.review_count }}</span>
+                <span class="stat-label">🟠 À revoir</span>
+            </div>
+            <div class="stat-box ignored">
+                <span class="stat-num">{{ stats.ignored_count }}</span>
+                <span class="stat-label">❌ Ignorées</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section Suivi Candidatures -->
+    <div class="card">
+        <h2>Pipeline Candidatures</h2>
+        <div class="stats-grid">
+            <div class="stat-box">
+                <span class="stat-num">{{ stats.to_prepare_count }}</span>
+                <span class="stat-label">À préparer</span>
+            </div>
+            <div class="stat-box ready">
+                <span class="stat-num">{{ stats.ready_count }}</span>
+                <span class="stat-label">Prêtes à postuler</span>
+            </div>
+            <div class="stat-box applied">
+                <span class="stat-num">{{ stats.applied_count }}</span>
+                <span class="stat-label">Candidatures envoyées</span>
+            </div>
+            <div class="stat-box interview">
+                <span class="stat-num">{{ stats.interview_count }}</span>
+                <span class="stat-label">Entretiens</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bannière Analytique & Taux de Conversion -->
+<div class="card mt-4" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%); border: 1px solid rgba(59, 130, 246, 0.3); padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+            <span style="font-size: 1.2rem;">📊</span>
+            <h2 style="font-size: 1.1rem; margin: 0; color: #fff;">Analytique & Taux de Conversion</h2>
+            <span class="badge" style="background: #3b82f6; color: #fff; font-size: 0.72rem; padding: 0.2rem 0.5rem; font-weight: 700;">Nouveau</span>
+        </div>
+        <p style="margin: 0; color: var(--text-muted); font-size: 0.88rem;">
+            Entonnoir de recrutement complet, performance par technologie (Go, Java, Python...), répartition géographique et typologie d'entreprises.
+        </p>
+    </div>
+    <a href="/analytics" class="btn btn-primary" style="font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; padding: 0.5rem 1rem;">
+        Consulter le rapport complet ➔
+    </a>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header-actions">
+        <h2>Offres récentes</h2>
+        <a href="/jobs" class="btn btn-secondary">Voir tout</a>
+    </div>
+    {% if recent_jobs %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Titre</th>
+                <th>Entreprise</th>
+                <th>Lieu</th>
+                <th>Score</th>
+                <th>Statut</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for job in recent_jobs %}
+            <tr>
+                <td><strong>{{ job.title }}</strong></td>
+                <td>{{ job.company or 'N/A' }}</td>
+                <td>{{ job.location or 'N/A' }}</td>
+                <td>
+                    {% if job.match_score %}
+                        <span class="badge badge-score">{{ job.match_score }}/100</span>
+                    {% else %}
+                        <span class="badge badge-neutral">—</span>
+                    {% endif %}
+                </td>
+                <td><span class="badge">{{ job.status }}</span></td>
+                <td><a href="/jobs/{{ job.id }}" class="btn btn-sm">Détail</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>Aucune offre importée pour le moment.</p>
+        <p><small>Utilisez l'API <code>POST /api/jobs/import</code> pour ingérer vos premières offres.</small></p>
+    </div>
+    {% endif %}
+</div>
+
+{% include "components/collect_modal.html" %}
+{% include "components/url_import_modal.html" %}
+{% endblock %}
+
